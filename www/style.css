@@ -174,3 +174,23 @@ img.px, canvas.px { image-rendering: pixelated; image-rendering: crisp-edges; }
   .menu .col .btn { padding: 6px; font-size: 10px; }
   .card canvas { width: 84px; height: 84px; }
 }
+
+/* ---------- enemy intel ---------- */
+.intelbox { max-width: 720px; }
+.intel { display: flex; gap: 12px; text-align: left; font-size: 8px; }
+.intel-art { flex: 0 0 170px; text-align: center; }
+.intel-art img { image-rendering: pixelated; display: block; margin: 0 auto 4px; }
+.intel-art .nm { font-size: 10px; margin-bottom: 6px; }
+.intel-stats div { display: flex; justify-content: space-between; padding: 1px 0; border-bottom: 1px solid #1d2244; }
+.intel-info { flex: 1; }
+.intel-info p { margin: 0 0 6px; text-transform: none; }
+.intel-h { margin: 6px 0 3px; font-size: 9px; }
+.intel-ab { color: var(--txt); text-transform: none; margin: 1px 0; }
+.intel-ts { display: flex; flex-wrap: wrap; gap: 4px; }
+.intel-t { display: flex; gap: 4px; align-items: center; background: var(--panel2); border: 2px solid var(--line); padding: 3px 5px; flex: 1 1 140px; }
+.intel-t img { width: 24px; height: 24px; image-rendering: pixelated; }
+.card .tag.risk { border-top: 1px dashed var(--red); padding-top: 2px; }
+.card.riskcard { border-color: var(--red); box-shadow: 0 0 8px rgba(255,47,90,0.35); }
+.card.chunk { padding: 6px; gap: 3px; }
+.card.chunk canvas { width: 84px; height: 84px; }
+.card.chunk .tag, .card.chunk .ds { font-size: 7px; line-height: 1.4; }

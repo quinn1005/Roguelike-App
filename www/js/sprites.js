@@ -55,7 +55,7 @@ export function expand(rows, mirror) {
 export function raster(rows, accent = '#2ef2ff', scale = 1) {
   const h = rows.length, w = rows[0].length;
   const [c, ctx] = makeCanvas(w * scale, h * scale);
-  const map = { ...PAL, a: accent, A: shade(accent, -0.45), h: shade(accent, 0.55) };
+  const map = { ...PAL, a: accent, A: shade(accent, -0.45), h: shade(accent, 0.55), x: accent, X: shade(accent, -0.45) };
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const ch = rows[y][x];
@@ -69,16 +69,13 @@ export function raster(rows, accent = '#2ef2ff', scale = 1) {
 
 // ---------- Tower art ----------
 
-const BASE_Q = [
-  '..kkkkkk',
-  '.kmmmmmm',
-  'kmllllll',
-  'kmlAdddd',
-  'kmlddddd',
-  'kmlddddd',
-  'kmlddddd',
-  'kmlddddd',
-];
+// Base plates get richer with each level; the final branch uses its own colour.
+const BASE_Q = {
+  1: ['..kkkkkk', '.kmmmmmm', 'kmllllll', 'kmlAdddd', 'kmlddddd', 'kmlddddd', 'kmlddddd', 'kmlddddd'],
+  2: ['..kkkkkk', '.kmmmmmm', 'kmlAAlll', 'kmAadddd', 'kmAddddd', 'kmlddddd', 'kmlddddd', 'kmlddddd'],
+  3: ['..kkkkkk', '.kwAAAAA', 'kwAhllll', 'kAhadddd', 'kAaddddd', 'kAlddddd', 'kAlddddd', 'kAlddddd'],
+  4: ['..kkkkkk', '.kXXXXXX', 'kXxhxxxx', 'kXhwdddd', 'kXxddddd', 'kXxddddd', 'kXxddddd', 'kXxddddd'],
+};
 
 const HEADS = {
   blaster: ['............', '..kkkk......', '.kmmmmkkkkkk', '.kmaaAwwwwwk', '.kmahAkkkkkk', '.kmhhmk.....'],
@@ -95,19 +92,65 @@ const HEADS = {
   reclaimer: ['...kkkkkk...', '..kVvvvvVk..', '.kVvvvvvvVk.', '.kvaawwaavk.', '.kvawkkwavk.', '..kvvvvvvk..'],
 };
 
+// Final branch looks: each one has its own silhouette and colour that hints at
+// what it does (fans of barrels, long needles, crystals, vaults...).
+export const BRANCH_ART = {
+  blasterA: { color: '#4dff8a', rows: ['........kkk.', '......kkxwk.', '..kkkkxxkk..', '.kmaaAxk....', '.kmahaxkkkkk', '.kmhhaxwwwwk'] },
+  blasterB: { color: '#e6f6ff', rows: ['............', '............', '.kkkk.......', 'kmaaAkkkkkkk', 'kmahAxxxxxxk', 'kmhhawwwwwwk'] },
+  cannonA: { color: '#ff8a1f', rows: ['..kkkkkk....', '.kAaaaaAkkk.', 'kAaxkxkaAxk.', 'kaxhxhxaAkkk', 'kaxkxkxaAxxk', 'kaahhaaaAwwk'] },
+  cannonB: { color: '#ffe84a', rows: ['...kkkkk....', '..kxxxxxk...', '.kxxhhhxxkk.', 'kxxhwwwhxxkk', 'kxhwwwwwhxXk', 'kxhwwwwwhxXk'] },
+  cryoA: { color: '#e6f6ff', rows: ['............', '...kk.......', '..kxckkk....', '.kxcwcccxk..', '.kccwwwccckk', 'kcchwwwwwwwk'] },
+  cryoB: { color: '#8fe8ff', rows: ['.k...kk...k.', '.xk..kxk.kx.', '..xk.kx.kx..', '...kxwxkx...', 'kkkkxwwxkkkk', 'kxxxwwwwxxxk'] },
+  teslaA: { color: '#ffe84a', rows: ['.k..kkkk..k.', 'kxk.kxxk.kxk', '.kxkxhhxkxk.', '..kxhwwhxk..', 'kkkxhwwwhxkk', 'kxxhwwwwwhxk'] },
+  teslaB: { color: '#ff3df2', rows: ['...kkkkkk...', '..kxXXXXxk..', '.kxXxhhxXxk.', 'kxXxhwwhxXxk', 'kxXhwwwwhXxk', 'kxXhwwwwhXxk'] },
+  naniteA: { color: '#4dff8a', rows: ['..kkk..kkk..', '.kxxxk.kxxk.', '.kxhxkkkxxkk', '..kxkmmmkkmk', '.kxxkmllmmlk', '.kxhkmlhwwak'] },
+  naniteB: { color: '#b6ff3d', rows: ['............', '..kkkk......', '.kxxxxkkkk..', 'kxxhhxxmmkkk', 'kxhwwhxmmxxk', 'kxhwwhxkkxwk'] },
+  railgunA: { color: '#ff2f5a', rows: ['..kkkk......', '..kwxk......', '.kkkkkk.....', 'kXxxkkkkkkkk', 'kxxhmmmmmmmk', 'kxhwhxxxxxxw'] },
+  railgunB: { color: '#ff3df2', rows: ['............', 'kkkkkkkkkkkk', 'kxxxxxxxxxxk', 'kXXmmmmmmmmk', 'kxhwhkkkkkkk', 'kxhwhwwwwwwk'] },
+  droneA: { color: '#3d7bff', rows: ['kkkkkkkkkkkk', 'kxxxxxxxxxxk', 'kxXXXXXXXXxk', 'kxXkkkkkkXxk', 'kxXkhwwhkXxk', 'kxXkwwwwkXxk'] },
+  droneB: { color: '#2ef2ff', rows: ['kkkkk..kkkkk', 'kxwxk..kxwxk', 'kkkkkkkkkkkk', '..kmmmmmmk..', 'kkkmxwwxmkkk', 'kxwkwwwwkxwk'] },
+  minerA: { color: '#ffd23f', rows: ['kkkkkkkkkkkk', 'kxxxxxxxxxxk', 'kxkkkkkkkkxk', 'kxkyyyyyykxk', 'kxkyoyyoykxk', 'kxkyyyyyykxk'] },
+  minerB: { color: '#ff3df2', rows: ['.....kk.....', '....kxxk....', '...kxhwxk...', '..kxhwwwxk..', '.kmmxwwxmmk.', 'kmlkkxxkklmk'] },
+  amplifierA: { color: '#ffe84a', rows: ['.....kk.....', '....kwwk....', '..kkxhhxkk..', '.kxxkhhkxxk.', 'kxhxxwwxxhxk', 'kxxxwwwwxxxk'] },
+  amplifierB: { color: '#ff2f5a', rows: ['..kkkkkkkk..', '.kxxxxxxxxk.', 'kxhkkkkkkhxk', 'kxk..kk..kxk', '.kk.kwwk.kk.', '....kwwk....'] },
+  mortarA: { color: '#ff5533', rows: ['.kkk.kkk.kkk', 'kxwk.kxwkxwk', 'kxxkkkxxkxxk', 'kxxkmmxxkxxk', 'kkkkmlkkkkkk', '.kmmmlmmmk..'] },
+  mortarB: { color: '#ff8a1f', rows: ['..kkkkkkk...', '.kxxxxxxxk..', 'kxooyyyooxk.', 'kxoyywyyoxkk', 'kxoywwwyoxXk', 'kxoywwwyoxXk'] },
+  laserA: { color: '#2ef2ff', rows: ['............', '..kk........', '.kxpkk......', '.kxhwpkkk...', '.kxhwwwpxkkk', '.kxhwwwwwwwk'] },
+  laserB: { color: '#ff2f5a', rows: ['...kkkkk....', '..kxxxxxk...', '.kxhhhhxxk..', 'kxhwwwhxxkkk', 'kxhwwwwhxXXk', 'kxhwwwwhxwwk'] },
+  reclaimerA: { color: '#b6ff3d', rows: ['k..........k', 'kxk.kkkk.kxk', '.kxkVvvVkxk.', '.kVvxwwxvVk.', '.kvxwkkwxvk.', '..kvvvvvvk..'] },
+  reclaimerB: { color: '#ffe84a', rows: ['...kkkkkk...', '..kVvvvvVk..', '.kVyyyyyyVk.', '.kvyoyyoyvk.', '.kvxwkkwxvk.', '..kvvvvvvk..'] },
+};
+
+// Level 2 heads get brighter plating, level 3 glows with highlights.
+function headRows(id, level) {
+  let rows = HEADS[id];
+  if (level >= 2) rows = rows.map((r) => r.replace(/m/g, 'l'));
+  if (level >= 3) rows = rows.map((r) => r.replace(/l/g, 'h').replace(/d/g, 'm'));
+  return rows;
+}
+
 const towerCache = new Map();
-export function towerSprites(def) {
-  if (towerCache.has(def.id)) return towerCache.get(def.id);
-  const base = raster(expand(BASE_Q, 'hv'), def.color);
-  const head = raster(expand(HEADS[def.id], 'v'), def.color);
+export function towerSprites(def, level = 1, branch = null) {
+  const key = def.id + level + (branch || '');
+  if (towerCache.has(key)) return towerCache.get(key);
+  let base, head, color = def.color;
+  if (level >= 4 && branch) {
+    const art = BRANCH_ART[def.id + branch];
+    color = art.color;
+    base = raster(expand(BASE_Q[4], 'hv'), art.color);
+    head = raster(expand(art.rows, 'v'), art.color);
+  } else {
+    base = raster(expand(BASE_Q[Math.min(3, level)], 'hv'), def.color);
+    head = raster(expand(headRows(def.id, level), 'v'), def.color);
+  }
   // icon: base + head composite, upscaled for UI
   const [ic, ictx] = makeCanvas(16, 16);
   ictx.drawImage(base, 0, 0);
   ictx.drawImage(head, 2, 2);
   const [big, bctx] = makeCanvas(48, 48);
   bctx.drawImage(ic, 0, 0, 48, 48);
-  const out = { base, head, icon: ic, iconUrl: big.toDataURL() };
-  towerCache.set(def.id, out);
+  const out = { base, head, icon: ic, iconUrl: big.toDataURL(), color };
+  towerCache.set(key, out);
   return out;
 }
 
@@ -153,6 +196,14 @@ const ENEMY_PAT = {
   wasp: {
     a: ['kk....', 'kwk...', 'kwwk..', '.kwwkk', '..kkyy', '...kyk', '...kyy', '...kkk', '...kyy', '....ky', '.....k', '......'],
     b: { 0: '......', 1: '......', 2: 'kkk...', 3: 'kwwkkk' },
+  },
+  nullifier: {
+    a: ['..kkkk', '.kVVVV', 'kVmmmm', 'kVmkkk', 'kVmkwr', 'kVmkkk', 'kVmmmm', 'kVVVmm', 'kmkVVV', 'kmk.kk', 'kk..km', '....kk'],
+    b: { 9: 'kmkk.k', 10: 'kk...k' },
+  },
+  blinker: {
+    a: ['.....k', '....kc', '...kcp', '..kcpp', '.kcpwk', 'kcpppp', '.kcppp', '..kcpp', '...kcp', '....kc', '.....k', '......'],
+    b: { 5: 'kcppPP', 6: '.kcpPP' },
   },
   husk: { // reclaimed ally
     a: ['......', '...kkk', '..kggg', '.kgwkg', '.kgggg', '..kGgg', '.kgGGg', 'kg.kgg', 'k..kGg', '...k.k', '......', '......'],
@@ -217,8 +268,8 @@ export function glow(r, color) {
 
 // ---------- Tiles ----------
 
-export const T = { VOID: 0, GROUND: 1, PATH: 2, ROCK: 3, HIGH: 4, CACHE: 5, NODE: 6, CORE: 7, SLUDGE: 8 };
-export const isPath = (t) => t === T.PATH || t === T.SLUDGE || t === T.CORE;
+export const T = { VOID: 0, GROUND: 1, PATH: 2, ROCK: 3, HIGH: 4, CACHE: 5, NODE: 6, CORE: 7, SLUDGE: 8, RIFT: 9, ACCEL: 10, OBELISK: 11, BEACON: 12 };
+export const isPath = (t) => t === T.PATH || t === T.SLUDGE || t === T.CORE || t === T.RIFT || t === T.ACCEL;
 export const isBuildable = (t) => t === T.GROUND || t === T.HIGH || t === T.NODE;
 
 function hash(x, y) {
@@ -233,7 +284,7 @@ function px(ctx, x, y, w, h, col) { ctx.fillStyle = col; ctx.fillRect(x, y, w, h
 export function drawTile(ctx, t, ox, oy, wx, wy, sec, nb) {
   const r = hash(wx, wy);
   const g = sec.ground;
-  if (t === T.GROUND || t === T.NODE || t === T.CACHE || t === T.HIGH || t === T.ROCK) {
+  if (t === T.GROUND || t === T.NODE || t === T.CACHE || t === T.HIGH || t === T.ROCK || t === T.OBELISK || t === T.BEACON) {
     px(ctx, ox, oy, 16, 16, g);
     // panel seams
     px(ctx, ox, oy, 16, 1, shade(sec.grid, -0.2));
@@ -283,7 +334,23 @@ export function drawTile(ctx, t, ox, oy, wx, wy, sec, nb) {
     px(ctx, ox + 3, oy + 5, 10, 6, shade(sec.grid, -0.2));
     px(ctx, ox + 6, oy + 6, 4, 4, rgba('#ffe84a', 0.7));
     px(ctx, ox + 7, oy + 7, 2, 2, '#fff7c0');
-  } else if (t === T.PATH || t === T.SLUDGE || t === T.CORE) {
+  } else if (t === T.OBELISK) {
+    // tall magenta shard monolith
+    px(ctx, ox + 4, oy + 12, 8, 3, '#2a1040');
+    px(ctx, ox + 6, oy + 2, 4, 11, '#ff3df2');
+    px(ctx, ox + 7, oy + 1, 2, 1, '#ff3df2');
+    px(ctx, ox + 7, oy + 3, 1, 8, '#ffc0f8');
+    px(ctx, ox + 9, oy + 4, 1, 8, '#9a1a92');
+    px(ctx, ox + 5, oy + 9, 1, 4, '#9a1a92');
+    px(ctx, ox + 10, oy + 8, 1, 5, '#9a1a92');
+  } else if (t === T.BEACON) {
+    // bounty beacon antenna with gold lamp
+    px(ctx, ox + 4, oy + 12, 8, 3, '#3b2a12');
+    px(ctx, ox + 7, oy + 4, 2, 9, '#5664a8');
+    px(ctx, ox + 5, oy + 6, 6, 1, '#5664a8');
+    px(ctx, ox + 6, oy + 1, 4, 3, '#ffe84a');
+    px(ctx, ox + 7, oy + 2, 2, 1, '#ffffff');
+  } else if (t === T.PATH || t === T.SLUDGE || t === T.CORE || t === T.RIFT || t === T.ACCEL) {
     const dark = sec.pathDark, edge = sec.path;
     px(ctx, ox, oy, 16, 16, dark);
     // subtle centerline
@@ -302,6 +369,21 @@ export function drawTile(ctx, t, ox, oy, wx, wy, sec, nb) {
       if (dy === 1) { px(ctx, ox, oy + 15, 16, 1, edge); px(ctx, ox, oy + 14, 16, 1, rgba(edge, 0.35)); }
       if (dx === -1) { px(ctx, ox, oy, 1, 16, edge); px(ctx, ox + 1, oy, 1, 16, rgba(edge, 0.35)); }
       if (dx === 1) { px(ctx, ox + 15, oy, 1, 16, edge); px(ctx, ox + 14, oy, 1, 16, rgba(edge, 0.35)); }
+    }
+    if (t === T.RIFT) {
+      px(ctx, ox + 2, oy + 2, 12, 12, 'rgba(255,40,90,0.25)');
+      px(ctx, ox + 7, oy + 2, 2, 3, '#ff2f5a'); px(ctx, ox + 6, oy + 5, 2, 3, '#ff2f5a');
+      px(ctx, ox + 8, oy + 8, 2, 3, '#ff2f5a'); px(ctx, ox + 7, oy + 11, 2, 3, '#ff2f5a');
+      px(ctx, ox + 7, oy + 6, 1, 1, '#ffffff'); px(ctx, ox + 8, oy + 9, 1, 1, '#ffffff');
+    }
+    if (t === T.ACCEL) {
+      px(ctx, ox + 2, oy + 2, 12, 12, 'rgba(255,232,74,0.15)');
+      for (const cy of [4, 9]) {
+        px(ctx, ox + 5, oy + cy, 2, 1, '#ffe84a'); px(ctx, ox + 7, oy + cy + 1, 2, 1, '#ffe84a');
+        px(ctx, ox + 5, oy + cy + 2, 2, 1, '#ffe84a');
+        px(ctx, ox + 9, oy + cy, 2, 1, '#ffe84a'); px(ctx, ox + 11, oy + cy + 1, 2, 1, '#ffe84a');
+        px(ctx, ox + 9, oy + cy + 2, 2, 1, '#ffe84a');
+      }
     }
     if (t === T.SLUDGE) {
       px(ctx, ox + 2, oy + 2, 12, 12, 'rgba(60,255,120,0.28)');

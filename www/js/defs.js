@@ -4,7 +4,7 @@
 // Branches unlock at level 3 -> 4. Each branch sets flags that combat code reads.
 export const TOWERS = {
   blaster: {
-    id: 'blaster', name: 'Pulse Blaster', color: '#2ef2ff', cost: 50, unlock: 0,
+    id: 'blaster', name: 'Pulse Blaster', color: '#2ef2ff', cost: 65, unlock: 0,
     desc: 'Rapid single-target kinetic bolts.',
     dmg: 6, rate: 3, range: 44, dtype: 'kin', proj: 'bolt', projSpeed: 230,
     branches: {
@@ -13,7 +13,7 @@ export const TOWERS = {
     },
   },
   cannon: {
-    id: 'cannon', name: 'Plasma Cannon', color: '#ff8a1f', cost: 90, unlock: 0,
+    id: 'cannon', name: 'Plasma Cannon', color: '#ff8a1f', cost: 115, unlock: 0,
     desc: 'Explosive plasma shells with splash damage.',
     dmg: 18, rate: 0.8, range: 46, dtype: 'exp', proj: 'shell', projSpeed: 150, splash: 18,
     branches: {
@@ -22,7 +22,7 @@ export const TOWERS = {
     },
   },
   cryo: {
-    id: 'cryo', name: 'Cryo Emitter', color: '#8fe8ff', cost: 70, unlock: 0,
+    id: 'cryo', name: 'Cryo Emitter', color: '#8fe8ff', cost: 90, unlock: 0,
     desc: 'Chills enemies, slowing them down.',
     dmg: 3, rate: 1.2, range: 40, dtype: 'cry', proj: 'bolt', projSpeed: 170, splash: 10,
     slow: 0.35, slowDur: 1.6,
@@ -32,7 +32,7 @@ export const TOWERS = {
     },
   },
   tesla: {
-    id: 'tesla', name: 'Tesla Coil', color: '#ffe84a', cost: 110, unlock: 0, rotates: false,
+    id: 'tesla', name: 'Tesla Coil', color: '#ffe84a', cost: 140, unlock: 0, rotates: false,
     desc: 'Lightning chains between enemies. Shocks targets.',
     dmg: 12, rate: 1, range: 40, dtype: 'eng', proj: 'chain', chains: 3, chainRange: 30,
     branches: {
@@ -41,7 +41,7 @@ export const TOWERS = {
     },
   },
   nanite: {
-    id: 'nanite', name: 'Nanite Sprayer', color: '#4dff8a', cost: 80, unlock: 20,
+    id: 'nanite', name: 'Nanite Sprayer', color: '#4dff8a', cost: 100, unlock: 30,
     desc: 'Corrosive nanite globs that poison in an area.',
     dmg: 2, rate: 1.1, range: 40, dtype: 'bio', proj: 'glob', projSpeed: 140, splash: 13,
     poison: 8, poisonDur: 4,
@@ -51,7 +51,7 @@ export const TOWERS = {
     },
   },
   railgun: {
-    id: 'railgun', name: 'Railgun', color: '#ff3df2', cost: 140, unlock: 35,
+    id: 'railgun', name: 'Railgun', color: '#ff3df2', cost: 180, unlock: 60,
     desc: 'Extreme range, huge single hits. Crits often.',
     dmg: 70, rate: 0.35, range: 104, dtype: 'kin', proj: 'rail', crit: 0.1,
     branches: {
@@ -60,7 +60,7 @@ export const TOWERS = {
     },
   },
   drone: {
-    id: 'drone', name: 'Drone Bay', color: '#3d7bff', cost: 100, unlock: 25, rotates: false,
+    id: 'drone', name: 'Drone Bay', color: '#3d7bff', cost: 130, unlock: 45, rotates: false,
     desc: 'Deploys drones that block and fight on the path.',
     range: 36, drones: 2, droneHp: 60, droneDmg: 8, droneRate: 1.5, dtype: 'kin', proj: 'none',
     branches: {
@@ -69,7 +69,7 @@ export const TOWERS = {
     },
   },
   miner: {
-    id: 'miner', name: 'Credit Miner', color: '#ffd23f', cost: 120, unlock: 30, rotates: false,
+    id: 'miner', name: 'Credit Miner', color: '#ffd23f', cost: 160, unlock: 50, rotates: false,
     desc: 'Generates credits at the end of every wave.',
     range: 0, income: 25, proj: 'none',
     branches: {
@@ -78,7 +78,7 @@ export const TOWERS = {
     },
   },
   amplifier: {
-    id: 'amplifier', name: 'Amplifier Pylon', color: '#a466ff', cost: 120, unlock: 40, rotates: false,
+    id: 'amplifier', name: 'Amplifier Pylon', color: '#a466ff', cost: 150, unlock: 75, rotates: false,
     desc: 'Boosts damage of nearby towers by 15%.',
     range: 36, buff: 0.15, proj: 'none',
     branches: {
@@ -87,7 +87,7 @@ export const TOWERS = {
     },
   },
   mortar: {
-    id: 'mortar', name: 'Orbital Mortar', color: '#ff5533', cost: 130, unlock: 45,
+    id: 'mortar', name: 'Orbital Mortar', color: '#ff5533', cost: 170, unlock: 90,
     desc: 'Huge range artillery. Has a minimum range. Cannot hit flyers.',
     dmg: 34, rate: 0.4, range: 132, minRange: 40, dtype: 'exp', proj: 'mortar', splash: 24, ground: true,
     branches: {
@@ -96,7 +96,7 @@ export const TOWERS = {
     },
   },
   laser: {
-    id: 'laser', name: 'Beam Laser', color: '#ff2fa0', cost: 150, unlock: 60,
+    id: 'laser', name: 'Beam Laser', color: '#ff2fa0', cost: 190, unlock: 120,
     desc: 'Continuous beam. Damage ramps up on the same target.',
     dmg: 14, rate: 1, range: 48, dtype: 'eng', proj: 'beam', ramp: 4, rampTime: 3,
     branches: {
@@ -105,7 +105,7 @@ export const TOWERS = {
     },
   },
   reclaimer: {
-    id: 'reclaimer', name: 'Reclaimer', color: '#b6ff3d', cost: 130, unlock: 80, rotates: false,
+    id: 'reclaimer', name: 'Reclaimer', color: '#b6ff3d', cost: 170, unlock: 150, rotates: false,
     desc: 'Enemies that die in range may rise as allied husks.',
     dmg: 10, rate: 0.8, range: 44, dtype: 'bio', proj: 'orb', projSpeed: 110, revive: 0.25,
     branches: {
@@ -119,31 +119,113 @@ export const TOWER_ORDER = Object.keys(TOWERS);
 export const LEVELS = [
   null,
   { dmg: 1, range: 1, rate: 1, cost: 0 },
-  { dmg: 1.45, range: 1.08, rate: 1, cost: 0.7 },
-  { dmg: 2.0, range: 1.15, rate: 1.1, cost: 1.0 },
-  { dmg: 2.7, range: 1.2, rate: 1.15, cost: 1.5 },
+  { dmg: 1.4, range: 1.08, rate: 1, cost: 0.85 },
+  { dmg: 1.9, range: 1.15, rate: 1.1, cost: 1.3 },
+  { dmg: 2.6, range: 1.2, rate: 1.15, cost: 2.0 },
 ];
 
 // ---------------- Enemies ----------------
+// New enemy types arrive with each neon sector (10 waves each). `good` / `bad`
+// list towers that excel or struggle against them, shown on the intel popup.
 export const ENEMIES = {
-  crawler: { id: 'crawler', name: 'Crawler', hp: 30, speed: 22, gold: 4, core: 1, minWave: 1, w: 10, desc: 'Basic invader.' },
-  scout: { id: 'scout', name: 'Dart Scout', hp: 18, speed: 40, gold: 3, core: 1, minWave: 2, w: 6, desc: 'Fast and fragile.' },
-  swarm: { id: 'swarm', name: 'Swarmling', hp: 9, speed: 30, gold: 1, core: 1, minWave: 4, w: 4, group: 5, size: 3, desc: 'Arrives in packs.' },
-  tank: { id: 'tank', name: 'Juggernaut', hp: 110, speed: 14, armor: 4, gold: 10, core: 2, minWave: 5, w: 3, desc: 'Heavily armored. Energy weapons ignore half its armor.' },
-  wasp: { id: 'wasp', name: 'Void Wasp', hp: 26, speed: 26, gold: 5, core: 1, minWave: 6, w: 3, flying: true, desc: 'Flies straight to the core. Mortars and drones cannot touch it.' },
-  aegis: { id: 'aegis', name: 'Aegis', hp: 50, shield: 40, speed: 20, gold: 8, core: 1, minWave: 7, w: 3, desc: 'Regenerating energy shield.' },
-  medic: { id: 'medic', name: 'Medic', hp: 45, speed: 20, gold: 8, core: 1, minWave: 9, w: 2, heal: true, desc: 'Repairs nearby enemies.' },
-  splitter: { id: 'splitter', name: 'Splitter', hp: 70, speed: 18, gold: 6, core: 1, minWave: 11, w: 3, split: 2, desc: 'Splits in two on death.' },
-  splitling: { id: 'splitling', name: 'Splitling', hp: 20, speed: 30, gold: 1, core: 1, minWave: 999, w: 0, size: 3, desc: 'Fragment of a Splitter.' },
-  phantom: { id: 'phantom', name: 'Phantom', hp: 50, speed: 24, gold: 7, core: 1, minWave: 13, w: 2, phase: true, desc: 'Periodically phases out of reality.' },
+  crawler: {
+    id: 'crawler', name: 'Crawler', hp: 34, speed: 22, gold: 3, core: 1, minWave: 1, w: 10, sector: 0,
+    desc: 'The basic void invader. Slow, steady, and endless.',
+    abilities: ['None - pure numbers.'],
+    good: [['blaster', 'Steady fire shreds them'], ['cannon', 'Splash hits the conga line']],
+    bad: [['railgun', 'Massive overkill on a weak target']],
+  },
+  scout: {
+    id: 'scout', name: 'Dart Scout', hp: 20, speed: 42, gold: 3, core: 1, minWave: 3, w: 6, sector: 0,
+    desc: 'A darting skirmisher that sprints past slow defenses.',
+    abilities: ['Very fast movement'],
+    good: [['blaster', 'Homing bolts never miss'], ['cryo', 'Chill kills its speed'], ['tesla', 'Instant lightning']],
+    bad: [['cannon', 'Shells land behind it'], ['mortar', 'Long flight time misses']],
+  },
+  swarm: {
+    id: 'swarm', name: 'Swarmling', hp: 10, speed: 30, gold: 1, core: 1, minWave: 6, w: 4, group: 5, size: 3, sector: 0,
+    desc: 'Tiny hive drones that arrive in tight packs of five.',
+    abilities: ['Spawns in groups of 5'],
+    good: [['cannon', 'One blast hits the whole pack'], ['tesla', 'Chains jump between them'], ['nanite', 'Poison clouds']],
+    bad: [['railgun', 'One slug, one tiny kill'], ['laser', 'Ramp-up resets constantly']],
+  },
+  tank: {
+    id: 'tank', name: 'Juggernaut', hp: 130, speed: 13, armor: 5, gold: 6, core: 2, minWave: 11, w: 4, sector: 1,
+    desc: 'An armored walker. Small hits bounce off its plating.',
+    abilities: ['Armor: reduces damage of every hit', 'Energy ignores half its armor, Bio ignores all'],
+    good: [['laser', 'Energy beam ramps through armor'], ['railgun', 'Huge hits ignore flat armor'], ['nanite', 'Bio poison ignores armor']],
+    bad: [['blaster', 'Weak bolts barely scratch it'], ['cryo', 'Tiny damage per hit']],
+  },
+  wasp: {
+    id: 'wasp', name: 'Void Wasp', hp: 30, speed: 26, gold: 3, core: 1, minWave: 14, w: 3, flying: true, sector: 1,
+    desc: 'A flyer that ignores the path and heads straight for your core.',
+    abilities: ['Flying: skips the path entirely', 'Cannot be hit by Mortars or blocked by Drones'],
+    good: [['blaster', 'Fast homing bolts'], ['tesla', 'Lightning reaches the sky'], ['laser', 'Beams lock on']],
+    bad: [['mortar', 'Cannot target flyers'], ['drone', 'Cannot block flyers']],
+  },
+  aegis: {
+    id: 'aegis', name: 'Aegis', hp: 55, shield: 45, speed: 20, gold: 5, core: 1, minWave: 21, w: 3, sector: 2,
+    desc: 'Projects a regenerating energy shield over its hull.',
+    abilities: ['Shield absorbs damage first', 'Shield regenerates after 3s without damage'],
+    good: [['blaster', 'Constant fire stops regen'], ['tesla', 'Chain pressure'], ['laser', 'Continuous beam']],
+    bad: [['railgun', 'Long reload lets the shield regenerate'], ['mortar', 'Slow volleys']],
+  },
+  medic: {
+    id: 'medic', name: 'Medic', hp: 50, speed: 20, gold: 5, core: 1, minWave: 24, w: 2, heal: true, sector: 2,
+    desc: 'A support unit that repairs every invader around it.',
+    abilities: ['Heals nearby enemies 6% max HP every 2s'],
+    good: [['railgun', 'Snipe it first (Strong targeting)'], ['mortar', 'Hits the whole cluster'], ['cannon', 'Splash the group']],
+    bad: [['nanite', 'Poison gets healed away'], ['cryo', 'Slow damage keeps the group alive']],
+  },
+  splitter: {
+    id: 'splitter', name: 'Splitter', hp: 80, speed: 18, gold: 4, core: 1, minWave: 31, w: 3, split: 2, sector: 3,
+    desc: 'An unstable blob of plasma that bursts into two fragments.',
+    abilities: ['Splits into 2 Splitlings on death'],
+    good: [['cannon', 'Splash catches the fragments'], ['tesla', 'Chains to the pieces'], ['mortar', 'Area denial']],
+    bad: [['railgun', 'Kills one, leaves two']],
+  },
+  splitling: {
+    id: 'splitling', name: 'Splitling', hp: 22, speed: 30, gold: 1, core: 1, minWave: 999, w: 0, size: 3, sector: 3,
+    desc: 'A fragment of a Splitter. Fast and fragile.',
+    abilities: ['Fast'], good: [['tesla', 'Chain lightning']], bad: [['mortar', 'Too quick to hit']],
+  },
+  phantom: {
+    id: 'phantom', name: 'Phantom', hp: 60, speed: 24, gold: 5, core: 1, minWave: 34, w: 2, phase: true, sector: 3,
+    desc: 'A wraith that slips in and out of reality.',
+    abilities: ['Phases out for ~1s every 3s: untargetable and immune'],
+    good: [['blaster', 'High fire rate catches it solid'], ['tesla', 'Instant hits'], ['nanite', 'Poison keeps ticking while phased']],
+    bad: [['railgun', 'Slow shots get wasted'], ['mortar', 'Shells pass through']],
+  },
+  nullifier: {
+    id: 'nullifier', name: 'Nullifier', hp: 160, speed: 15, armor: 7, gold: 8, core: 2, minWave: 41, w: 3, nullify: true, sector: 4,
+    desc: 'A void-forged hulk that cancels every status effect.',
+    abilities: ['Immune to chill, freeze, stun and poison', 'Heavy armor'],
+    good: [['railgun', 'Raw damage beats armor'], ['laser', 'Energy beam ramps up'], ['drone', 'Blocks it in place']],
+    bad: [['cryo', 'Chill does nothing'], ['nanite', 'Poison does nothing'], ['blaster', 'Armor eats the bolts']],
+  },
+  blinker: {
+    id: 'blinker', name: 'Blinker', hp: 70, speed: 22, gold: 5, core: 1, minWave: 44, w: 3, blink: true, sector: 4,
+    desc: 'A rift-skipper that teleports down the path in bursts.',
+    abilities: ['Teleports 3 tiles forward every 4s'],
+    good: [['tesla', 'Instant lightning'], ['railgun', 'Instant slug'], ['laser', 'Beam re-locks instantly']],
+    bad: [['mortar', 'Shells land where it was'], ['cannon', 'Leads the wrong spot']],
+  },
 };
 
+export const SECTOR_INTROS = [
+  'The Magenta Rim: the invasion begins.',
+  'Cyan Drift: armored walkers and flyers emerge.',
+  'Toxic Belt: shielded escorts and field medics.',
+  'Solar Forge: unstable plasma and phase wraiths.',
+  'Void Reach: the void itself fights back.',
+];
+
 export const BOSSES = [
-  { id: 'bulwark', name: 'The Bulwark', hp: 1300, speed: 9, armor: 3, core: 15, gold: 150, desc: 'Shield only breaks to its current weakness type. Weakness rotates.', shieldType: true },
-  { id: 'hive', name: 'Hive Mother', hp: 1000, speed: 11, core: 15, gold: 150, desc: 'Births swarmlings and bursts into crawlers.', spawner: true },
-  { id: 'disruptor', name: 'Disruptor', hp: 1100, speed: 11, armor: 3, core: 15, gold: 150, desc: 'EMP pulses disable nearby towers.', emp: true },
-  { id: 'stalker', name: 'Phase Stalker', hp: 900, speed: 12, core: 15, gold: 150, desc: 'Teleports forward along the path.', teleport: true },
-  { id: 'leviathan', name: 'Leviathan', hp: 1400, speed: 10, core: 20, gold: 180, desc: 'A flying titan escorted by wasps.', flying: true, spawner: true },
+  { id: 'bulwark', name: 'The Bulwark', hp: 1300, speed: 9, armor: 3, core: 15, gold: 150, desc: 'Shield only breaks to its current weakness type. Weakness rotates.', shieldType: true, abilities: ['Shield only takes full damage from its weakness type (shown on the boss bar)', 'Weakness rotates Kinetic > Energy > Explosive', 'Rebuilds its shield once at 50% HP'], good: [['blaster', 'Kinetic'], ['tesla', 'Energy'], ['cannon', 'Explosive']], bad: [['cryo', 'Never its weakness'], ['nanite', 'Never its weakness']] },
+  { id: 'hive', name: 'Hive Mother', hp: 1000, speed: 11, core: 15, gold: 150, desc: 'Births swarmlings and bursts into crawlers.', spawner: true, abilities: ['Spawns 3 Swarmlings every 4s', 'Bursts into 6 Crawlers on death'], good: [['cannon', 'Clears the brood'], ['tesla', 'Chains through the swarm']], bad: [['railgun', 'Ignores the brood']] },
+  { id: 'disruptor', name: 'Disruptor', hp: 1100, speed: 11, armor: 3, core: 15, gold: 150, desc: 'EMP pulses disable nearby towers.', emp: true, abilities: ['EMP every 7s disables towers within 4 tiles for 3s'], good: [['railgun', 'Outranges the EMP'], ['mortar', 'Fires from far away']], bad: [['blaster', 'Short range gets shut down'], ['amplifier', 'Buffs drop when disabled']] },
+  { id: 'stalker', name: 'Phase Stalker', hp: 900, speed: 12, core: 15, gold: 150, desc: 'Teleports forward along the path.', teleport: true, abilities: ['Teleports 4 tiles forward every 5s', 'Briefly intangible after teleporting'], good: [['tesla', 'Instant hits'], ['laser', 'Re-locks instantly']], bad: [['mortar', 'Shells miss'], ['cannon', 'Shells miss']] },
+  { id: 'leviathan', name: 'Leviathan', hp: 1400, speed: 10, core: 20, gold: 180, desc: 'A flying titan escorted by wasps.', flying: true, spawner: true, abilities: ['Flying: ignores the path', 'Spawns 2 Void Wasps every 5s'], good: [['laser', 'Sustained beam'], ['railgun', 'Long range'], ['tesla', 'Hits flyers']], bad: [['mortar', 'Cannot hit flyers'], ['drone', 'Cannot block flyers']] },
 ];
 
 export const ELITE_MODS = {
@@ -206,12 +288,12 @@ export const RARITY = [null, { name: 'Common', color: '#8fb4ff', price: 90 }, { 
 // ---------------- Chunk archetypes ----------------
 // outs: outward exits relative to the entry side. 'F' forward, 'L' left, 'R' right.
 export const ARCHETYPES = [
-  { id: 'conduit', name: 'Conduit', outs: ['F'], wps: 1, w: 10, desc: 'A winding straight run.', reward: { gold: 30 } },
-  { id: 'bend', name: 'Elbow', outs: ['L'], wps: 1, w: 8, desc: 'The path turns a corner.', reward: { gold: 30 }, flip: true },
-  { id: 'braid', name: 'Braided Lanes', outs: ['F'], wps: 1, braid: true, w: 6, desc: 'Path splits into two lanes that merge again.', reward: { gold: 45 } },
-  { id: 'serpent', name: 'Serpent Coil', outs: ['F'], wps: 3, w: 5, desc: 'A long twisting path. Costs credits.', reward: { gold: -40 } },
-  { id: 'fork', name: 'Fork', outs: ['F', 'L'], wps: 1, w: 5, desc: 'Branches into two: +1 enemy portal.', reward: { gold: 90, shards: 2 }, flip: true },
-  { id: 'cross', name: 'Crossroads', outs: ['F', 'L', 'R'], wps: 1, w: 2, desc: 'Three-way junction: +2 portals.', reward: { gold: 140, aug: 2 } },
+  { id: 'conduit', name: 'Conduit', outs: ['F'], wps: 1, w: 10, desc: 'A winding straight run.', reward: { gold: 15 } },
+  { id: 'bend', name: 'Elbow', outs: ['L'], wps: 1, w: 8, desc: 'The path turns a corner.', reward: { gold: 15 }, flip: true },
+  { id: 'braid', name: 'Braided Lanes', outs: ['F'], wps: 1, braid: true, w: 6, desc: 'Path splits into two lanes that merge again.', reward: { gold: 25 } },
+  { id: 'serpent', name: 'Serpent Coil', outs: ['F'], wps: 3, w: 5, desc: 'A long twisting path. Costs credits.', reward: { gold: -60 } },
+  { id: 'fork', name: 'Fork', outs: ['F', 'L'], wps: 1, w: 5, desc: 'Branches into two: +1 enemy portal.', reward: { gold: 60, shards: 1 }, flip: true },
+  { id: 'cross', name: 'Crossroads', outs: ['F', 'L', 'R'], wps: 1, w: 2, desc: 'Three-way junction: +2 portals.', reward: { gold: 100, aug: 2 } },
   { id: 'sealed', name: 'Sealed Bulkhead', outs: [], wps: 0, w: 2, desc: 'Closes this portal for good. Enemies gain +6% HP.', reward: { hpMult: 0.06 }, needsPortals: 2 },
 ];
 
@@ -221,6 +303,15 @@ export const CHUNK_MODS = [
   { id: 'sludge', name: 'Coolant Spill', desc: 'Slows enemies on the path.', w: 4 },
   { id: 'cache', name: 'Data Cache', desc: 'Tap to salvage credits or shards.', w: 4 },
   { id: 'node', name: 'Power Node', desc: 'Towers on it deal +30% damage.', w: 4 },
+];
+
+// Risk / reward modifiers. Local ones only buff enemies that cross the tile;
+// global ones buff every enemy for as long as the chunk exists.
+export const RISK_MODS = [
+  { id: 'rift', name: 'Rift Conduit', scope: 'local', desc: 'Enemies crossing it gain +50% HP, but drop 2x credits and may drop shards.', w: 5 },
+  { id: 'accel', name: 'Ion Accelerator', scope: 'local', desc: 'Enemies crossing it move 40% faster, but drop +75% credits.', w: 5 },
+  { id: 'obelisk', name: 'Shard Obelisk', scope: 'global', desc: '+1 Void Shard every wave, but ALL enemies gain +8% HP.', w: 3 },
+  { id: 'beacon', name: 'Bounty Beacon', scope: 'global', desc: '+25% credits from every kill, but ALL enemies move 6% faster.', w: 3 },
 ];
 
 // ---------------- Events ----------------

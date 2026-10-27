@@ -3,7 +3,7 @@
 import { TS, T, isBuildable, isPath } from './sprites.js';
 import { World, CS, rollChunkMods, genChunk } from './world.js';
 import { mulberry32, randInt, pick, shuffle, weightedPick, dist, dist2, clamp } from './util.js';
-import { TOWERS, TOWER_ORDER, LEVELS, ENEMIES, BOSSES, ELITE_MODS, AUGMENTS, AUG_BY_ID, RARITY, ARCHETYPES, EVENTS } from './defs.js';
+import { TOWERS, TOWER_ORDER, LEVELS, ENEMIES, BOSSES, ELITE_MODS, AUGMENTS, AUG_BY_ID, RARITY, ARCHETYPES, EVENTS, SECTOR_INTROS } from './defs.js';
 import { meta, saveMeta, buildRunMods, heatInfo, COMMANDERS, saveRun, clearRun, addXp, checkAchievements } from './meta.js';
 
 const UNIQUE_AUGS = new Set(['refund', 'spotters', 'stasis', 'executioner']);
@@ -250,7 +250,7 @@ export class Run {
   }
 
   // ---------------- waves ----------------
-  hpScale(w) { return (1 + 0.15 * (w - 1)) * Math.pow(1.058, w - 1) * (w > 40 ? Math.pow(1.03, w - 40) : 1) * this.heatMul.hp * this.mods.hpMult; }
+  hpScale(w) { return (1 + 0.12 * (w - 1)) * Math.pow(1.07, w - 1) * (w > 40 ? Math.pow(1.03, w - 40) : 1) * this.heatMul.hp * this.mods.hpMult; }
 
   peekWave() {
     const w = this.wave + 1;
@@ -270,7 +270,7 @@ export class Run {
     this.waveLeaks = 0;
     const portals = this.world.portals;
     const pool = Object.values(ENEMIES).filter((e) => e.minWave <= w && e.w > 0).map((e) => ({ e, w: e.w }));
-    const n = Math.min(80, Math.floor(5 + w * 1.5));
+    const n = Math.min(90, Math.floor(6 + w * 1.7));
     const interval = Math.max(0.25, 0.9 - w * 0.012);
     const isBoss = w % BOSS_EVERY === 0;
     const eliteMod = !isBoss && w % 5 === 0 && w >= 15 ? pick(this.rng, Object.keys(ELITE_MODS)) : null;
@@ -296,6 +296,13 @@ export class Run {
     }
     q.sort((a, b) => a.t - b.t);
     this.spawnQueue = q;
+    if ((w - 1) % BOSS_EVERY === 0 && w > 1) this.toast('SECTOR ' + (this.sector + 1) + ': ' + SECTOR_INTROS[this.sector % SECTOR_INTROS.length].toUpperCase(), '#ff3df2');
+    const fresh = [];
+    for (const it of q) {
+      const id = it.boss != null ? BOSSES[it.boss].id : it.type;
+      if (!meta.seen[id] && !fresh.includes(id)) fresh.push(id);
+    }
+    if (fresh.length) { for (const id of fresh) meta.seen[id] = 1; saveMeta(); this.emit('intro', fresh); }
     this.waveTime = 0;
     this.overtime = false;
     this.emit('wave', w);
@@ -321,11 +328,12 @@ export class Run {
       gold: def.gold * (1 + 0.03 * (w - 1)), core: def.core, alive: true, traveled: 0, len: 0,
       slow: 0, slowT: 0, freeze: 0, stun: 0, shock: 0, poison: 0, poisonT: 0, corrode: 0, plague: false,
       shieldDelay: 0, hitFlash: 0, anim: this.rng() * 10, timers: {}, elite: null, atk: (def.atk || 5) * (1 + 0.07 * (w - 1)),
-      spawnSlow: this.mods.spawnSlow, ccImmune: 0, phased: false, cloaked: false, blocker: null, dir: 1,
+      spawnSlow: this.mods.spawnSlow, ccImmune: 0, goldMult: 1, phased: false, cloaked: false, blocker: null, dir: 1,
     };
     for (let k = 1; k < route.length; k++) e.len += dist(route[k - 1][0], route[k - 1][1], route[k][0], route[k][1]);
     if (at) { e.x = at.x; e.y = at.y; e.i = at.i; e.traveled = at.traveled; e.x += (this.rng() - 0.5) * 6; e.y += (this.rng() - 0.5) * 6; }
     if (def.shield) { e.shield = e.maxShield = def.shield * this.hpScale(w); }
+    if (def.blink) e.timers.blink = 4;
     if (elite) {
       e.elite = elite;
       e.gold *= 3; e.core += 1;
@@ -352,7 +360,7 @@ export class Run {
   endWave() {
     this.phase = 'reward';
     const w = this.wave;
-    let income = Math.round((20 + w * 4) * this.mods.waveGold);
+    let income = Math.round((15 + w * 3) * this.mods.waveGold);
     const interest = Math.min(50 + w * 10, Math.floor(this.gold * this.mods.interest));
     income += interest;
     for (const tw of this.towers) {
@@ -362,6 +370,7 @@ export class Run {
       if (tw.stats.br.shards) this.shards += tw.stats.br.shards;
     }
     this.addGold(income);
+    if (this.mods.obelisk) this.shards += this.mods.obelisk;
     if (this.mods.regen) this.heal(this.mods.regen);
     this.toast(`WAVE ${w} CLEARED  +${income}c`, '#4dff8a');
     this.sfx('clear');
@@ -400,27 +409,35 @@ export class Run {
     this.emit('choice', c);
   }
 
+  // Each reroll in the same shop/pick doubles the price of the next one.
   reroll(c) {
     if (this.rerolls > 0) this.rerolls--;
-    else { const cost = this.rerollCost(); if (this.gold < cost) return false; this.gold -= cost; }
+    else { const cost = this.rerollCost(c); if (this.gold < cost) return false; this.gold -= cost; }
+    c.rerollCount = (c.rerollCount || 0) + 1;
     if (c.kind === 'augment') c.options = this.rollAugments(this.mods.choices, c.minRarity || 1);
     if (c.kind === 'shop') c.items = this.makeShop();
     return true;
   }
-  rerollCost() { return 30 + this.wave * 3; }
+  rerollCost(c) { return Math.round((25 + this.wave * 3) * Math.pow(2, (c && c.rerollCount) || 0)); }
 
   makeShop() {
     const augs = this.rollAugments(3);
-    const items = augs.map((a) => ({ aug: a, price: Math.round(RARITY[a.rarity].price * (1 + this.wave * 0.02) * this.mods.shop), sold: false }));
-    items.push({ repair: 5, price: Math.round((60 + this.wave * 4) * this.mods.shop), sold: false });
+    const items = augs.map((a) => ({ aug: a, price: this.augPrice(a), sold: false }));
+    items.push({ repair: 4, price: Math.round((80 + this.wave * 8) * this.mods.shop), sold: false });
     return items;
+  }
+
+  // Price grows exponentially with how many copies you already own.
+  augPrice(a) {
+    const owned = this.augments[a.id] || 0;
+    return Math.round(RARITY[a.rarity].price * (1 + this.wave * 0.04) * this.mods.shop * Math.pow(1.8, owned));
   }
 
   buyShop(item) {
     if (item.sold || this.gold < item.price) return false;
     this.gold -= item.price;
     item.sold = true;
-    if (item.aug) this.addAugment(item.aug.id);
+    if (item.aug) { this.addAugment(item.aug.id); for (const it of this.current.items) if (it.aug && !it.sold) it.price = this.augPrice(it.aug); }
     if (item.repair) this.heal(item.repair);
     this.sfx('coin');
     return true;
@@ -453,7 +470,7 @@ export class Run {
       let a;
       for (let k = 0; k < 10; k++) { a = weightedPick(this.rng, pool).a; if (!used.has(a.id)) break; }
       used.add(a.id);
-      const mods = a.id === 'sealed' ? [] : rollChunkMods(this.rng, randInt(this.rng, 1, 2));
+      const mods = a.id === 'sealed' ? [] : rollChunkMods(this.rng, randInt(this.rng, 1, 2), 0.45);
       const seed = randInt(this.rng, 1, 1e9);
       const preview = genChunk({ arch: a, mods, sector: this.sector, seed, entry: 'W' });
       cards.push({ arch: a, mods, seed, preview });
@@ -469,6 +486,8 @@ export class Run {
     if (r.gold) { if (r.gold > 0) this.addGold(r.gold); else this.gold = Math.max(0, this.gold + r.gold); }
     if (r.shards) this.shards += r.shards;
     if (r.hpMult) this.mods.hpMult += r.hpMult;
+    if (card.mods.includes('obelisk')) { this.mods.hpMult += 0.08; this.mods.obelisk = (this.mods.obelisk || 0) + 1; }
+    if (card.mods.includes('beacon')) { this.mods.goldMult += 0.25; this.mods.enemySpeed += 0.06; }
     if (r.aug) { const a = this.randomAugment(r.aug); this.addAugment(a.id); this.toast('Crossroads bonus: ' + a.name, '#ff3df2'); }
     for (const tw of this.towers) if (tw.type === 'drone') this.computeRally(tw);
     this.placing = null;
@@ -506,8 +525,8 @@ export class Run {
     this.sfx('lose');
     const w = this.wave;
     const bossKills = this.stats.bosses.length;
-    const xp = Math.round((w * 14 + bossKills * 60 + this.stats.kills * 0.4) * this.heatMul.reward * this.mods.xpMult);
-    const shards = Math.round((this.shards + Math.floor(w / 2)) * this.mods.shardMult * this.heatMul.reward);
+    const xp = Math.round((w * 10 + bossKills * 50 + this.stats.kills * 0.2) * this.heatMul.reward * this.mods.xpMult);
+    const shards = Math.round((this.shards + Math.floor(w / 4)) * this.mods.shardMult * this.heatMul.reward);
     const prevLevel = meta.level;
     const ups = addXp(xp);
     meta.shards += shards;
@@ -601,7 +620,29 @@ export class Run {
     if (e.spawnSlow > 0) spd *= 0.5;
     if (!e.flying) {
       const t = this.world.tile(Math.floor(e.x / TS), Math.floor(e.y / TS));
-      if (t === T.SLUDGE) spd *= 0.6;
+      if (t === T.SLUDGE && !e.def.nullify) spd *= 0.6;
+      if (t === T.RIFT && !e.rifted) {
+        e.rifted = true;
+        e.maxHp *= 1.5; e.hp *= 1.5; e.goldMult *= 2;
+        this.ring(e.x, e.y, 10, '#ff2f5a');
+      }
+      if (t === T.ACCEL && !e.accel) {
+        e.accel = true;
+        e.speed *= 1.4; e.goldMult *= 1.75;
+        this.ring(e.x, e.y, 8, '#ffe84a');
+      }
+    }
+    if (e.def.blink) {
+      e.timers.blink -= dt;
+      if (e.timers.blink <= 0 && e.i < e.route.length - 5 && !e.blocker) {
+        e.timers.blink = 4;
+        this.burst(e.x, e.y, '#2ef2ff', 8);
+        const ni = Math.min(e.route.length - 2, e.i + 3);
+        e.traveled += (ni - e.i) * TS;
+        e.i = ni;
+        [e.x, e.y] = e.route[ni];
+        this.burst(e.x, e.y, '#ff3df2', 8);
+      }
     }
     if (e.blocker) {
       if (!e.blocker.alive || dist2(e.blocker.x, e.blocker.y, e.x, e.y) > 196) e.blocker = null;
@@ -1036,6 +1077,7 @@ export class Run {
   }
 
   applyStatus(tw, e, s) {
+    if (e.def.nullify) return;
     const br = s.br;
     if (s.slow) {
       e.slow = Math.max(e.slow, e.boss ? s.slow * 0.6 : s.slow);
@@ -1121,9 +1163,10 @@ export class Run {
     this.stats.kills++;
     this.stats.kinds[e.type] = (this.stats.kinds[e.type] || 0) + 1;
     if (tw) tw.kills++;
-    let g = e.gold * this.mods.goldMult + this.mods.killGold;
+    let g = e.gold * this.mods.goldMult * e.goldMult + this.mods.killGold;
     if (e.elite || e.boss) g *= this.mods.eliteGold;
     this.addGold(g);
+    if (e.rifted && this.rng() < 0.06) { this.shards++; this.text(e.x, e.y, '+1 shard', '#ff3df2'); }
     this.burst(e.x, e.y, e.boss ? '#ffe84a' : '#ff3df2', e.boss ? 40 : 8);
     this.sfx(e.boss ? 'bossdie' : 'die');
     if (e.elite) {
@@ -1143,6 +1186,7 @@ export class Run {
     if (e.plague && e.poisonT > 0) {
       for (const o of this.enemies) {
         if (o.alive && dist2(o.x, o.y, e.x, e.y) < 24 * 24) {
+          if (o.def.nullify) continue;
           o.poison = Math.max(o.poison, e.poison); o.poisonT = Math.max(o.poisonT, 3); o.plague = true; o.poisonSrc = e.poisonSrc;
         }
       }

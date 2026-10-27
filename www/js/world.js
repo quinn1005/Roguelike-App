@@ -4,7 +4,7 @@
 
 import { T, TS, isPath, drawTile, SECTORS, makeCanvas } from './sprites.js';
 import { mulberry32, randInt, pick, shuffle, weightedPick, SIDE_DIR, OPP } from './util.js';
-import { CHUNK_MODS } from './defs.js';
+import { CHUNK_MODS, RISK_MODS } from './defs.js';
 
 export const CS = 7;
 export const CPX = CS * TS;
@@ -136,20 +136,23 @@ function applyMods(rng, tiles, mods) {
       }
       for (const c of cells) tiles[c] = T.HIGH;
     }
-    if (m === 'sludge') {
+    if (m === 'obelisk') place(1, T.OBELISK);
+    if (m === 'beacon') place(1, T.BEACON);
+    if (m === 'sludge' || m === 'rift' || m === 'accel') {
       const p = [];
       for (let i = 0; i < tiles.length; i++) {
         const x = i % CS, y = (i / CS) | 0;
         if (tiles[i] === T.PATH && x > 0 && y > 0 && x < CS - 1 && y < CS - 1) p.push(i);
       }
       shuffle(rng, p);
-      const n = randInt(rng, 4, 6);
-      for (let i = 0; i < n && i < p.length; i++) tiles[p[i]] = T.SLUDGE;
+      const n = m === 'sludge' ? randInt(rng, 4, 6) : randInt(rng, 2, 3);
+      const t = m === 'sludge' ? T.SLUDGE : m === 'rift' ? T.RIFT : T.ACCEL;
+      for (let i = 0; i < n && i < p.length; i++) tiles[p[i]] = t;
     }
   }
 }
 
-export function rollChunkMods(rng, n) {
+export function rollChunkMods(rng, n, riskChance = 0) {
   const pool = CHUNK_MODS.slice();
   const out = [];
   for (let i = 0; i < n && pool.length; i++) {
@@ -157,6 +160,7 @@ export function rollChunkMods(rng, n) {
     out.push(m.id);
     pool.splice(pool.indexOf(m), 1);
   }
+  if (rng() < riskChance) out.push(weightedPick(rng, RISK_MODS).id);
   return out;
 }
 

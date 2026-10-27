@@ -318,7 +318,8 @@ export class Renderer {
   drawTowers(run, view, time) {
     const b = this.b;
     for (const tw of run.towers) {
-      const sp = towerSprites(tw.def);
+      const sp = towerSprites(tw.def, tw.level, tw.branch);
+      if (tw.level >= 3) this.glowAt(tw.tx * TS + 8, tw.ty * TS + 8, tw.level >= 4 ? 10 : 7, sp.color, tw.level >= 4 ? 0.45 + 0.15 * Math.sin(time * 3 + tw.id) : 0.25);
       const x = tw.tx * TS, y = tw.ty * TS;
       const off = tw.disabled > 0 && Math.floor(time * 10) % 2;
       b.drawImage(sp.base, x, y);
@@ -336,8 +337,8 @@ export class Renderer {
         b.restore();
       }
       // level pips + branch mark
-      for (let l = 0; l < Math.min(3, tw.level); l++) { b.fillStyle = tw.def.color; b.fillRect(x + 4 + l * 3, y + 14, 2, 1); }
-      if (tw.branch) { b.fillStyle = '#ffffff'; b.fillRect(x + 13, y + 13, 2, 2); }
+      if (!tw.branch) for (let l = 0; l < Math.min(3, tw.level); l++) { b.fillStyle = tw.level >= 3 ? '#ffffff' : tw.def.color; b.fillRect(x + 4 + l * 3, y + 14, 2, 1); }
+      if (tw.branch) { b.fillStyle = sp.color; b.fillRect(x + 6, y + 14, 4, 1); b.fillStyle = '#ffffff'; b.fillRect(x + 7, y + 14, 2, 1); }
       if (tw.buffed) { b.fillStyle = '#a466ff'; b.fillRect(x + 1, y + 1, 1, 2); b.fillRect(x, y + 2, 3, 1); }
       if (off) { b.globalAlpha = 0.6; b.fillStyle = '#000'; b.fillRect(x + 1, y + 1, 14, 14); b.globalAlpha = 1; }
       if (tw.disabled > 0) { b.fillStyle = '#ffe84a'; b.fillRect(x + 7 + Math.round(Math.random() * 4 - 2), y + 2, 1, 3); }
