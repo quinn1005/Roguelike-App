@@ -1,0 +1,20 @@
+{
+  "name": "neon-bastion",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Neon Bastion - a 16-bit sci-fi endless tower defense roguelike",
+  "scripts": {
+    "serve": "python3 -m http.server 8080 --directory www",
+    "android:add": "npx cap add android",
+    "android:sync": "npx cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "7.6.9",
+    "@capacitor/core": "7.6.9",
+    "@capacitor/status-bar": "7.0.6"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "3.0.5",
+    "@capacitor/cli": "7.6.9"
+  }
+}

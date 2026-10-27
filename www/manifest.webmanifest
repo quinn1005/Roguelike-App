@@ -1,0 +1,10 @@
+{
+  "name": "Neon Bastion",
+  "short_name": "Neon Bastion",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#04040c",
+  "theme_color": "#04040c",
+  "start_url": "./index.html",
+  "icons": []
+}
