@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#04040c">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Neon Bastion</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <div id="ui">
+    <div id="hud" class="hidden">
+      <div class="hud-group">
+        <div class="chip" id="hud-core"></div>
+        <div class="chip" id="hud-wave"></div>
+        <div class="chip dim" id="hud-next"></div>
+      </div>
+      <div class="hud-group">
+        <div class="chip gold" id="hud-gold"></div>
+        <div class="chip shard" id="hud-shards"></div>
+        <button class="btn sm" id="btn-speed">1x</button>
+        <button class="btn sm" id="btn-pause">II</button>
+      </div>
+    </div>
+    <div id="bossbar" class="hidden"><div class="bb-name"></div><div class="bb-track"><div class="bb-shield"></div><div class="bb-fill"></div></div><div class="bb-weak"></div></div>
+    <div id="placebanner" class="hidden">TAP A GLOWING SLOT TO ATTACH THE CHUNK</div>
+    <div id="towerinfo" class="hidden"></div>
+    <div id="towerbar" class="hidden"></div>
+    <div id="wavectl" class="hidden">
+      <button class="btn sm" id="btn-auto">AUTO</button>
+      <button class="btn go" id="btn-wave">START</button>
+    </div>
+    <div id="panel" class="hidden"></div>
+    <div id="toasts"></div>
+    <div id="modal" class="hidden"></div>
+    <div id="screen"></div>
+  </div>
+  <div id="rotate"><div>ROTATE YOUR DEVICE<br><br>NEON BASTION IS PLAYED IN LANDSCAPE</div></div>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

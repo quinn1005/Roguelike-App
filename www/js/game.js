@@ -1,0 +1,1230 @@
+// Run simulation: economy, waves, towers, enemies, combat, rewards.
+
+import { TS, T, isBuildable, isPath } from './sprites.js';
+import { World, CS, rollChunkMods, genChunk } from './world.js';
+import { mulberry32, randInt, pick, shuffle, weightedPick, dist, dist2, clamp } from './util.js';
+import { TOWERS, TOWER_ORDER, LEVELS, ENEMIES, BOSSES, ELITE_MODS, AUGMENTS, AUG_BY_ID, RARITY, ARCHETYPES, EVENTS } from './defs.js';
+import { meta, saveMeta, buildRunMods, heatInfo, COMMANDERS, saveRun, clearRun, addXp, checkAchievements } from './meta.js';
+
+const UNIQUE_AUGS = new Set(['refund', 'spotters', 'stasis', 'executioner']);
+const BOSS_EVERY = 10;
+const EXPAND_EVERY = 3;
+const center = (t) => t * TS + TS / 2;
+
+export class Run {
+  constructor({ commander = 'vanguard', heat = 0, save = null, seed = (Date.now() & 0xffffff) }) {
+    this.listeners = {};
+    this.sfx = () => {};
+    this.fx = { particles: [], texts: [], lines: [], rings: [] };
+    this.enemies = [];
+    this.projectiles = [];
+    this.units = [];
+    this.fields = [];
+    this.spawnQueue = [];
+    this.towers = [];
+    this.towerAt = new Map();
+    this.speed = 1;
+    this.paused = false;
+    this.time = 0;
+    this.shake = 0;
+    this.choiceQueue = [];
+    this.placing = null;
+    this.nextId = 1;
+    if (save) this.load(save);
+    else this.init(commander, heat, seed);
+    this.heatMul = heatInfo(this.heat);
+    this.recomputeStats();
+  }
+
+  init(commander, heat, seed) {
+    this.seed = seed;
+    this.rng = mulberry32(seed);
+    this.commander = commander;
+    this.heat = heat;
+    this.mods = buildRunMods(commander);
+    this.wave = 0;
+    this.gold = this.mods.startGold;
+    this.shards = 0;
+    this.coreHp = this.mods.coreMax;
+    this.augments = {};
+    this.rerolls = this.mods.rerolls;
+    this.stats = { kills: 0, combos: 0, built: 0, branches: 0, maxGold: this.gold, bosses: [], leaks: 0, kinds: {}, elites: 0 };
+    this.phase = 'build';
+    this.world = new World();
+    this.world.createCore();
+    // first chunk so the starting path has some length
+    const arch = ARCHETYPES.find((a) => a.id === 'conduit');
+    this.world.attach(this.world.portals[0], arch, ['high'], 0, randInt(this.rng, 1, 1e9));
+    for (let i = 0; i < this.mods.startAug; i++) this.addAugment(this.randomAugment(1).id);
+  }
+
+  on(ev, fn) { (this.listeners[ev] = this.listeners[ev] || []).push(fn); }
+  emit(ev, data) { for (const fn of this.listeners[ev] || []) fn(data); }
+  toast(msg, color) { this.emit('toast', { msg, color }); }
+
+  get sector() { return Math.floor(this.wave / BOSS_EVERY); }
+  get maxCore() { return Math.max(1, this.mods.coreMax); }
+
+  availableTowers() {
+    const set = new Set(meta.unlocked);
+    const cmd = COMMANDERS.find((c) => c.id === this.commander);
+    if (cmd && cmd.sig) set.add(cmd.sig);
+    return TOWER_ORDER.filter((t) => set.has(t));
+  }
+
+  // ---------------- economy ----------------
+  addGold(n) {
+    this.gold += Math.max(0, Math.round(n));
+    if (this.gold > this.stats.maxGold) this.stats.maxGold = this.gold;
+  }
+  heal(n) { this.coreHp = Math.min(this.maxCore, this.coreHp + n); }
+
+  costFactor(type) { return Math.max(0.4, 1 + this.mods.cost + this.mods.t[type].cost); }
+  towerCost(type) { return Math.round(TOWERS[type].cost * this.costFactor(type)); }
+  upgradeCost(tw) {
+    if (tw.level >= 4) return null;
+    return Math.round(tw.def.cost * LEVELS[tw.level + 1].cost * this.costFactor(tw.type));
+  }
+
+  canBuild(x, y) {
+    return isBuildable(this.world.tile(x, y)) && !this.towerAt.has(x + ',' + y);
+  }
+
+  build(type, x, y) {
+    const cost = this.towerCost(type);
+    if (this.gold < cost || !this.canBuild(x, y)) return null;
+    this.gold -= cost;
+    const tw = {
+      id: this.nextId++, type, def: TOWERS[type], tx: x, ty: y, x: center(x), y: center(y),
+      level: 1, branch: null, cd: 0.2, angle: -Math.PI / 2, mode: 'first', invested: cost,
+      dmgDealt: 0, kills: 0, disabled: 0, drones: [], beam: [], rampT: 0, rampTarget: null,
+    };
+    this.towers.push(tw);
+    this.towerAt.set(x + ',' + y, tw);
+    this.stats.built++;
+    if (type === 'drone') this.computeRally(tw);
+    this.recomputeStats();
+    this.sfx('build');
+    this.burst(tw.x, tw.y, tw.def.color, 12);
+    return tw;
+  }
+
+  upgrade(tw, branch) {
+    const cost = this.upgradeCost(tw);
+    if (cost == null || this.gold < cost) return false;
+    if (tw.level === 3 && !branch) return false;
+    this.gold -= cost;
+    tw.invested += cost;
+    tw.level++;
+    if (tw.level === 4) { tw.branch = branch; this.stats.branches++; }
+    this.recomputeStats();
+    this.sfx('upgrade');
+    this.burst(tw.x, tw.y, tw.def.color, 16);
+    this.text(tw.x, tw.y - 8, tw.level === 4 ? tw.def.branches[branch].name.toUpperCase() : 'LV ' + tw.level, tw.def.color);
+    return true;
+  }
+
+  sellValue(tw) { return Math.round(tw.invested * Math.min(1, this.mods.refund)); }
+
+  sell(tw) {
+    this.addGold(this.sellValue(tw));
+    this.towers.splice(this.towers.indexOf(tw), 1);
+    this.towerAt.delete(tw.tx + ',' + tw.ty);
+    for (const d of tw.drones) d.alive = false;
+    this.recomputeStats();
+    this.sfx('sell');
+  }
+
+  salvage(x, y) {
+    if (this.world.tile(x, y) !== T.CACHE) return false;
+    this.world.setTile(x, y, T.GROUND);
+    if (this.rng() < 0.6) {
+      const g = 25 + this.wave * 8;
+      this.addGold(g);
+      this.text(center(x), center(y), '+' + g + 'c', '#ffe84a');
+    } else {
+      const s = randInt(this.rng, 1, 2);
+      this.shards += s;
+      this.text(center(x), center(y), '+' + s + ' shard', '#ff3df2');
+    }
+    this.sfx('coin');
+    this.burst(center(x), center(y), '#ffe84a', 10);
+    return true;
+  }
+
+  // ---------------- tower stats ----------------
+  recomputeStats() {
+    const m = this.mods;
+    const base = (tw, amp) => {
+      const d = tw.def, L = LEVELS[tw.level], br = tw.branch ? d.branches[tw.branch] : {};
+      const tm = m.t[tw.type];
+      const tile = this.world.tile(tw.tx, tw.ty);
+      const dmgMult = (1 + m.dmg + tm.dmg + amp.dmg) * L.dmg * (br.dmgMult || 1) * (tile === T.NODE ? 1.3 : 1);
+      let range = d.range * L.range * (1 + m.range + amp.range) * (tile === T.HIGH ? 1.25 : 1);
+      if (tw.type === 'amplifier') range *= 1 + m.ampRange;
+      return {
+        dmg: (d.dmg || 0) * dmgMult,
+        dmgMult,
+        rate: (d.rate || 1) * L.rate * (1 + m.rate + tm.rate + amp.rate),
+        range,
+        minRange: (d.minRange || 0) * m.mortarMin * m.mortarMinMult,
+        crit: m.crit + (d.crit || 0) + (br.critBonus || 0) + amp.crit,
+        critMult: Math.max(br.critMult || 0, m.critMult),
+        splash: (d.splash || 0) * (1 + (tw.type === 'cannon' ? m.splash : 0) + tm.splash) * (br.splashMult || 1),
+        chains: (d.chains || 0) + (br.chainBonus || 0) + m.chainBonus,
+        pierce: tw.type === 'railgun' ? 1 + m.pierce + (br.pierce || 0) : (br.pierce || 0),
+        multi: br.multi || 1,
+        slow: Math.min(0.8, (d.slow || 0) + (d.slow ? m.chill : 0)),
+        slowDur: (d.slowDur || 0) * (1 + m.chillDur),
+        poison: (d.poison || 0) * L.dmg * (1 + m.poison + m.dmg + tm.dmg + amp.dmg),
+        poisonDur: (d.poisonDur || 0) * (1 + m.poisonDur),
+        drones: (d.drones || 0) + (br.dronesBonus || 0) + m.drones,
+        droneHp: (d.droneHp || 0) * L.dmg * (br.droneHpMult || 1) * (1 + m.droneHp),
+        droneDmg: (d.droneDmg || 0) * dmgMult * (br.droneDmgMult || 1),
+        income: (d.income || 0) * L.dmg * (1 + m.miner),
+        buff: ((d.buff || 0) + m.ampBuff) * (1 + (tw.level - 1) * 0.35),
+        ramp: (d.ramp || 1) * (br.rampMult || 1) * (1 + m.laserRamp),
+        rampTime: (d.rampTime || 1) / (br.rampSpeed || 1),
+        revive: (d.revive || 0) + (br.reviveBonus || 0) + m.revive,
+        execute: br.execute || 0,
+        br,
+      };
+    };
+    const zero = { dmg: 0, rate: 0, range: 0, crit: 0, reveal: false };
+    const amps = this.towers.filter((t) => t.type === 'amplifier');
+    for (const a of amps) a.stats = base(a, zero);
+    for (const tw of this.towers) {
+      if (tw.type === 'amplifier') continue;
+      const amp = { dmg: 0, rate: 0, range: 0, crit: 0, reveal: false };
+      for (const a of amps) {
+        if (a.disabled > 0) continue;
+        if (dist2(a.x, a.y, tw.x, tw.y) > a.stats.range * a.stats.range) continue;
+        amp.dmg += a.stats.buff;
+        const br = a.stats.br;
+        if (br.buffRate) amp.rate += br.buffRate;
+        if (br.buffRange) { amp.range += br.buffRange; amp.reveal = true; }
+        if (br.buffCrit) amp.crit += br.buffCrit;
+      }
+      tw.stats = base(tw, amp);
+      tw.reveal = amp.reveal;
+      tw.buffed = amp.dmg > 0;
+    }
+  }
+
+  computeRally(tw) {
+    let best = null, bd = Infinity;
+    const r = Math.ceil(tw.def.range / TS) + 1;
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        const t = this.world.tile(tw.tx + dx, tw.ty + dy);
+        if (!isPath(t) || t === T.CORE) continue;
+        const d = dx * dx + dy * dy;
+        if (d < bd) { bd = d; best = [center(tw.tx + dx), center(tw.ty + dy)]; }
+      }
+    }
+    tw.rally = best;
+  }
+
+  // ---------------- augments ----------------
+  randomAugment(minRarity = 1, exclude = []) {
+    const avail = new Set(this.availableTowers());
+    const pool = AUGMENTS.filter((a) => a.rarity >= minRarity && (!a.tower || avail.has(a.tower))
+      && !exclude.includes(a.id) && !(UNIQUE_AUGS.has(a.id) && this.augments[a.id]));
+    const w = this.wave;
+    const weights = { 1: 70, 2: 25 + w * 0.5, 3: 5 + w * 0.3 };
+    return weightedPick(this.rng, pool.map((a) => ({ a, w: weights[a.rarity] }))).a;
+  }
+
+  rollAugments(n, minRarity = 1) {
+    const out = [];
+    for (let i = 0; i < n; i++) out.push(this.randomAugment(minRarity, out.map((a) => a.id)));
+    return out;
+  }
+
+  addAugment(id) {
+    const a = AUG_BY_ID[id];
+    this.augments[id] = (this.augments[id] || 0) + 1;
+    a.apply(this.mods, this);
+    this.coreHp = Math.min(this.coreHp, this.maxCore);
+    this.recomputeStats();
+  }
+
+  // ---------------- waves ----------------
+  hpScale(w) { return (1 + 0.15 * (w - 1)) * Math.pow(1.058, w - 1) * (w > 40 ? Math.pow(1.03, w - 40) : 1) * this.heatMul.hp * this.mods.hpMult; }
+
+  peekWave() {
+    const w = this.wave + 1;
+    if (w % BOSS_EVERY === 0) {
+      const b = BOSSES[(w / BOSS_EVERY - 1) % BOSSES.length];
+      return { boss: b, text: 'BOSS: ' + b.name };
+    }
+    if (w % 5 === 0 && w >= 15) return { elite: true, text: 'ELITE WAVE' };
+    return { text: 'Wave ' + w };
+  }
+
+  startWave() {
+    if (this.phase !== 'build') return;
+    this.wave++;
+    const w = this.wave;
+    this.phase = 'wave';
+    this.waveLeaks = 0;
+    const portals = this.world.portals;
+    const pool = Object.values(ENEMIES).filter((e) => e.minWave <= w && e.w > 0).map((e) => ({ e, w: e.w }));
+    const n = Math.min(80, Math.floor(5 + w * 1.5));
+    const interval = Math.max(0.25, 0.9 - w * 0.012);
+    const isBoss = w % BOSS_EVERY === 0;
+    const eliteMod = !isBoss && w % 5 === 0 && w >= 15 ? pick(this.rng, Object.keys(ELITE_MODS)) : null;
+    const randomEliteChance = w > 12 ? Math.min(0.25, 0.02 + w * 0.003) : 0;
+    const q = [];
+    let t = 1;
+    for (let i = 0; i < n; i++) {
+      const def = weightedPick(this.rng, pool).e;
+      const pi = i % portals.length;
+      let elite = eliteMod;
+      if (!elite && this.rng() < randomEliteChance) elite = pick(this.rng, Object.keys(ELITE_MODS));
+      const count = def.group || 1;
+      for (let g = 0; g < count; g++) { q.push({ t, type: def.id, portal: pi, elite }); t += 0.12; }
+      t += interval * (isBoss ? 1.3 : 1);
+    }
+    if (isBoss) {
+      const bi = (w / BOSS_EVERY - 1) % BOSSES.length;
+      q.push({ t: Math.min(t * 0.4, 8), boss: bi, portal: 0 });
+      this.sfx('alarm');
+      this.toast('WARNING: ' + BOSSES[bi].name.toUpperCase(), '#ff2f5a');
+    } else if (eliteMod) {
+      this.toast('ELITE WAVE: ' + ELITE_MODS[eliteMod].name, '#ffe84a');
+    }
+    q.sort((a, b) => a.t - b.t);
+    this.spawnQueue = q;
+    this.waveTime = 0;
+    this.overtime = false;
+    this.emit('wave', w);
+  }
+
+  spawnEnemy(type, portalIdx, elite, at = null, bossIdx = null) {
+    const portal = this.world.portals[portalIdx % this.world.portals.length];
+    if (!portal) return null;
+    const def = bossIdx != null ? BOSSES[bossIdx] : ENEMIES[type];
+    const w = this.wave;
+    const flying = !!def.flying;
+    let route;
+    if (at) route = at.route;
+    else if (flying) route = [[center(portal.tx), center(portal.ty)], [center(3), center(3)]];
+    else route = this.world.route(portal, this.rng).map(([x, y]) => [center(x), center(y)]);
+    const bossNum = bossIdx != null ? Math.floor(w / BOSS_EVERY) : 0;
+    const bossMult = bossNum === 1 ? 0.55 : bossNum === 2 ? 0.8 : 1 + 0.25 * Math.floor((bossNum - 1) / BOSSES.length);
+    let hp = def.hp * this.hpScale(w) * (bossIdx != null ? bossMult : 1);
+    const e = {
+      id: this.nextId++, type: bossIdx != null ? def.id : type, def, boss: bossIdx != null, route, i: 0,
+      x: route[0][0], y: route[0][1], hp, maxHp: hp, shield: 0, maxShield: 0, armor: (def.armor || 0) * (1 + w * 0.02),
+      speed: def.speed * Math.min(1.3, 1 + w * 0.005) * this.heatMul.speed, flying, size: def.size || (bossIdx != null ? 10 : 5),
+      gold: def.gold * (1 + 0.03 * (w - 1)), core: def.core, alive: true, traveled: 0, len: 0,
+      slow: 0, slowT: 0, freeze: 0, stun: 0, shock: 0, poison: 0, poisonT: 0, corrode: 0, plague: false,
+      shieldDelay: 0, hitFlash: 0, anim: this.rng() * 10, timers: {}, elite: null, atk: (def.atk || 5) * (1 + 0.07 * (w - 1)),
+      spawnSlow: this.mods.spawnSlow, ccImmune: 0, phased: false, cloaked: false, blocker: null, dir: 1,
+    };
+    for (let k = 1; k < route.length; k++) e.len += dist(route[k - 1][0], route[k - 1][1], route[k][0], route[k][1]);
+    if (at) { e.x = at.x; e.y = at.y; e.i = at.i; e.traveled = at.traveled; e.x += (this.rng() - 0.5) * 6; e.y += (this.rng() - 0.5) * 6; }
+    if (def.shield) { e.shield = e.maxShield = def.shield * this.hpScale(w); }
+    if (elite) {
+      e.elite = elite;
+      e.gold *= 3; e.core += 1;
+      if (elite === 'armored') e.armor += 6;
+      if (elite === 'fast') e.speed *= 1.4;
+      if (elite === 'cloaked') e.cloaked = true;
+      if (elite === 'shielded') { e.shield += e.hp * 0.6; e.maxShield = e.shield; }
+      if (elite === 'giant') { e.hp *= 3; e.maxHp = e.hp; e.size *= 1.5; }
+    }
+    if (e.boss) {
+      e.gold = def.gold * (1 + 0.1 * bossNum);
+      e.core = Math.min(def.core, 6 + bossNum * 3);
+      e.bossIdx = bossIdx;
+      if (def.shieldType) { e.shield = e.maxShield = e.maxHp * 0.4; e.weak = 'kin'; e.timers.weak = 7; }
+      if (def.spawner) e.timers.spawn = 4;
+      if (def.emp) e.timers.emp = 6;
+      if (def.teleport) e.timers.tp = 5;
+      this.emit('boss', e);
+    }
+    this.enemies.push(e);
+    return e;
+  }
+
+  endWave() {
+    this.phase = 'reward';
+    const w = this.wave;
+    let income = Math.round((20 + w * 4) * this.mods.waveGold);
+    const interest = Math.min(50 + w * 10, Math.floor(this.gold * this.mods.interest));
+    income += interest;
+    for (const tw of this.towers) {
+      if (tw.type !== 'miner') continue;
+      income += Math.round(tw.stats.income);
+      if (tw.stats.br.bank) income += Math.min(80, Math.floor(this.gold * tw.stats.br.bank));
+      if (tw.stats.br.shards) this.shards += tw.stats.br.shards;
+    }
+    this.addGold(income);
+    if (this.mods.regen) this.heal(this.mods.regen);
+    this.toast(`WAVE ${w} CLEARED  +${income}c`, '#4dff8a');
+    this.sfx('clear');
+
+    const q = [];
+    if (w % EXPAND_EVERY === 0 || w % BOSS_EVERY === 0) q.push({ kind: 'expand' });
+    if (w % BOSS_EVERY === 0) q.push({ kind: 'augment', minRarity: 2, title: 'BOSS SPOILS' });
+    else if (w % 2 === 1) q.push({ kind: 'augment' });
+    else {
+      const r = this.rng();
+      q.push({ kind: r < 0.4 ? 'shop' : r < 0.75 ? 'event' : 'augment' });
+    }
+    this.choiceQueue = q;
+    this.nextChoice();
+  }
+
+  nextChoice() {
+    if (this.phase === 'over') return;
+    const c = this.choiceQueue.shift();
+    if (!c) {
+      this.phase = 'build';
+      this.placing = null;
+      this.save();
+      this.emit('build');
+      return;
+    }
+    this.phase = 'choice';
+    if (c.kind === 'augment') c.options = this.rollAugments(this.mods.choices, c.minRarity || 1);
+    if (c.kind === 'shop') c.items = this.makeShop();
+    if (c.kind === 'event') c.event = this.makeEvent();
+    if (c.kind === 'expand') {
+      c.cards = this.makeChunkCards();
+      if (!this.world.portals.some((p) => p.side !== 'G')) { this.nextChoice(); return; }
+    }
+    this.current = c;
+    this.emit('choice', c);
+  }
+
+  reroll(c) {
+    if (this.rerolls > 0) this.rerolls--;
+    else { const cost = this.rerollCost(); if (this.gold < cost) return false; this.gold -= cost; }
+    if (c.kind === 'augment') c.options = this.rollAugments(this.mods.choices, c.minRarity || 1);
+    if (c.kind === 'shop') c.items = this.makeShop();
+    return true;
+  }
+  rerollCost() { return 30 + this.wave * 3; }
+
+  makeShop() {
+    const augs = this.rollAugments(3);
+    const items = augs.map((a) => ({ aug: a, price: Math.round(RARITY[a.rarity].price * (1 + this.wave * 0.02) * this.mods.shop), sold: false }));
+    items.push({ repair: 5, price: Math.round((60 + this.wave * 4) * this.mods.shop), sold: false });
+    return items;
+  }
+
+  buyShop(item) {
+    if (item.sold || this.gold < item.price) return false;
+    this.gold -= item.price;
+    item.sold = true;
+    if (item.aug) this.addAugment(item.aug.id);
+    if (item.repair) this.heal(item.repair);
+    this.sfx('coin');
+    return true;
+  }
+
+  makeEvent() {
+    const ev = pick(this.rng, EVENTS);
+    if (ev.options === 'ritual') {
+      const types = shuffle(this.rng, this.availableTowers().slice()).slice(0, 3);
+      return {
+        ...ev,
+        options: [
+          ...types.map((t) => ({
+            label: `Empower ${TOWERS[t].name}`,
+            act: (run) => { run.mods.t[t].dmg += 0.3; run.mods.t[t].cost += 0.2; run.recomputeStats(); return `${TOWERS[t].name} surges with power.`; },
+          })),
+          { label: 'Leave', act: () => 'Nothing happens.' },
+        ],
+      };
+    }
+    return ev;
+  }
+
+  makeChunkCards() {
+    const portals = this.world.portals.length;
+    const pool = ARCHETYPES.filter((a) => !a.needsPortals || portals >= a.needsPortals).map((a) => ({ a, w: a.w }));
+    const cards = [];
+    const used = new Set();
+    for (let i = 0; i < 3; i++) {
+      let a;
+      for (let k = 0; k < 10; k++) { a = weightedPick(this.rng, pool).a; if (!used.has(a.id)) break; }
+      used.add(a.id);
+      const mods = a.id === 'sealed' ? [] : rollChunkMods(this.rng, randInt(this.rng, 1, 2));
+      const seed = randInt(this.rng, 1, 1e9);
+      const preview = genChunk({ arch: a, mods, sector: this.sector, seed, entry: 'W' });
+      cards.push({ arch: a, mods, seed, preview });
+    }
+    return cards;
+  }
+
+  placeChunk(portal) {
+    const card = this.placing;
+    if (!card) return false;
+    const ch = this.world.attach(portal, card.arch, card.mods, this.sector, card.seed);
+    const r = card.arch.reward;
+    if (r.gold) { if (r.gold > 0) this.addGold(r.gold); else this.gold = Math.max(0, this.gold + r.gold); }
+    if (r.shards) this.shards += r.shards;
+    if (r.hpMult) this.mods.hpMult += r.hpMult;
+    if (r.aug) { const a = this.randomAugment(r.aug); this.addAugment(a.id); this.toast('Crossroads bonus: ' + a.name, '#ff3df2'); }
+    for (const tw of this.towers) if (tw.type === 'drone') this.computeRally(tw);
+    this.placing = null;
+    this.sfx('expand');
+    for (let i = 0; i < 30; i++) {
+      this.particle(ch.cx * CS * TS + this.rng() * CS * TS, ch.cy * CS * TS + this.rng() * CS * TS, '#2ef2ff', 0, -10, 0.8);
+    }
+    this.emit('expanded', ch);
+    this.nextChoice();
+    return true;
+  }
+
+  // ---------------- core ----------------
+  damageCore(n, silent) {
+    if (this.phase === 'over') return;
+    this.coreHp -= n;
+    this.shake = Math.min(8, this.shake + 2 + n);
+    if (!silent) this.sfx('leak');
+    if (this.coreHp <= 0) {
+      if (this.mods.emergency > 0) {
+        this.mods.emergency--;
+        this.coreHp = 5;
+        this.toast('EMERGENCY PROTOCOL ENGAGED', '#ff2f5a');
+        this.ring(center(3), center(3), 60, '#2ef2ff');
+        for (const e of this.enemies) if (!e.boss && dist(e.x, e.y, center(3), center(3)) < 60) this.damage(e, 99999, 'eng', null);
+      } else {
+        this.coreHp = 0;
+        this.gameOver();
+      }
+    }
+  }
+
+  gameOver() {
+    this.phase = 'over';
+    this.sfx('lose');
+    const w = this.wave;
+    const bossKills = this.stats.bosses.length;
+    const xp = Math.round((w * 14 + bossKills * 60 + this.stats.kills * 0.4) * this.heatMul.reward * this.mods.xpMult);
+    const shards = Math.round((this.shards + Math.floor(w / 2)) * this.mods.shardMult * this.heatMul.reward);
+    const prevLevel = meta.level;
+    const ups = addXp(xp);
+    meta.shards += shards;
+    meta.runs++;
+    meta.totalKills += this.stats.kills;
+    meta.bestWave = Math.max(meta.bestWave, w);
+    for (const [k, v] of Object.entries(this.stats.kinds)) meta.bestiary[k] = (meta.bestiary[k] || 0) + v;
+    for (const b of this.stats.bosses) meta.bossKills[b] = (meta.bossKills[b] || 0) + 1;
+    let heatUp = false;
+    if (w >= 20 && this.heat >= meta.heatUnlocked && meta.heatUnlocked < 10) { meta.heatUnlocked = this.heat + 1; heatUp = true; }
+    const ach = checkAchievements(this);
+    saveMeta();
+    clearRun();
+    this.emit('over', { wave: w, xp, shards, ups, prevLevel, ach, heatUp, kills: this.stats.kills, bosses: bossKills });
+  }
+
+  // ---------------- update ----------------
+  update(dt) {
+    if (this.paused || this.phase === 'over') return;
+    dt *= this.speed;
+    const steps = Math.ceil(dt / (1 / 60));
+    const h = dt / steps;
+    for (let s = 0; s < steps; s++) this.step(h);
+  }
+
+  step(dt) {
+    this.time += dt;
+    if (this.shake > 0) this.shake = Math.max(0, this.shake - dt * 20);
+    if (this.phase === 'wave') {
+      this.waveTime += dt;
+      if (!this.overtime && this.waveTime > 120 && !this.spawnQueue.length) {
+        this.overtime = true;
+        this.toast('OVERTIME: ENEMIES ENRAGED', '#ff2f5a');
+      }
+      while (this.spawnQueue.length && this.spawnQueue[0].t <= this.waveTime) {
+        const s = this.spawnQueue.shift();
+        if (s.boss != null) this.spawnEnemy(null, s.portal, null, null, s.boss);
+        else this.spawnEnemy(s.type, s.portal, s.elite);
+      }
+    }
+    for (const e of this.enemies) if (e.alive) this.updateEnemy(e, dt);
+    for (const tw of this.towers) this.updateTower(tw, dt);
+    for (const p of this.projectiles) this.updateProjectile(p, dt);
+    for (const u of this.units) if (u.alive) this.updateUnit(u, dt);
+    for (const f of this.fields) this.updateField(f, dt);
+    this.enemies = this.enemies.filter((e) => e.alive);
+    this.projectiles = this.projectiles.filter((p) => p.alive);
+    this.units = this.units.filter((u) => u.alive);
+    this.fields = this.fields.filter((f) => f.t > 0);
+    this.updateFx(dt);
+    if (this.phase === 'wave' && !this.spawnQueue.length && !this.enemies.length) this.endWave();
+  }
+
+  updateEnemy(e, dt) {
+    e.anim += dt;
+    if (e.hitFlash > 0) e.hitFlash -= dt;
+    e.slowT -= dt; if (e.slowT <= 0) e.slow = 0;
+    e.freeze -= dt; e.stun -= dt; e.ccImmune -= dt; e.shock -= dt; e.corrode -= dt; e.spawnSlow -= dt;
+    // poison
+    if (e.poisonT > 0) {
+      e.poisonT -= dt;
+      this.damage(e, e.poison * dt, 'bio', e.poisonSrc, { dot: true });
+      if (!e.alive) return;
+      if (e.poisonT <= 0) e.poison = 0;
+    }
+    // regen / shields
+    if (e.elite === 'regen') e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.03 * dt);
+    if (e.maxShield > 0 && !e.def.shieldType) {
+      e.shieldDelay -= dt;
+      if (e.shieldDelay <= 0) e.shield = Math.min(e.maxShield, e.shield + e.maxShield * 0.25 * dt);
+    }
+    if (e.def.phase) { e.phased = (e.anim % 3.2) > 2.3; }
+    if (e.def.heal) {
+      e.timers.heal = (e.timers.heal || 2) - dt;
+      if (e.timers.heal <= 0) {
+        e.timers.heal = 2;
+        for (const o of this.enemies) {
+          if (o.alive && o !== e && dist2(o.x, o.y, e.x, e.y) < 900) { o.hp = Math.min(o.maxHp, o.hp + o.maxHp * 0.06); }
+        }
+        this.ring(e.x, e.y, 30, '#4dff8a');
+      }
+    }
+    if (e.boss) this.bossLogic(e, dt);
+    if (!e.alive) return;
+
+    // movement
+    let spd = e.speed * Math.max(0.2, 1 + this.mods.enemySpeed);
+    if (this.overtime) { e.freeze = 0; e.stun = 0; e.slow = 0; spd *= 1.5; }
+    if (e.freeze > 0 || (e.stun > 0)) spd = 0;
+    if (e.slow > 0) spd *= 1 - e.slow;
+    if (e.spawnSlow > 0) spd *= 0.5;
+    if (!e.flying) {
+      const t = this.world.tile(Math.floor(e.x / TS), Math.floor(e.y / TS));
+      if (t === T.SLUDGE) spd *= 0.6;
+    }
+    if (e.blocker) {
+      if (!e.blocker.alive || dist2(e.blocker.x, e.blocker.y, e.x, e.y) > 196) e.blocker = null;
+      else {
+        spd = 0;
+        e.blocker.hp -= e.atk * dt;
+        if (e.blocker.hp <= 0) this.killUnit(e.blocker);
+      }
+    }
+    let move = spd * dt;
+    while (move > 0 && e.i < e.route.length - 1) {
+      const [tx, ty] = e.route[e.i + 1];
+      const dx = tx - e.x, dy = ty - e.y;
+      const d = Math.hypot(dx, dy);
+      if (dx) e.dir = Math.sign(dx);
+      if (d <= move) { e.x = tx; e.y = ty; e.i++; move -= d; e.traveled += d; }
+      else { e.x += (dx / d) * move; e.y += (dy / d) * move; e.traveled += move; move = 0; }
+    }
+    if (e.i >= e.route.length - 1) {
+      e.alive = false;
+      this.stats.leaks++;
+      this.damageCore(e.core);
+      this.burst(e.x, e.y, '#ff2f5a', 10);
+    }
+  }
+
+  bossLogic(e, dt) {
+    const d = e.def;
+    for (const k in e.timers) e.timers[k] -= dt;
+    if (d.shieldType) {
+      if (e.timers.weak <= 0) {
+        const types = ['kin', 'eng', 'exp'];
+        e.weak = types[(types.indexOf(e.weak) + 1) % types.length];
+        e.timers.weak = 7;
+      }
+      if (!e.rebuilt && e.hp < e.maxHp * 0.5) {
+        e.rebuilt = true;
+        e.shield = e.maxShield * 0.75;
+        this.ring(e.x, e.y, 24, '#2ef2ff');
+      }
+    }
+    if (d.spawner && e.timers.spawn <= 0) {
+      e.timers.spawn = d.flying ? 5 : 4;
+      const at = { x: e.x, y: e.y, i: e.i, traveled: e.traveled, route: e.route };
+      if (d.flying) { for (let k = 0; k < 2; k++) this.spawnEnemy('wasp', 0, null, at); }
+      else for (let k = 0; k < 3; k++) this.spawnEnemy('swarm', 0, null, at);
+    }
+    if (d.emp && e.timers.emp <= 0) {
+      e.timers.emp = 7;
+      this.ring(e.x, e.y, 64, '#ffe84a');
+      this.sfx('emp');
+      for (const tw of this.towers) if (dist2(tw.x, tw.y, e.x, e.y) < 64 * 64) tw.disabled = 3;
+      this.recomputeStats();
+    }
+    if (d.teleport && e.timers.tp <= 0 && e.i < e.route.length - 6) {
+      e.timers.tp = 5;
+      this.burst(e.x, e.y, '#ff3df2', 14);
+      const ni = Math.min(e.route.length - 2, e.i + 4);
+      for (let k = e.i; k < ni; k++) e.traveled += TS;
+      e.i = ni;
+      [e.x, e.y] = e.route[ni];
+      e.phasedT = 0.6;
+      this.burst(e.x, e.y, '#ff3df2', 14);
+    }
+    if (d.teleport) { e.phasedT = (e.phasedT || 0) - dt; e.phased = e.phasedT > 0; }
+  }
+
+  // ---------------- targeting ----------------
+  canTarget(tw, e, s) {
+    if (!e.alive || e.phased) return false;
+    if (tw.def.ground && e.flying) return false;
+    const d2 = dist2(tw.x, tw.y, e.x, e.y);
+    if (d2 > s.range * s.range) return false;
+    if (s.minRange && d2 < s.minRange * s.minRange) return false;
+    if (e.cloaked && !tw.reveal && d2 > 40 * 40) return false;
+    return true;
+  }
+
+  targets(tw, n = 1, exclude = null) {
+    const s = tw.stats;
+    const c = [];
+    for (const e of this.enemies) if (e !== exclude && this.canTarget(tw, e, s)) c.push(e);
+    if (!c.length) return c;
+    const key = {
+      first: (e) => e.len - e.traveled,
+      last: (e) => -(e.len - e.traveled),
+      strong: (e) => -(e.hp + e.shield),
+      close: (e) => dist2(tw.x, tw.y, e.x, e.y),
+    }[tw.mode];
+    c.sort((a, b) => key(a) - key(b));
+    return c.slice(0, n);
+  }
+
+  updateTower(tw, dt) {
+    if (tw.disabled > 0) {
+      tw.disabled -= dt;
+      tw.beam = [];
+      if (tw.disabled <= 0 && tw.type === 'amplifier') this.recomputeStats();
+      return;
+    }
+    const s = tw.stats;
+    const d = tw.def;
+    if (tw.type === 'drone') return this.updateDroneBay(tw, dt);
+    if (d.proj === 'none') return;
+    if (tw.type === 'cryo' && s.br.aura) {
+      tw.cd -= dt;
+      if (tw.cd <= 0) {
+        tw.cd = 0.5;
+        let any = false;
+        for (const e of this.enemies) {
+          if (!this.canTarget(tw, e, s)) continue;
+          any = true;
+          this.applyStatus(tw, e, s);
+          this.damage(e, s.dmg * 0.5, 'cry', tw);
+        }
+        if (any) this.ring(tw.x, tw.y, s.range, '#8fe8ff', 0.4);
+      }
+      return;
+    }
+    if (d.proj === 'beam') return this.updateLaser(tw, dt);
+    tw.cd -= dt;
+    if (tw.cd > 0) return;
+    const ts = this.targets(tw, s.multi);
+    if (!ts.length) { tw.cd = 0.05; return; }
+    tw.angle = Math.atan2(ts[0].y - tw.y, ts[0].x - tw.x);
+    tw.cd = 1 / s.rate;
+    if (tw.type === 'blaster' && this.mods.doubleTap && this.rng() < this.mods.doubleTap) tw.cd = 0.08;
+    tw.recoil = 1;
+    for (const tgt of ts) this.fire(tw, tgt);
+  }
+
+  fire(tw, tgt) {
+    const s = tw.stats, d = tw.def;
+    const mx = tw.x + Math.cos(tw.angle) * 7, my = tw.y + Math.sin(tw.angle) * 7;
+    switch (d.proj) {
+      case 'bolt':
+      case 'orb': {
+        const pierce = s.pierce > 0;
+        const ang = Math.atan2(tgt.y - my, tgt.x - mx);
+        this.projectiles.push({
+          kind: d.proj, tw, x: mx, y: my, target: pierce ? null : tgt, tx: tgt.x, ty: tgt.y,
+          vx: Math.cos(ang) * d.projSpeed, vy: Math.sin(ang) * d.projSpeed, speed: d.projSpeed,
+          life: (s.range * 1.4) / d.projSpeed, pierce: s.pierce, hit: new Set(), color: d.color, alive: true,
+        });
+        this.sfx(tw.type === 'cryo' ? 'cryo' : 'shoot');
+        break;
+      }
+      case 'shell':
+      case 'glob': {
+        const flight = dist(mx, my, tgt.x, tgt.y) / d.projSpeed;
+        // lead the target a little
+        const lead = this.predict(tgt, flight);
+        this.projectiles.push({ kind: d.proj, tw, x: mx, y: my, sx: mx, sy: my, tx: lead[0], ty: lead[1], t: 0, flight, color: d.color, alive: true });
+        this.sfx(d.proj === 'shell' ? 'cannon' : 'glob');
+        break;
+      }
+      case 'mortar': {
+        const n = s.br.volley || 1;
+        for (let k = 0; k < n; k++) {
+          const lead = this.predict(tgt, 1.1);
+          const ox = k ? (this.rng() - 0.5) * 40 : 0, oy = k ? (this.rng() - 0.5) * 40 : 0;
+          this.projectiles.push({ kind: 'mortar', tw, x: tw.x, y: tw.y, sx: tw.x, sy: tw.y, tx: lead[0] + ox, ty: lead[1] + oy, t: -k * 0.15, flight: 1.1, color: d.color, alive: true });
+        }
+        this.sfx('mortar');
+        break;
+      }
+      case 'chain': this.fireChain(tw, tgt); break;
+      case 'rail': this.fireRail(tw, tgt); break;
+    }
+  }
+
+  predict(e, t) {
+    // walk along route by speed*t
+    let move = e.speed * (1 - e.slow) * t * (e.freeze > 0 || e.stun > 0 || e.blocker ? 0 : 1);
+    let x = e.x, y = e.y, i = e.i;
+    while (move > 0 && i < e.route.length - 1) {
+      const [tx, ty] = e.route[i + 1];
+      const d = Math.hypot(tx - x, ty - y);
+      if (d <= move) { x = tx; y = ty; i++; move -= d; } else { x += ((tx - x) / d) * move; y += ((ty - y) / d) * move; move = 0; }
+    }
+    return [x, y];
+  }
+
+  fireChain(tw, first) {
+    const s = tw.stats;
+    const hit = new Set();
+    let cur = first, px = tw.x, py = tw.y - 4, dmg = s.dmg;
+    for (let k = 0; k <= s.chains && cur; k++) {
+      hit.add(cur);
+      this.line(px, py, cur.x, cur.y, '#ffe84a', 'chain');
+      this.hit(tw, cur, dmg, s);
+      px = cur.x; py = cur.y;
+      dmg *= 0.85;
+      let best = null, bd = s.chainRange * s.chainRange;
+      for (const e of this.enemies) {
+        if (!e.alive || hit.has(e) || e.phased) continue;
+        const d2 = dist2(px, py, e.x, e.y);
+        if (d2 < bd) { bd = d2; best = e; }
+      }
+      cur = best;
+    }
+    this.sfx('zap');
+  }
+
+  fireRail(tw, tgt) {
+    const s = tw.stats;
+    const ang = Math.atan2(tgt.y - tw.y, tgt.x - tw.x);
+    tw.angle = ang;
+    const ex = tw.x + Math.cos(ang) * s.range * 1.1, ey = tw.y + Math.sin(ang) * s.range * 1.1;
+    const cands = [];
+    for (const e of this.enemies) {
+      if (!e.alive || e.phased) continue;
+      // projection onto the segment
+      const vx = ex - tw.x, vy = ey - tw.y;
+      const t = ((e.x - tw.x) * vx + (e.y - tw.y) * vy) / (vx * vx + vy * vy);
+      if (t < 0 || t > 1) continue;
+      const cx = tw.x + vx * t, cy = tw.y + vy * t;
+      if (dist2(cx, cy, e.x, e.y) <= (e.size + 3) * (e.size + 3)) cands.push([t, e]);
+    }
+    cands.sort((a, b) => a[0] - b[0]);
+    const hits = cands.slice(0, Math.max(1, s.pierce));
+    if (!hits.some(([, e]) => e === tgt)) hits.unshift([0, tgt]);
+    const lastT = s.pierce >= 99 ? 1 : (hits[hits.length - 1][0] || 0.5);
+    this.line(tw.x, tw.y, tw.x + (ex - tw.x) * Math.max(lastT, 0.1), tw.y + (ey - tw.y) * Math.max(lastT, 0.1), '#ff3df2', 'rail');
+    for (const [, e] of hits) this.hit(tw, e, s.dmg, s, { rail: true });
+    this.sfx('rail');
+    this.shake = Math.min(4, this.shake + 0.6);
+  }
+
+  updateLaser(tw, dt) {
+    const s = tw.stats;
+    let tgt = tw.rampTarget;
+    if (!tgt || !this.canTarget(tw, tgt, s)) {
+      const ts = this.targets(tw, 1);
+      tgt = ts[0] || null;
+      if (tgt !== tw.rampTarget) tw.rampT = 0;
+      tw.rampTarget = tgt;
+    }
+    tw.beam = [];
+    if (!tgt) return;
+    tw.angle = Math.atan2(tgt.y - tw.y, tgt.x - tw.x);
+    tw.rampT = Math.min(s.rampTime, tw.rampT + dt);
+    const mult = 1 + (s.ramp - 1) * (tw.rampT / s.rampTime);
+    const dps = s.dmg * mult * s.rate;
+    tw.beam.push([tgt, mult]);
+    this.hit(tw, tgt, dps * dt, s, { beam: true });
+    if (s.br.prism) {
+      const extras = [];
+      for (const e of this.enemies) {
+        if (e === tgt || !e.alive || e.phased) continue;
+        if (dist2(e.x, e.y, tgt.x, tgt.y) < 40 * 40) extras.push(e);
+        if (extras.length >= s.br.prism) break;
+      }
+      for (const e of extras) { tw.beam.push([e, mult * 0.5, tgt]); this.hit(tw, e, dps * dt * 0.5, s, { beam: true }); }
+    }
+    if (Math.random() < dt * 6) this.sfx('laser');
+  }
+
+  updateDroneBay(tw, dt) {
+    const s = tw.stats;
+    if (!tw.rally) return;
+    for (let idx = 0; idx < s.drones; idx++) {
+      const d = tw.drones[idx];
+      if (!d) { tw.drones[idx] = this.makeDrone(tw, idx); continue; }
+      if (!d.alive) {
+        d.respawn -= dt;
+        if (d.respawn <= 0) tw.drones[idx] = this.makeDrone(tw, idx);
+        continue;
+      }
+      d.maxHp = s.droneHp;
+      d.dmg = s.droneDmg;
+    }
+    for (let idx = s.drones; idx < tw.drones.length; idx++) if (tw.drones[idx]) tw.drones[idx].alive = false;
+    tw.drones.length = Math.min(tw.drones.length, s.drones);
+  }
+
+  makeDrone(tw, idx) {
+    const s = tw.stats;
+    const ang = (idx / Math.max(1, s.drones)) * Math.PI * 2;
+    const d = {
+      kind: 'drone', tw, x: tw.x, y: tw.y, hp: s.droneHp, maxHp: s.droneHp, dmg: s.droneDmg, rate: tw.def.droneRate,
+      cd: 0, off: [Math.cos(ang) * 5, Math.sin(ang) * 5], engaged: null, alive: true, respawn: 0, anim: Math.random() * 6,
+    };
+    this.units.push(d);
+    return d;
+  }
+
+  updateUnit(u, dt) {
+    u.anim += dt;
+    if (u.kind === 'drone') {
+      const tw = u.tw;
+      if (!this.towers.includes(tw)) { u.alive = false; return; }
+      if (tw.disabled > 0) return;
+      const [rx, ry] = tw.rally;
+      if (u.engaged && (!u.engaged.alive || dist2(u.engaged.x, u.engaged.y, rx, ry) > 40 * 40)) {
+        if (u.engaged.blocker === u) u.engaged.blocker = null;
+        u.engaged = null;
+      }
+      if (!u.engaged) {
+        let best = null, bd = 30 * 30;
+        for (const e of this.enemies) {
+          if (!e.alive || e.flying || e.phased || (e.blocker && e.blocker !== u)) continue;
+          const d2 = dist2(e.x, e.y, rx, ry);
+          if (d2 < bd) { bd = d2; best = e; }
+        }
+        u.engaged = best;
+      }
+      const tx = u.engaged ? u.engaged.x : rx + u.off[0];
+      const ty = u.engaged ? u.engaged.y : ry + u.off[1];
+      this.moveToward(u, tx, ty, 70, dt);
+      if (u.engaged && dist2(u.x, u.y, u.engaged.x, u.engaged.y) < 100) {
+        if (!u.engaged.boss && !u.engaged.blocker) u.engaged.blocker = u;
+        u.cd -= dt;
+        if (u.cd <= 0) {
+          const target = u.engaged; // kill() may clear u.engaged
+          u.cd = 1 / u.rate;
+          this.damage(target, u.dmg, 'kin', tw);
+          this.particle(target.x, target.y, '#3d7bff', 0, 0, 0.2);
+        }
+      }
+    } else if (u.kind === 'husk') {
+      u.life -= dt;
+      if (u.life <= 0) { this.killUnit(u); return; }
+      if (u.engaged && !u.engaged.alive) u.engaged = null;
+      if (!u.engaged) {
+        for (const e of this.enemies) {
+          if (!e.alive || e.flying || e.phased) continue;
+          if (dist2(e.x, e.y, u.x, u.y) < 81) { u.engaged = e; if (!e.boss && !e.blocker) e.blocker = u; break; }
+        }
+      }
+      if (u.engaged) {
+        u.cd -= dt;
+        if (u.cd <= 0) { u.cd = 0.5; this.damage(u.engaged, u.dmg, 'bio', u.tw); }
+      } else if (u.i > 0) {
+        const [tx, ty] = u.route[u.i - 1];
+        if (this.moveToward(u, tx, ty, u.speed, dt)) u.i--;
+      } else this.killUnit(u);
+    }
+  }
+
+  moveToward(u, tx, ty, spd, dt) {
+    const dx = tx - u.x, dy = ty - u.y, d = Math.hypot(dx, dy);
+    if (d < 0.5) return true;
+    const m = Math.min(d, spd * dt);
+    u.x += (dx / d) * m; u.y += (dy / d) * m;
+    return m >= d;
+  }
+
+  killUnit(u) {
+    if (!u.alive) return;
+    u.alive = false;
+    if (u.kind === 'drone') u.respawn = 5;
+    this.burst(u.x, u.y, u.kind === 'drone' ? '#3d7bff' : '#b6ff3d', 6);
+  }
+
+  updateProjectile(p, dt) {
+    if (p.kind === 'bolt' || p.kind === 'orb') {
+      if (p.target) {
+        if (p.target.alive) { p.tx = p.target.x; p.ty = p.target.y; }
+        const dx = p.tx - p.x, dy = p.ty - p.y, d = Math.hypot(dx, dy);
+        const m = p.speed * dt;
+        if (d <= m + 2) {
+          p.alive = false;
+          if (p.target.alive) this.projectileHit(p, p.target);
+          return;
+        }
+        p.vx = (dx / d) * p.speed; p.vy = (dy / d) * p.speed;
+        p.x += p.vx * dt; p.y += p.vy * dt;
+      } else {
+        p.x += p.vx * dt; p.y += p.vy * dt;
+        for (const e of this.enemies) {
+          if (!e.alive || e.phased || p.hit.has(e)) continue;
+          if (dist2(p.x, p.y, e.x, e.y) < (e.size + 2) * (e.size + 2)) {
+            p.hit.add(e);
+            this.projectileHit(p, e);
+            if (p.hit.size >= p.pierce) { p.alive = false; break; }
+          }
+        }
+      }
+      p.life -= dt;
+      if (p.life <= 0) p.alive = false;
+    } else {
+      p.t += dt;
+      if (p.t < 0) return;
+      const k = Math.min(1, p.t / p.flight);
+      p.x = p.sx + (p.tx - p.sx) * k;
+      p.y = p.sy + (p.ty - p.sy) * k;
+      p.h = p.kind === 'mortar' ? Math.sin(k * Math.PI) * 40 : Math.sin(k * Math.PI) * 6;
+      if (k >= 1) { p.alive = false; this.explode(p); }
+    }
+  }
+
+  projectileHit(p, e) {
+    const tw = p.tw, s = tw.stats;
+    if (s.splash && tw.type === 'cryo') {
+      for (const o of this.enemies) if (o.alive && dist2(o.x, o.y, e.x, e.y) < s.splash * s.splash) this.hit(tw, o, o === e ? s.dmg : s.dmg * 0.5, s);
+    } else this.hit(tw, e, s.dmg, s);
+    this.burst(e.x, e.y, p.color, 3);
+  }
+
+  explode(p) {
+    const tw = p.tw, s = tw.stats;
+    const r = s.splash;
+    this.ring(p.x, p.y, r, p.color);
+    this.burst(p.x, p.y, p.color, p.kind === 'glob' ? 6 : 10);
+    if (p.kind !== 'glob') this.sfx('boom');
+    const dmg = p.mini ? s.dmg * 0.4 : s.dmg;
+    for (const e of this.enemies) {
+      if (!e.alive) continue;
+      if (p.kind === 'mortar' && e.flying) continue;
+      if (dist2(e.x, e.y, p.x, p.y) <= (r + e.size) * (r + e.size)) this.hit(tw, e, dmg, s, { splash: true });
+    }
+    if (p.kind === 'shell' && s.br.cluster && !p.mini) {
+      for (let k = 0; k < s.br.cluster; k++) {
+        const a = this.rng() * Math.PI * 2, d = 10 + this.rng() * 14;
+        this.projectiles.push({ kind: 'shell', mini: true, tw, x: p.x, y: p.y, sx: p.x, sy: p.y, tx: p.x + Math.cos(a) * d, ty: p.y + Math.sin(a) * d, t: 0, flight: 0.3, color: p.color, alive: true });
+      }
+    }
+    if (p.kind === 'mortar' && s.br.napalm) this.fields.push({ x: p.x, y: p.y, r: r * 0.8, dps: s.dmg * 0.35, t: 3, tick: 0, tw });
+    if (p.kind === 'mortar') this.shake = Math.min(5, this.shake + 1);
+  }
+
+  updateField(f, dt) {
+    f.t -= dt;
+    f.tick -= dt;
+    if (f.tick > 0) return;
+    f.tick = 0.25;
+    for (const e of this.enemies) {
+      if (e.alive && !e.flying && dist2(e.x, e.y, f.x, f.y) < f.r * f.r) this.damage(e, f.dps * 0.25, 'exp', f.tw, { dot: true });
+    }
+    this.particle(f.x + (this.rng() - 0.5) * f.r, f.y + (this.rng() - 0.5) * f.r, '#ff8a1f', 0, -12, 0.5);
+  }
+
+  applyStatus(tw, e, s) {
+    const br = s.br;
+    if (s.slow) {
+      e.slow = Math.max(e.slow, e.boss ? s.slow * 0.6 : s.slow);
+      e.slowT = Math.max(e.slowT, s.slowDur);
+      if (br.freeze && e.ccImmune <= 0 && this.rng() < br.freeze) { e.freeze = e.boss ? 0.3 : 1; e.ccImmune = e.freeze + 1.5; }
+    }
+    if (tw.type === 'tesla') {
+      e.shock = 1.5;
+      if (br.stun && e.ccImmune <= 0 && this.rng() < br.stun) { e.stun = e.boss ? 0.2 : 0.7; e.ccImmune = e.stun + 1.5; }
+    }
+    if (s.poison) {
+      e.poison = Math.max(e.poison, s.poison);
+      e.poisonT = Math.max(e.poisonT, s.poisonDur);
+      e.poisonSrc = tw;
+      if (br.plague) e.plague = true;
+      if (br.corrode) e.corrode = s.poisonDur;
+    }
+  }
+
+  // A tower's hit: crits, combos, then damage + statuses.
+  hit(tw, e, dmg, s, opts = {}) {
+    if (!e.alive || e.phased) return;
+    const combo = this.mods.combo;
+    const chilled = e.slowT > 0 || e.freeze > 0;
+    let crit = !opts.beam && this.rng() < s.crit;
+    if (opts.rail && e.shock > 0) { crit = true; this.comboFx(e, 'CONDUCT'); }
+    if (crit) dmg *= s.critMult;
+    if (tw.type === 'tesla' && chilled) {
+      dmg *= 1 + 0.5 * combo;
+      this.comboFx(e, 'SHATTER');
+      for (const o of this.enemies) if (o !== e && o.alive && dist2(o.x, o.y, e.x, e.y) < 196) this.damage(o, dmg * 0.3, 'cry', tw);
+    }
+    if (tw.type === 'laser' && chilled) { dmg *= 1 + 0.4 * combo; if (Math.random() < 0.02) this.comboFx(e, 'THERMAL'); else if (Math.random() < 0.05) this.stats.combos++; }
+    if (opts.splash && e.poisonT > 0 && (tw.type === 'cannon' || tw.type === 'mortar')) {
+      const burst = e.poison * e.poisonT * combo;
+      e.poisonT = 0; e.poison = 0;
+      this.comboFx(e, 'DETONATE');
+      this.ring(e.x, e.y, 16, '#4dff8a');
+      for (const o of this.enemies) if (o.alive && dist2(o.x, o.y, e.x, e.y) < 324) this.damage(o, burst * (o === e ? 1 : 0.5), 'exp', tw);
+    }
+    this.applyStatus(tw, e, s);
+    this.damage(e, dmg, tw.def.dtype, tw, { crit, execute: s.execute });
+  }
+
+  comboFx(e, name) {
+    this.stats.combos++;
+    if (Math.random() < 0.35) this.text(e.x, e.y - 8, name, '#ffffff', 0.7);
+  }
+
+  damage(e, amt, dtype, tw, opts = {}) {
+    if (!e.alive || (e.phased && !opts.dot)) return;
+    let a = amt;
+    if (e.boss) a *= 1 + this.mods.bossDmg;
+    if ((e.slowT > 0 || e.freeze > 0) && this.mods.brittle) a *= 1 + this.mods.brittle;
+    if (e.corrode > 0) a *= 1.25;
+    if (e.shield > 0) {
+      let sm = 1 + this.mods.shieldDmg;
+      if (e.def.shieldType && dtype !== e.weak) sm *= 0.1;
+      const sa = a * sm;
+      const absorbed = Math.min(e.shield, sa);
+      e.shield -= absorbed;
+      e.shieldDelay = 3;
+      a = (sa - absorbed) / sm;
+      if (a <= 0) { e.hitFlash = 0.05; return; }
+    }
+    if (dtype !== 'bio' && !(e.corrode > 0) && e.armor > 0) {
+      const ar = e.armor * (dtype === 'eng' ? 0.5 : 1) * (opts.dot ? 0.1 : 1);
+      a = Math.max(a * 0.25, a - ar);
+    }
+    e.hp -= a;
+    if (tw) tw.dmgDealt += a;
+    if (!opts.dot) e.hitFlash = 0.06;
+    if (opts.crit && Math.random() < 0.3) this.text(e.x, e.y - 6, Math.round(a) + '!', '#ffe84a', 0.5);
+    const exec = Math.max(this.mods.execute, opts.execute || 0);
+    if (!e.boss && exec && e.hp > 0 && e.hp < e.maxHp * exec) e.hp = 0;
+    if (e.hp <= 0) this.kill(e, tw);
+  }
+
+  kill(e, tw) {
+    if (!e.alive) return;
+    e.alive = false;
+    if (e.blocker && e.blocker.engaged === e) e.blocker.engaged = null;
+    this.stats.kills++;
+    this.stats.kinds[e.type] = (this.stats.kinds[e.type] || 0) + 1;
+    if (tw) tw.kills++;
+    let g = e.gold * this.mods.goldMult + this.mods.killGold;
+    if (e.elite || e.boss) g *= this.mods.eliteGold;
+    this.addGold(g);
+    this.burst(e.x, e.y, e.boss ? '#ffe84a' : '#ff3df2', e.boss ? 40 : 8);
+    this.sfx(e.boss ? 'bossdie' : 'die');
+    if (e.elite) {
+      this.stats.elites++;
+      if (this.rng() < 0.15) { this.shards++; this.text(e.x, e.y, '+1 shard', '#ff3df2'); }
+    }
+    if (e.boss) {
+      const sh = 3 + e.bossIdx;
+      this.shards += sh;
+      this.stats.bosses.push(e.def.id);
+      this.toast(`${e.def.name.toUpperCase()} DESTROYED  +${sh} shards`, '#ffe84a');
+      this.shake = 8;
+    }
+    const at = { x: e.x, y: e.y, i: e.i, traveled: e.traveled, route: e.route };
+    if (e.def.split) for (let k = 0; k < e.def.split; k++) this.spawnEnemy('splitling', 0, null, at);
+    if (e.boss && e.def.id === 'hive') for (let k = 0; k < 6; k++) this.spawnEnemy('crawler', 0, null, at);
+    if (e.plague && e.poisonT > 0) {
+      for (const o of this.enemies) {
+        if (o.alive && dist2(o.x, o.y, e.x, e.y) < 24 * 24) {
+          o.poison = Math.max(o.poison, e.poison); o.poisonT = Math.max(o.poisonT, 3); o.plague = true; o.poisonSrc = e.poisonSrc;
+        }
+      }
+      this.ring(e.x, e.y, 24, '#4dff8a', 0.4);
+    }
+    // reclaimers
+    if (!e.boss && !e.flying) {
+      for (const r of this.towers) {
+        if (r.type !== 'reclaimer' || r.disabled > 0) continue;
+        if (dist2(r.x, r.y, e.x, e.y) > r.stats.range * r.stats.range) continue;
+        if (r.stats.br.siphon) { this.addGold(r.stats.br.siphon); }
+        if (this.rng() < r.stats.revive && this.units.filter((u) => u.kind === 'husk').length < 25) {
+          const mult = r.stats.br.husk || 1;
+          this.units.push({
+            kind: 'husk', tw: r, x: e.x, y: e.y, route: e.route, i: e.i + 1, alive: true, anim: 0, cd: 0,
+            hp: Math.min(e.maxHp * 0.6, 40 * this.hpScale(this.wave)) * (1 + this.mods.huskHp) * mult, dmg: 6 * r.stats.dmgMult * mult,
+            speed: 20, life: 20, engaged: null,
+          });
+          const u = this.units[this.units.length - 1];
+          u.maxHp = u.hp;
+          this.burst(e.x, e.y, '#b6ff3d', 8);
+          break;
+        }
+      }
+    }
+  }
+
+  // ---------------- fx ----------------
+  particle(x, y, color, vx, vy, life = 0.5, size = 1) {
+    if (this.fx.particles.length > 500) return;
+    this.fx.particles.push({ x, y, vx, vy, life, max: life, color, size });
+  }
+  burst(x, y, color, n) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, s = 20 + Math.random() * 50;
+      this.particle(x, y, color, Math.cos(a) * s, Math.sin(a) * s, 0.25 + Math.random() * 0.35, Math.random() < 0.3 ? 2 : 1);
+    }
+  }
+  text(x, y, text, color, life = 0.9) { if (this.fx.texts.length < 40) this.fx.texts.push({ x, y, text, color, life, max: life }); }
+  line(x1, y1, x2, y2, color, kind) { this.fx.lines.push({ x1, y1, x2, y2, color, kind, life: kind === 'rail' ? 0.25 : 0.12, seed: Math.random() }); }
+  ring(x, y, r, color, life = 0.35) { this.fx.rings.push({ x, y, r, color, life, max: life }); }
+
+  updateFx(dt) {
+    const f = this.fx;
+    for (const p of f.particles) { p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.92; p.vy *= 0.92; }
+    for (const t of f.texts) { t.life -= dt; t.y -= 12 * dt; }
+    for (const l of f.lines) l.life -= dt;
+    for (const r of f.rings) r.life -= dt;
+    f.particles = f.particles.filter((p) => p.life > 0);
+    f.texts = f.texts.filter((t) => t.life > 0);
+    f.lines = f.lines.filter((l) => l.life > 0);
+    f.rings = f.rings.filter((r) => r.life > 0);
+  }
+
+  // ---------------- save/load ----------------
+  save() {
+    saveRun({
+      v: 1, seed: this.seed, rng: this.rng.state(), commander: this.commander, heat: this.heat, wave: this.wave,
+      gold: this.gold, shards: this.shards, coreHp: this.coreHp, mods: this.mods, augments: this.augments,
+      rerolls: this.rerolls, stats: this.stats, world: this.world.serialize(),
+      towers: this.towers.map((t) => ({ type: t.type, tx: t.tx, ty: t.ty, level: t.level, branch: t.branch, mode: t.mode, invested: t.invested, dmgDealt: t.dmgDealt, kills: t.kills })),
+    });
+  }
+
+  load(s) {
+    this.seed = s.seed;
+    this.rng = mulberry32(s.seed);
+    this.rng.setState(s.rng);
+    Object.assign(this, { commander: s.commander, heat: s.heat, wave: s.wave, gold: s.gold, shards: s.shards, coreHp: s.coreHp, mods: s.mods, augments: s.augments, rerolls: s.rerolls, stats: s.stats });
+    this.world = World.deserialize(s.world);
+    this.phase = 'build';
+    for (const t of s.towers) {
+      const tw = {
+        id: this.nextId++, type: t.type, def: TOWERS[t.type], tx: t.tx, ty: t.ty, x: center(t.tx), y: center(t.ty),
+        level: t.level, branch: t.branch, cd: 0.2, angle: -Math.PI / 2, mode: t.mode, invested: t.invested,
+        dmgDealt: t.dmgDealt || 0, kills: t.kills || 0, disabled: 0, drones: [], beam: [], rampT: 0, rampTarget: null,
+      };
+      this.towers.push(tw);
+      this.towerAt.set(t.tx + ',' + t.ty, tw);
+      if (tw.type === 'drone') this.computeRally(tw);
+    }
+  }
+
+  abandon() { if (this.phase !== 'over') { this.coreHp = 0; this.gameOver(); } }
+}

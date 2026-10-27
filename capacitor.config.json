@@ -1,0 +1,9 @@
+{
+  "appId": "com.neonbastion.game",
+  "appName": "Neon Bastion",
+  "webDir": "www",
+  "backgroundColor": "#04040c",
+  "android": {
+    "backgroundColor": "#04040c"
+  }
+}
