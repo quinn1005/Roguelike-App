@@ -122,7 +122,7 @@ export const ACHIEVEMENTS = [
 // ---------- Save data ----------
 function fresh() {
   return {
-    v: 1, xp: 0, level: 1, shards: 0, talents: {}, unlocked: ['blaster', 'cannon', 'cryo', 'tesla'],
+    v: 1, xp: 0, level: 1, shards: 0, talents: {}, unlocked: ['blaster'],
     commanders: ['vanguard'], commander: 'vanguard', heatUnlocked: 0, heat: 0,
     bestWave: 0, totalKills: 0, runs: 0, bestiary: {}, bossKills: {}, achievements: {}, seen: {},
     settings: { sfx: true, shake: true, autoWave: false },

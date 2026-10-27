@@ -4,16 +4,16 @@
 // Branches unlock at level 3 -> 4. Each branch sets flags that combat code reads.
 export const TOWERS = {
   blaster: {
-    id: 'blaster', name: 'Pulse Blaster', color: '#2ef2ff', cost: 65, unlock: 0,
+    id: 'blaster', name: 'Pulse Blaster', color: '#2ef2ff', cost: 70, unlock: 0,
     desc: 'Rapid single-target kinetic bolts.',
-    dmg: 6, rate: 3, range: 44, dtype: 'kin', proj: 'bolt', projSpeed: 230,
+    dmg: 5, rate: 2.9, range: 44, dtype: 'kin', proj: 'bolt', projSpeed: 230,
     branches: {
       A: { name: 'Scatter Array', desc: 'Fires at 3 targets at once.', multi: 3 },
       B: { name: 'Piercer', desc: 'Bolts pierce through 3 enemies. +30% dmg.', pierce: 3, dmgMult: 1.3 },
     },
   },
   cannon: {
-    id: 'cannon', name: 'Plasma Cannon', color: '#ff8a1f', cost: 115, unlock: 0,
+    id: 'cannon', name: 'Plasma Cannon', color: '#ff8a1f', cost: 115, unlock: 4,
     desc: 'Explosive plasma shells with splash damage.',
     dmg: 18, rate: 0.8, range: 46, dtype: 'exp', proj: 'shell', projSpeed: 150, splash: 18,
     branches: {
@@ -22,7 +22,7 @@ export const TOWERS = {
     },
   },
   cryo: {
-    id: 'cryo', name: 'Cryo Emitter', color: '#8fe8ff', cost: 90, unlock: 0,
+    id: 'cryo', name: 'Cryo Emitter', color: '#8fe8ff', cost: 90, unlock: 3,
     desc: 'Chills enemies, slowing them down.',
     dmg: 3, rate: 1.2, range: 40, dtype: 'cry', proj: 'bolt', projSpeed: 170, splash: 10,
     slow: 0.35, slowDur: 1.6,
@@ -32,7 +32,7 @@ export const TOWERS = {
     },
   },
   tesla: {
-    id: 'tesla', name: 'Tesla Coil', color: '#ffe84a', cost: 140, unlock: 0, rotates: false,
+    id: 'tesla', name: 'Tesla Coil', color: '#ffe84a', cost: 140, unlock: 6, rotates: false,
     desc: 'Lightning chains between enemies. Shocks targets.',
     dmg: 12, rate: 1, range: 40, dtype: 'eng', proj: 'chain', chains: 3, chainRange: 30,
     branches: {
