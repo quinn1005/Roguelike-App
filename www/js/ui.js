@@ -9,6 +9,8 @@ import {
 import { towerSprites, enemySprite, makeCanvas, uiIcon } from './sprites.js';
 import { previewCanvas } from './world.js';
 import { sfx, setSfx } from './audio.js';
+import { quinnBadge } from './quinn.js';
+import { VERSION } from './version.js';
 
 const $ = (id) => document.getElementById(id);
 const ICON = { coin: uiIcon('coin'), heart: uiIcon('heart'), shard: uiIcon('shard'), wave: uiIcon('wave') };
@@ -119,7 +121,7 @@ export class UI {
       button('SETTINGS', '', () => this.showSettings()),
     );
     m.append(logo, col);
-    this.screen.append(m);
+    this.screen.append(m, quinnBadge(), el('div', 'version', 'v' + VERSION));
   }
 
   header(title, extra) {

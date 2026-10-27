@@ -38,6 +38,10 @@ resolution and scaled up with nearest-neighbour filtering, with neon glow effect
 
 ## Meta progression (saved between runs)
 
+- You start with only the **Pulse Blaster**. Every other tower is unlocked with Void
+  Shards in the Armory; the Cryo Emitter, Plasma Cannon and Tesla Coil are cheap enough
+  to buy after your first run.
+
 - Account **XP and levels**; each level gives a **talent point**.
 - **Three themed talent trees** (Offense / Economy / Fortitude) **plus a mini tree for
   every tower**, all paid for with the same talent points. Free respec.
@@ -72,12 +76,18 @@ menu, choose *Add to Home screen* to get a fullscreen launcher icon.
 
 ### Get the installable APK
 
-Every push to GitHub runs the **Build Android APK** workflow
-(`.github/workflows/build-apk.yml`):
+Every push runs the **Build Android APK** workflow (`.github/workflows/build-apk.yml`),
+which publishes a **GitHub Release** named after the version in `www/js/version.js`
+(for example `v1.2.0`) with `neon-bastion-v1.2.0.apk` attached. Old releases stay on
+the repo's **Releases** page, so every version is kept.
 
-1. On GitHub, open the repo, go to the **Actions** tab, and open the latest **Build Android APK** run.
-2. Download the **neon-bastion-apk** artifact (a zip) and unzip it.
-3. Open `app-debug.apk` on your phone and allow installing from unknown sources.
+1. On GitHub, open the repo's **Releases** page.
+2. Download the `.apk` from the version you want.
+3. Open it on your phone and allow installing from unknown sources.
+
+All builds are signed with the same key (`keys/debug.keystore`), so a new version
+installs over the old one and keeps your save. To release a new version, bump
+`VERSION` in `www/js/version.js` (and `package.json`) before pushing.
 
 ### Editing the game from Termux
 

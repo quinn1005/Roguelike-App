@@ -526,7 +526,7 @@ export class Run {
     const w = this.wave;
     const bossKills = this.stats.bosses.length;
     const xp = Math.round((w * 10 + bossKills * 50 + this.stats.kills * 0.2) * this.heatMul.reward * this.mods.xpMult);
-    const shards = Math.round((this.shards + Math.floor(w / 4)) * this.mods.shardMult * this.heatMul.reward);
+    const shards = Math.round((2 + this.shards + Math.floor(w / 3)) * this.mods.shardMult * this.heatMul.reward);
     const prevLevel = meta.level;
     const ups = addXp(xp);
     meta.shards += shards;
