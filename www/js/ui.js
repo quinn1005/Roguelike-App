@@ -1,7 +1,7 @@
 // DOM user interface: menus, meta screens, HUD, tower panel and choice modals.
 
 import { el, fmt, pct } from './util.js';
-import { TOWERS, TOWER_ORDER, LEVELS, ENEMIES, BOSSES, COMBOS, RARITY, DTYPE_NAME, DTYPE_COLOR, CHUNK_MODS, AUGMENTS } from './defs.js';
+import { TOWERS, TOWER_ORDER, LEVELS, ENEMIES, BOSSES, COMBOS, RARITY, DTYPE_NAME, DTYPE_COLOR, CHUNK_MODS, RISK_MODS, AUGMENTS, SECTOR_INTROS } from './defs.js';
 import {
   meta, saveMeta, TREES, towerTree, COMMANDERS, ACHIEVEMENTS, MAX_HEAT, heatInfo, xpNeed,
   pointsFree, pointsTotal, nodeRank, nodeAvailable, buyNode, respec, loadRun, resetMeta,
@@ -21,6 +21,41 @@ function enemyIcon(id) {
   const [c, ctx] = makeCanvas(s.width * 3, s.height * 3);
   ctx.drawImage(s, 0, 0, c.width, c.height);
   return (enemyIconCache[id] = c.toDataURL());
+}
+
+const enemyDef = (id) => ENEMIES[id] || BOSSES.find((b) => b.id === id);
+
+// Full intel card for an enemy or boss: art, stats, abilities, counters.
+function intelCard(id, run) {
+  const d = enemyDef(id);
+  const boss = BOSSES.includes(d);
+  const w = run ? Math.max(1, run.wave) : Math.max(1, d.minWave || 10);
+  const hp = run ? d.hp * run.hpScale(w) * (boss ? 0.6 : 1) : d.hp;
+  const stats = [
+    ['HP', fmt(hp) + (run ? '' : ' (base)')],
+    ['Speed', (d.speed / 16).toFixed(1) + ' tiles/s'],
+  ];
+  if (d.armor) stats.push(['Armor', d.armor]);
+  if (d.shield) stats.push(['Shield', fmt(d.shield * (run ? run.hpScale(w) : 1))]);
+  stats.push(['Core damage', boss ? 'Massive' : d.core]);
+  stats.push(['Credits', d.gold]);
+  if (d.flying) stats.push(['Movement', 'Flying']);
+  if (d.group) stats.push(['Pack size', d.group]);
+  const towerRow = (list, cls) => (list || []).map(([t, why]) => {
+    const def = TOWERS[t];
+    return `<div class="intel-t"><img src="${towerSprites(def).iconUrl}"><div><span style="color:${def.color}">${def.name}</span><br><span class="c-dim">${why}</span></div></div>`;
+  }).join('');
+  const box = el('div', 'intel');
+  box.innerHTML = `
+    <div class="intel-art"><img src="${enemyIcon(id)}" style="width:${boss ? 120 : 96}px;height:${boss ? 120 : 96}px"><div class="nm ${boss ? 'c-red' : 'c-cyan'}">${d.name}</div>
+      <div class="intel-stats">${stats.map(([k, v]) => `<div><span class="c-dim">${k}</span><span>${v}</span></div>`).join('')}</div></div>
+    <div class="intel-info">
+      <p>${d.desc}</p>
+      <div class="intel-h c-yel">ABILITIES</div>${(d.abilities || []).map((a) => `<div class="intel-ab">- ${a}</div>`).join('')}
+      <div class="intel-h c-grn">STRONG AGAINST IT</div><div class="intel-ts">${towerRow(d.good)}</div>
+      <div class="intel-h c-red">WEAK AGAINST IT</div><div class="intel-ts">${towerRow(d.bad)}</div>
+    </div>`;
+  return box;
 }
 
 function button(label, cls, onclick) {
@@ -267,17 +302,21 @@ export class UI {
     if (tab === 'enemies') {
       for (const e of Object.values(ENEMIES)) {
         const k = meta.bestiary[e.id] || 0;
-        const it = el('div', 'item' + (k ? '' : ' off'));
-        it.innerHTML = k
-          ? `<img src="${enemyIcon(e.id)}"><div class="grow"><div class="nm">${e.name}</div><div class="ds">${e.desc}</div><div class="ds">Destroyed: ${fmt(k)}</div></div>`
-          : `<img src="${enemyIcon(e.id)}" style="filter:brightness(0)"><div class="grow"><div class="nm">???</div><div class="ds">Not yet encountered. Appears from wave ${e.minWave < 999 ? e.minWave : '?'}.</div></div>`;
+        const known = k || meta.seen[e.id];
+        const it = el('div', 'item' + (known ? '' : ' off'));
+        it.innerHTML = known
+          ? `<img src="${enemyIcon(e.id)}"><div class="grow"><div class="nm">${e.name}</div><div class="ds">${e.desc}</div><div class="ds">Destroyed: ${fmt(k)} - tap for intel</div></div>`
+          : `<img src="${enemyIcon(e.id)}" style="filter:brightness(0)"><div class="grow"><div class="nm">???</div><div class="ds">Not yet encountered. Sector ${e.sector + 1}.</div></div>`;
+        if (known) it.onclick = () => { sfx('click'); this.openModal((box) => { box.append(intelCard(e.id)); const r = el('div', 'mrow'); r.append(button('CLOSE', '', () => this.closeModal())); box.append(r); }); };
         grid.append(it);
       }
     } else if (tab === 'bosses') {
       BOSSES.forEach((b, i) => {
         const k = meta.bossKills[b.id] || 0;
-        const it = el('div', 'item' + (k ? '' : ' off'));
-        it.innerHTML = `<img src="${enemyIcon(b.id)}" ${k ? '' : 'style="filter:brightness(0)"'}><div class="grow"><div class="nm c-red">${k ? b.name : '???'}</div><div class="ds">Wave ${(i + 1) * 10}${k ? ' - ' + b.desc : ''}</div><div class="ds">Destroyed: ${k}</div></div>`;
+        const known = k || meta.seen[b.id];
+        const it = el('div', 'item' + (known ? '' : ' off'));
+        it.innerHTML = `<img src="${enemyIcon(b.id)}" ${known ? '' : 'style="filter:brightness(0)"'}><div class="grow"><div class="nm c-red">${known ? b.name : '???'}</div><div class="ds">Wave ${(i + 1) * 10}${known ? ' - ' + b.desc : ''}</div><div class="ds">Destroyed: ${k}</div></div>`;
+        if (known) it.onclick = () => { sfx('click'); this.openModal((box) => { box.append(intelCard(b.id)); const r = el('div', 'mrow'); r.append(button('CLOSE', '', () => this.closeModal())); box.append(r); }); };
         grid.append(it);
       });
     } else if (tab === 'combos') {
@@ -460,7 +499,8 @@ export class UI {
     p.innerHTML = '';
     p.append(button('X', 'sm x', () => this.app.deselect()));
     const title = tw.branch ? d.branches[tw.branch].name : d.name;
-    p.append(el('h3', '', `<span style="color:${d.color}">${title}</span>`));
+    const look = towerSprites(d, tw.level, tw.branch);
+    p.append(el('h3', '', `<img class="px" src="${look.iconUrl}" style="width:32px;height:32px;vertical-align:middle;margin-right:4px"><span style="color:${look.color}">${title}</span>`));
     p.append(el('div', 'pdesc', `LV ${tw.level}${tw.branch ? ' - ' + d.name : ''}`));
     this.panelStats = el('div');
     p.append(this.panelStats);
@@ -482,7 +522,8 @@ export class UI {
       } else {
         for (const k of ['A', 'B']) {
           const br = d.branches[k];
-          const b = button(`${br.name} - ${cost}c<small>${br.desc}</small>`, 'branch', () => this.app.upgrade(tw, k));
+          const prev = towerSprites(d, 4, k);
+          const b = button(`<img class="px" src="${prev.iconUrl}" style="width:24px;height:24px;float:left;margin-right:4px"><span style="color:${prev.color}">${br.name}</span> - ${cost}c<small>${br.desc}</small>`, 'branch', () => this.app.upgrade(tw, k));
           b.disabled = r.gold < cost;
           btns.append(b);
         }
@@ -549,9 +590,9 @@ export class UI {
 
   rerollBtn(c, redraw) {
     const r = this.run;
-    const label = r.rerolls > 0 ? `REROLL (${r.rerolls} FREE)` : `REROLL ${r.rerollCost()}c`;
+    const label = r.rerolls > 0 ? `REROLL (${r.rerolls} FREE)` : `REROLL ${r.rerollCost(c)}c`;
     const b = button(label, 'sm', () => { if (r.reroll(c)) redraw(); });
-    if (r.rerolls <= 0 && r.gold < r.rerollCost()) b.disabled = true;
+    if (r.rerolls <= 0 && r.gold < r.rerollCost(c)) b.disabled = true;
     return b;
   }
 
@@ -613,10 +654,10 @@ export class UI {
       }, true);
     } else if (c.kind === 'expand') {
       this.openModal((box) => {
-        box.append(el('h2', '', 'EXPAND THE BASTION'), el('p', 'c-dim', 'Choose a sector chunk, then attach it to an open portal. New chunks are built from the current sector.'));
+        box.append(el('h2', '', 'EXPAND THE BASTION'), el('p', 'c-dim', 'Pick a chunk, then attach it to an open portal. RISK tiles buff enemies for extra rewards.'));
         const cards = el('div', 'cards');
         for (const card of c.cards) {
-          const k = el('div', 'card');
+          const k = el('div', 'card chunk');
           const cv = previewCanvas(card.preview);
           cv.className = 'px';
           const rw = card.arch.reward;
@@ -626,7 +667,10 @@ export class UI {
           if (rw.shards) rew.push(`+${rw.shards} shards`);
           if (rw.aug) rew.push('+Rare augment');
           if (rw.hpMult) rew.push(`<span class="c-red">enemies +${Math.round(rw.hpMult * 100)}% HP</span>`);
-          const mods = card.mods.map((m) => CHUNK_MODS.find((x) => x.id === m)).map((m) => `<div class="tag"><span class="c-cyan">${m.name}</span>: ${m.desc}</div>`).join('');
+          const mods = card.mods.map((m) => CHUNK_MODS.find((x) => x.id === m) || RISK_MODS.find((x) => x.id === m)).map((m) => (m.scope
+            ? `<div class="tag risk"><span class="c-red">RISK (${m.scope === 'local' ? 'tile' : 'global'}) ${m.name}</span>: ${m.desc}</div>`
+            : `<div class="tag"><span class="c-cyan">${m.name}</span>: ${m.desc}</div>`)).join('');
+          if (card.mods.some((m) => RISK_MODS.find((x) => x.id === m))) k.classList.add('riskcard');
           k.append(el('div', 'nm c-cyan', card.arch.name), cv, el('div', 'ds', card.arch.desc), el('div', '', mods), el('div', 'c-yel', rew.join(' ')));
           k.onclick = () => {
             if (card.arch.reward.gold < 0 && r.gold < -card.arch.reward.gold) { this.toast('Not enough credits', '#ff2f5a'); return; }
@@ -640,6 +684,29 @@ export class UI {
         box.append(cards);
       }, true);
     }
+  }
+
+  // Pops up intel for every enemy type seen for the first time, pausing the run.
+  showIntro(ids) {
+    const r = this.run;
+    if (!r) return;
+    r.paused = true;
+    const queue = ids.slice();
+    const next = () => {
+      const id = queue.shift();
+      if (!id) { this.closeModal(); r.paused = false; return; }
+      const boss = BOSSES.some((b) => b.id === id);
+      this.openModal((box) => {
+        box.classList.add('intelbox');
+        box.append(el('h2', '', boss ? '<span style="color:var(--red)">BOSS INCOMING</span>' : 'NEW THREAT DETECTED'));
+        box.append(intelCard(id, r));
+        const row = el('div', 'mrow');
+        row.append(button(queue.length ? 'NEXT' : 'GOT IT', 'go', next));
+        box.append(row);
+      });
+    };
+    sfx('alarm');
+    next();
   }
 
   showPause() {
@@ -657,6 +724,9 @@ export class UI {
         }).join(' - ');
         box.append(el('p', '', 'AUGMENTS: ' + list));
       }
+      const risks = [];
+      for (const ch of r.world.chunks.values()) for (const m of ch.mods) { const rm = RISK_MODS.find((x) => x.id === m); if (rm) risks.push(rm.name); }
+      if (risks.length) box.append(el('p', 'c-red', 'ACTIVE RISKS: ' + risks.join(' - ')));
       box.append(el('p', 'c-dim', `Heat ${r.heat} - ${COMMANDERS.find((c) => c.id === r.commander).name} - Kills ${r.stats.kills} - Map chunks ${r.world.chunks.size}`));
       const col = el('div', 'evopts');
       col.append(

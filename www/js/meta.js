@@ -87,13 +87,13 @@ export function towerTree(tid) {
 // ---------- Commanders ----------
 export const COMMANDERS = [
   { id: 'vanguard', name: 'Vanguard', cost: 0, color: '#2ef2ff', desc: '+8% damage to all towers.', apply: (m) => { m.dmg += 0.08; } },
-  { id: 'engineer', name: 'Engineer', cost: 40, color: '#ffe84a', sig: 'drone', desc: 'Towers cost 10% less. +60 starting credits. Brings Drone Bays.', apply: (m) => { m.cost -= 0.1; m.startGold += 60; } },
-  { id: 'cryomancer', name: 'Cryomancer', cost: 60, color: '#8fe8ff', sig: 'laser', desc: 'Cryo Emitters 30% cheaper, chill +10%. Brings Beam Lasers.', apply: (m) => { m.t.cryo.cost -= 0.3; m.chill += 0.1; } },
-  { id: 'biotech', name: 'Biotech', cost: 60, color: '#4dff8a', sig: 'nanite', desc: 'Nanite Sprayers 30% cheaper, poison +25%. Brings Nanites.', apply: (m) => { m.t.nanite.cost -= 0.3; m.poison += 0.25; } },
-  { id: 'tycoon', name: 'Tycoon', cost: 80, color: '#ffd23f', sig: 'miner', desc: '+1 credit per kill, miners +30%, but -4 core HP. Brings Miners.', apply: (m) => { m.killGold += 1; m.miner += 0.3; m.coreMax -= 4; } },
-  { id: 'warden', name: 'Warden', cost: 80, color: '#3d7bff', sig: 'drone', desc: '+8 core HP, Drone Bays deploy +1 drone. Brings Drone Bays.', apply: (m) => { m.coreMax += 8; m.drones += 1; } },
-  { id: 'gunslinger', name: 'Gunslinger', cost: 110, color: '#ff3df2', sig: 'railgun', desc: '+10% crit, Pulse Blasters +15% dmg. Brings Railguns.', apply: (m) => { m.crit += 0.1; m.t.blaster.dmg += 0.15; } },
-  { id: 'necromancer', name: 'Necrotech', cost: 140, color: '#b6ff3d', sig: 'reclaimer', desc: 'Revive chance +10%, husks +50% HP. Brings Reclaimers.', apply: (m) => { m.revive += 0.1; m.huskHp += 0.5; } },
+  { id: 'engineer', name: 'Engineer', cost: 80, color: '#ffe84a', sig: 'drone', desc: 'Towers cost 10% less. +60 starting credits. Brings Drone Bays.', apply: (m) => { m.cost -= 0.1; m.startGold += 60; } },
+  { id: 'cryomancer', name: 'Cryomancer', cost: 120, color: '#8fe8ff', sig: 'laser', desc: 'Cryo Emitters 30% cheaper, chill +10%. Brings Beam Lasers.', apply: (m) => { m.t.cryo.cost -= 0.3; m.chill += 0.1; } },
+  { id: 'biotech', name: 'Biotech', cost: 120, color: '#4dff8a', sig: 'nanite', desc: 'Nanite Sprayers 30% cheaper, poison +25%. Brings Nanites.', apply: (m) => { m.t.nanite.cost -= 0.3; m.poison += 0.25; } },
+  { id: 'tycoon', name: 'Tycoon', cost: 160, color: '#ffd23f', sig: 'miner', desc: '+1 credit per kill, miners +30%, but -4 core HP. Brings Miners.', apply: (m) => { m.killGold += 1; m.miner += 0.3; m.coreMax -= 4; } },
+  { id: 'warden', name: 'Warden', cost: 160, color: '#3d7bff', sig: 'drone', desc: '+8 core HP, Drone Bays deploy +1 drone. Brings Drone Bays.', apply: (m) => { m.coreMax += 8; m.drones += 1; } },
+  { id: 'gunslinger', name: 'Gunslinger', cost: 220, color: '#ff3df2', sig: 'railgun', desc: '+10% crit, Pulse Blasters +15% dmg. Brings Railguns.', apply: (m) => { m.crit += 0.1; m.t.blaster.dmg += 0.15; } },
+  { id: 'necromancer', name: 'Necrotech', cost: 280, color: '#b6ff3d', sig: 'reclaimer', desc: 'Revive chance +10%, husks +50% HP. Brings Reclaimers.', apply: (m) => { m.revive += 0.1; m.huskHp += 0.5; } },
 ];
 
 export const MAX_HEAT = 10;
@@ -124,7 +124,7 @@ function fresh() {
   return {
     v: 1, xp: 0, level: 1, shards: 0, talents: {}, unlocked: ['blaster', 'cannon', 'cryo', 'tesla'],
     commanders: ['vanguard'], commander: 'vanguard', heatUnlocked: 0, heat: 0,
-    bestWave: 0, totalKills: 0, runs: 0, bestiary: {}, bossKills: {}, achievements: {},
+    bestWave: 0, totalKills: 0, runs: 0, bestiary: {}, bossKills: {}, achievements: {}, seen: {},
     settings: { sfx: true, shake: true, autoWave: false },
   };
 }
@@ -156,7 +156,7 @@ export function loadRun() { try { const r = localStorage.getItem(RUN_KEY); retur
 export function clearRun() { try { localStorage.removeItem(RUN_KEY); } catch (e) { /* ignore */ } }
 
 // ---------- XP / talent points ----------
-export const xpNeed = (lvl) => 80 + lvl * 45;
+export const xpNeed = (lvl) => 120 + lvl * 80;
 
 export function addXp(amount) {
   meta.xp += Math.floor(amount);
@@ -165,7 +165,7 @@ export function addXp(amount) {
   return ups;
 }
 
-export function pointsTotal() { return meta.level - 1 + 2; } // 2 free points to start
+export function pointsTotal() { return meta.level - 1; }
 export function pointsSpent() { return Object.values(meta.talents).reduce((a, b) => a + b, 0); }
 export function pointsFree() { return pointsTotal() - pointsSpent(); }
 
@@ -198,12 +198,12 @@ export function baseMods() {
   for (const id of TOWER_ORDER) t[id] = { dmg: 0, rate: 0, cost: 0, splash: 0 };
   return {
     dmg: 0, rate: 0, range: 0, crit: 0.03, critMult: 2, cost: 0, killGold: 0, goldMult: 1, interest: 0,
-    refund: 0.7, coreMax: 20, enemySpeed: 0, shieldDmg: 0, execute: 0, combo: 1, emergency: 0,
+    refund: 0.6, coreMax: 15, enemySpeed: 0, shieldDmg: 0, execute: 0, combo: 1, emergency: 0,
     spawnSlow: 0, choices: 3, eliteGold: 1, bossDmg: 0, chainBonus: 0, splash: 0, brittle: 0,
     poison: 0, poisonDur: 0, pierce: 0, drones: 0, miner: 0, ampRange: 0, ampBuff: 0, mortarMin: 1,
     mortarMinMult: 1, laserRamp: 0, revive: 0, huskHp: 0, chill: 0, chillDur: 0, doubleTap: 0,
-    droneHp: 0, startGold: 180, waveGold: 1, shop: 1, regen: 0, startAug: 0, shardMult: 1,
-    xpMult: 1, rerolls: 1, hpMult: 1, t,
+    droneHp: 0, startGold: 160, obelisk: 0, waveGold: 1, shop: 1, regen: 0, startAug: 0, shardMult: 1,
+    xpMult: 1, rerolls: 0, hpMult: 1, t,
   };
 }
 

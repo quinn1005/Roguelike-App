@@ -25,6 +25,7 @@ const app = {
     run.on('choice', (c) => ui.showChoice(c));
     run.on('build', () => { this.autoTimer = 2.5; ui.updateWaveButton(); });
     run.on('wave', () => ui.updateWaveButton());
+    run.on('intro', (ids) => ui.showIntro(ids));
     run.on('over', (d) => { this.deselect(); ui.showGameOver(d); });
     this.deselect();
     ui.enterRun();

@@ -15,14 +15,22 @@ resolution and scaled up with nearest-neighbour filtering, with neon glow effect
   - Terrain modifiers: High Ground (+25% range), Coolant Spill (slows enemies), Asteroid
     Fields (unbuildable), Data Caches (tap for loot), Power Nodes (+30% damage).
   - The neon palette shifts every 10 waves (sectors), so you can see your map's history.
+  - **Risk tiles** trade danger for loot. *Rift Conduits* and *Ion Accelerators* buff
+    only the enemies that cross them (more HP / speed) but those enemies drop far more
+    credits. *Shard Obelisks* and *Bounty Beacons* buff every enemy for shards or credits.
+- **Themed sectors**: each new neon sector (every 10 waves) introduces new enemy types.
+  The first time you meet one, an intel screen shows its art, stats, and abilities, plus
+  which towers are strong and weak against it. Look it up again any time in the Codex.
 - **Endless waves** with a **boss every 10 waves**:
   The Bulwark (shield with a rotating weakness type), Hive Mother (spawns minions),
   Disruptor (EMP disables towers), Phase Stalker (teleports), Leviathan (flying titan).
 - **Elite waves** every 5 waves from wave 15 (Armored, Overdriven, Regenerating,
   Cloaked, Shielded, Titan).
-- **Between waves**: pick augments (1 of 3), visit the Black Market, or hit random
+- **Between waves**: pick augments (1 of 3), visit the Black Market (rerolls double in
+  price each time; augments get pricier per copy owned), or hit random
   events (Derelict Signal, Void Altar, Wandering Merchant, Black Market Chip...).
-- **12 towers**, each with 3 levels and then a **branch choice** (A or B):
+- **12 towers**, each with 3 levels and then a **branch choice** (A or B). Every level
+  looks a little more advanced, and each branch has its own sprite and color:
   Pulse Blaster, Plasma Cannon, Cryo Emitter, Tesla Coil, Nanite Sprayer, Railgun,
   Drone Bay, Credit Miner, Amplifier Pylon, Orbital Mortar, Beam Laser, Reclaimer.
 - **Combos**: Shatter (Cryo + Tesla), Detonation (Nanite + explosions),
