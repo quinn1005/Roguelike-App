@@ -317,11 +317,13 @@ export class Run {
       if (d.buff) range *= 1 + m.ampRange;
       // Breakdown of where bonuses come from, for the tower panel.
       const B = this.baseMods || m, Bt = (B.t && B.t[tw.type]) || ZERO_TM;
-      const augPart = (sum, gained) => sum / Math.max(0.05, sum - gained) - 1;
+      // Talents = everything the run started with (talent trees, commander passive
+      // and skill tree, prestige); augments = everything gained since.
+      const split = (s0, tal, aug) => ({ tal: (s0 + tal) / s0 - 1, aug: (s0 + tal + aug) / Math.max(0.05, s0 + tal) - 1 });
       const bd = {
-        dmg: { aug: augPart(1 + m.dmg + tm.dmg + amp.dmg, (m.dmg - B.dmg) + (tm.dmg - Bt.dmg)), relic: relic === 'overcharger' ? 0.4 : 0, vet: vet.dmg },
-        rate: { aug: augPart(1 + m.rate + tm.rate + amp.rate, (m.rate - B.rate) + (tm.rate - Bt.rate)), relic: relic === 'coils' ? 0.35 : 0, vet: vet.rate },
-        range: { aug: augPart(1 + m.range + amp.range, m.range - B.range), relic: relic === 'lens' ? 0.3 : 0, vet: vet.range },
+        dmg: { ...split(1 + amp.dmg, B.dmg + Bt.dmg, (m.dmg - B.dmg) + (tm.dmg - Bt.dmg)), relic: relic === 'overcharger' ? 0.4 : 0, vet: vet.dmg },
+        rate: { ...split(1 + amp.rate, B.rate + Bt.rate, (m.rate - B.rate) + (tm.rate - Bt.rate)), relic: relic === 'coils' ? 0.35 : 0, vet: vet.rate },
+        range: { ...split(1 + amp.range, B.range, m.range - B.range), relic: relic === 'lens' ? 0.3 : 0, vet: vet.range },
       };
       return {
         bd,

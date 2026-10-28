@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.5.4
+
+### Changed
+- The tower stat breakdown now also shows your **talent bonus** (cyan): everything from the talent trees, your commander's passive and skill tree, and prestige. The full order is base, talents, augments, relic, rank, then the total, and the numbers multiply exactly to the total.
+
 ## v1.5.3
 
 ### Changed
