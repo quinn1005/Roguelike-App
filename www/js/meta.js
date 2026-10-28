@@ -68,7 +68,7 @@ const SPECIALS = {
 const SECOND = {
   miner: ['Yield', (r) => `+${8 * r}% income`, (m, r) => { m.miner += 0.08 * r; }],
   amplifier: ['Field Gain', (r) => `+${2 * r}% buff`, (m, r) => { m.ampBuff += 0.02 * r; }],
-  drone: ['Armor Frames', (r) => `+${12 * r}% drone HP`, (m, r) => { m.droneHp += 0.12 * r; }],
+  drone: ['Servo Blades', (r) => `+${10 * r}% drone damage`, (m, r) => { m.droneDmg += 0.1 * r; }],
 };
 
 export function towerTree(tid) {
@@ -222,7 +222,7 @@ export function baseMods() {
     spawnSlow: 0, choices: 3, eliteGold: 1, bossDmg: 0, chainBonus: 0, splash: 0, brittle: 0,
     poison: 0, poisonDur: 0, pierce: 0, drones: 0, miner: 0, ampRange: 0, ampBuff: 0, mortarMin: 1,
     mortarMinMult: 1, laserRamp: 0, revive: 0, huskHp: 0, chill: 0, chillDur: 0, doubleTap: 0,
-    droneHp: 0, startGold: 160, obelisk: 0, waveGold: 1, shop: 1, regen: 0, startAug: 0, shardMult: 1,
+    droneHp: 0, droneDmg: 0, startGold: 160, obelisk: 0, waveGold: 1, shop: 1, regen: 0, startAug: 0, shardMult: 1,
     xpMult: 1, rerolls: 0, hpMult: 1, holeDur: 0, t,
   };
 }
@@ -294,7 +294,7 @@ export const COMMANDER_TREES = {
   ], ['payday', 'bribe', 'crash']),
   warden: cmdTree([
     buff('wa_core', 'Bulwark', (r) => `+${r} core HP`, (m, r) => { m.coreMax += r; }),
-    buff('wa_drone', 'Plated Drones', (r) => `+${8 * r}% drone HP`, (m, r) => { m.droneHp += 0.08 * r; }),
+    buff('wa_drone', 'Hunter Drones', (r) => `+${8 * r}% drone damage`, (m, r) => { m.droneDmg += 0.08 * r; }),
     buff('wa_slow', 'Gravity Ward', (r) => `Enemies ${1.5 * r}% slower`, (m, r) => { m.enemySpeed -= 0.015 * r; }),
     buff('wa_ddmg', 'Shield Bash', (r) => `Drone Bays +${5 * r}% damage`, (m, r) => { m.t.drone.dmg += 0.05 * r; }),
   ], ['barrier', 'fortify', 'shove']),

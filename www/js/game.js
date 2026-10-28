@@ -362,7 +362,7 @@ export class Run {
         poisonDur: (d.poisonDur || 0) * (1 + m.poisonDur),
         drones: (d.drones || 0) + (br.dronesBonus || 0) + m.drones,
         droneHp: (d.droneHp || 0) * L.dmg * (br.droneHpMult || 1) * (1 + m.droneHp),
-        droneDmg: (d.droneDmg || 0) * dmgMult * (br.droneDmgMult || 1),
+        droneDmg: (d.droneDmg || 0) * dmgMult * (br.droneDmgMult || 1) * (1 + m.droneDmg),
         income: (d.income || 0) * L.dmg * (1 + m.miner),
         buff: ((d.buff || 0) + m.ampBuff) * (1 + (tw.level - 1) * 0.35),
         ramp: (d.ramp || 1) * (br.rampMult || 1) * (1 + m.laserRamp),
@@ -1285,24 +1285,26 @@ export class Run {
       if (!this.towers.includes(tw)) { u.alive = false; return; }
       if (tw.disabled > 0) return;
       const [rx, ry] = tw.rally;
-      if (u.engaged && (!u.engaged.alive || dist2(u.engaged.x, u.engaged.y, rx, ry) > 40 * 40)) {
-        if (u.engaged.blocker === u) u.engaged.blocker = null;
-        u.engaged = null;
-      }
+      // Drones don't block: each one locks onto an enemy near its bay and
+      // hunts it down wherever it goes, then returns for the next one.
+      if (u.engaged && !u.engaged.alive) u.engaged = null;
       if (!u.engaged) {
-        let best = null, bd = 30 * 30;
+        const s = tw.stats;
+        const taken = new Set(tw.drones.filter((o) => o && o !== u && o.alive).map((o) => o.engaged));
+        let best = null, bd = Infinity;
         for (const e of this.enemies) {
-          if (!e.alive || e.flying || e.phased || (e.blocker && e.blocker !== u)) continue;
+          if (!e.alive || e.flying || e.phased) continue;
           const d2 = dist2(e.x, e.y, rx, ry);
-          if (d2 < bd) { bd = d2; best = e; }
+          if (d2 > s.range * s.range) continue;
+          const score = d2 + (taken.has(e) ? 1e6 : 0);
+          if (score < bd) { bd = score; best = e; }
         }
         u.engaged = best;
       }
       const tx = u.engaged ? u.engaged.x : rx + u.off[0];
       const ty = u.engaged ? u.engaged.y : ry + u.off[1];
-      this.moveToward(u, tx, ty, 70, dt);
+      this.moveToward(u, tx, ty, 75 * (tw.stats.br.droneSpeed || 1), dt);
       if (u.engaged && dist2(u.x, u.y, u.engaged.x, u.engaged.y) < 100) {
-        if (!u.engaged.boss && !u.engaged.blocker) u.engaged.blocker = u;
         u.cd -= dt;
         if (u.cd <= 0) {
           const target = u.engaged; // kill() may clear u.engaged

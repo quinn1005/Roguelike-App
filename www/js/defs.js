@@ -61,10 +61,10 @@ export const TOWERS = {
   },
   drone: {
     id: 'drone', name: 'Drone Bay', color: '#3d7bff', cost: 130, unlock: 45, rotates: false,
-    desc: 'Deploys drones that block and fight on the path.',
-    range: 36, drones: 2, droneHp: 160, droneDmg: 26, droneRate: 1.5, dtype: 'kin', proj: 'none',
+    desc: 'Deploys drones that lock onto enemies near the bay and hunt them down.',
+    range: 36, drones: 2, droneHp: 160, droneDmg: 18, droneRate: 1.5, dtype: 'kin', proj: 'none',
     branches: {
-      A: { name: 'Heavy Frames', desc: 'Drones get x3 HP and +50% dmg.', droneHpMult: 3, droneDmgMult: 1.5 },
+      A: { name: 'Hunter Frames', desc: 'Drones deal +80% damage and fly 40% faster.', droneDmgMult: 1.8, droneSpeed: 1.4 },
       B: { name: 'Swarm Protocol', desc: 'Deploys 4 drones.', dronesBonus: 2 },
     },
   },
@@ -285,9 +285,9 @@ export const ENEMIES = {
   wasp: {
     id: 'wasp', name: 'Void Wasp', hp: 30, speed: 26, gold: 3, core: 1, minWave: 14, w: 3, flying: true, sector: 1,
     desc: 'A flyer that ignores the path and heads straight for your core.',
-    abilities: ['Flying: skips the path entirely', 'Cannot be hit by Mortars or blocked by Drones'],
+    abilities: ['Flying: skips the path entirely', 'Cannot be hit by Mortars or chased by Drones'],
     good: [['blaster', 'Fast homing bolts'], ['tesla', 'Lightning reaches the sky'], ['laser', 'Beams lock on']],
-    bad: [['mortar', 'Cannot target flyers'], ['drone', 'Cannot block flyers']],
+    bad: [['mortar', 'Cannot target flyers'], ['drone', 'Drones cannot reach flyers']],
   },
   aegis: {
     id: 'aegis', name: 'Aegis', hp: 55, shield: 45, speed: 20, gold: 5, core: 1, minWave: 21, w: 3, sector: 2,
@@ -333,7 +333,7 @@ export const ENEMIES = {
     id: 'nullifier', name: 'Nullifier', hp: 160, speed: 15, armor: 7, gold: 8, core: 2, minWave: 41, w: 3, nullify: true, sector: 4,
     desc: 'A void-forged hulk that cancels every status effect.',
     abilities: ['Immune to chill, freeze, stun and poison', 'Heavy armor'],
-    good: [['railgun', 'Raw damage beats armor'], ['laser', 'Energy beam ramps up'], ['drone', 'Blocks it in place']],
+    good: [['railgun', 'Raw damage beats armor'], ['laser', 'Energy beam ramps up'], ['drone', 'Drones hound it the whole way']],
     bad: [['cryo', 'Chill does nothing'], ['nanite', 'Poison does nothing'], ['blaster', 'Armor eats the bolts']],
   },
   blinker: {
@@ -353,7 +353,7 @@ Object.assign(ENEMIES, {
     desc: 'A flying hive-ship that releases Void Wasps as it crosses the map.',
     abilities: ['Mini-boss', 'Flying: ignores the path', 'Releases 2 Void Wasps every 3s'],
     good: [['laser', 'Beam locks on'], ['railgun', 'Long-range burst'], ['tesla', 'Hits the escorts too']],
-    bad: [['mortar', 'Cannot hit flyers'], ['drone', 'Cannot block flyers']],
+    bad: [['mortar', 'Cannot hit flyers'], ['drone', 'Drones cannot reach flyers']],
   },
   prime: {
     id: 'prime', name: 'Juggernaut Prime', sprite: 'tank', scale: 1.8, tint: 'rgba(255,210,63,0.35)', mini: true,
@@ -401,7 +401,7 @@ export const BOSSES = [
   { id: 'hive', name: 'Hive Mother', hp: 1000, speed: 11, core: 15, gold: 150, desc: 'Births swarmlings and bursts into crawlers.', spawner: true, abilities: ['Spawns 3 Swarmlings every 4s', 'Bursts into 6 Crawlers on death'], good: [['cannon', 'Clears the brood'], ['tesla', 'Chains through the swarm']], bad: [['railgun', 'Ignores the brood']] },
   { id: 'disruptor', name: 'Disruptor', hp: 1100, speed: 11, armor: 3, core: 15, gold: 150, desc: 'EMP pulses disable nearby towers.', emp: true, abilities: ['EMP every 7s disables towers within 4 tiles for 3s'], good: [['railgun', 'Outranges the EMP'], ['mortar', 'Fires from far away']], bad: [['blaster', 'Short range gets shut down'], ['amplifier', 'Buffs drop when disabled']] },
   { id: 'stalker', name: 'Phase Stalker', hp: 900, speed: 12, core: 15, gold: 150, desc: 'Teleports forward along the path.', teleport: true, abilities: ['Teleports 4 tiles forward every 5s', 'Briefly intangible after teleporting'], good: [['tesla', 'Instant hits'], ['laser', 'Re-locks instantly']], bad: [['mortar', 'Shells miss'], ['cannon', 'Shells miss']] },
-  { id: 'leviathan', name: 'Leviathan', hp: 1400, speed: 10, core: 20, gold: 180, desc: 'A flying titan escorted by wasps.', flying: true, spawner: true, abilities: ['Flying: ignores the path', 'Spawns 2 Void Wasps every 5s'], good: [['laser', 'Sustained beam'], ['railgun', 'Long range'], ['tesla', 'Hits flyers']], bad: [['mortar', 'Cannot hit flyers'], ['drone', 'Cannot block flyers']] },
+  { id: 'leviathan', name: 'Leviathan', hp: 1400, speed: 10, core: 20, gold: 180, desc: 'A flying titan escorted by wasps.', flying: true, spawner: true, abilities: ['Flying: ignores the path', 'Spawns 2 Void Wasps every 5s'], good: [['laser', 'Sustained beam'], ['railgun', 'Long range'], ['tesla', 'Hits flyers']], bad: [['mortar', 'Cannot hit flyers'], ['drone', 'Drones cannot reach flyers']] },
 ];
 
 export const ELITE_MODS = {

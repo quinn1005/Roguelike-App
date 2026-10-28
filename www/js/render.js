@@ -550,7 +550,6 @@ export class Renderer {
         b.fillStyle = '#07061a'; b.fillRect(x - 3, y - 1, 7, 3); b.fillRect(x - 1, y - 3, 3, 7);
         b.fillStyle = '#3d7bff'; b.fillRect(x - 2, y, 5, 1); b.fillRect(x, y - 2, 1, 5);
         b.fillStyle = Math.floor(u.anim * 4) % 2 ? '#ffffff' : '#2ef2ff'; b.fillRect(x, y, 1, 1);
-        if (u.hp < u.maxHp) this.bar(x - 3, y - 5, 7, u.hp / u.maxHp, '#3d7bff');
       } else {
         const spr = enemySprite('husk', Math.floor(u.anim * 4) % 2);
         b.globalAlpha = 0.85;

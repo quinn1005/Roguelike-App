@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.10.0
+
+### Changed: Drone Bay
+- Drones no longer stop enemies on the path. Each drone locks onto an enemy near its bay and chases it down until it dies, then flies back for the next one. Drones from the same bay spread out across different targets.
+- Drones can't be destroyed any more, so drone HP is gone. Everything that used to boost drone HP now boosts drone damage instead:
+  - **Heavy Frames** branch is now **Hunter Frames**: +80% drone damage and drones fly 40% faster.
+  - Drone Bay talent **Armor Frames** is now **Servo Blades**: +10% drone damage per rank.
+  - Warden's **Plated Drones** is now **Hunter Drones**: +8% drone damage per rank.
+- Rebalanced for the new behaviour: drone damage 26 → 18.
+- Drones still can't reach flying enemies.
+
 ## v1.9.0
 
 ### New enemy: Shade

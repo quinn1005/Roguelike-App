@@ -836,7 +836,7 @@ export class UI {
     if (s.slow) rows.push(['Chill', pct(s.slow)]);
     if (s.poison) rows.push(['Poison', fmt(s.poison) + '/s']);
     if (d.proj === 'beam') rows.push(['Ramp', 'x' + s.ramp.toFixed(1)]);
-    if (d.drones) rows.push(['Drones', s.drones], ['Drone HP', fmt(s.droneHp)], ['Drone dmg', vstat(s.droneDmg, bDmg, num)]);
+    if (d.drones) rows.push(['Drones', s.drones], ['Drone dmg', vstat(s.droneDmg, bDmg, num)]);
     if (d.income) rows.push(['Income', '+' + Math.round(s.income) + '/wave']);
     if (d.buff) rows.push(['Buff', '+' + pct(s.buff) + ' dmg']);
     if (d.revive) rows.push(['Revive', pct(s.revive)]);
