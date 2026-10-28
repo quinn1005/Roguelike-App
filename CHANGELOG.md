@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.9.0
+
+### New enemy: Shade
+- A hooded void wisp that is **always cloaked**, even without the Shroud mutator. Towers can only see it within 2.5 tiles unless they have detection (Tesla Coil, Beam Laser, Cryo Blizzard, Railgun Assassin, Mortar Carpet Barrage, Targeting Array or a Sensor Beacon).
+- Appears in the Toxic Belt sector from wave 27, with its own intel screen and Codex entry.
+- Corrupted Shades (wave 51+) also blink forward along the path.
+
 ## v1.8.0
 
 ### Cloaked enemy detection

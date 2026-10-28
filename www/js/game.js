@@ -578,6 +578,7 @@ export class Run {
     if (at) { e.x = at.x; e.y = at.y; e.i = at.i; e.traveled = at.traveled; e.x += (this.rng() - 0.5) * 6; e.y += (this.rng() - 0.5) * 6; }
     if (def.shield) { e.shield = e.maxShield = def.shield * this.hpScale(w); }
     if (def.blink) e.timers.blink = 4;
+    if (def.cloaked) e.cloaked = true;
     e.sprite = def.sprite || e.type;
     if (def.scale) e.scale = def.scale;
     if (def.tint) e.tint = def.tint;

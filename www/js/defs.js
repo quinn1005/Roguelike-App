@@ -303,6 +303,13 @@ export const ENEMIES = {
     good: [['railgun', 'Snipe it first (Strong targeting)'], ['mortar', 'Hits the whole cluster'], ['cannon', 'Splash the group']],
     bad: [['nanite', 'Poison gets healed away'], ['cryo', 'Slow damage keeps the group alive']],
   },
+  shade: {
+    id: 'shade', name: 'Shade', hp: 48, speed: 26, gold: 6, core: 1, minWave: 27, w: 3, cloaked: true, sector: 2,
+    desc: 'A hooded void wisp wrapped in a light-bending cloak. You only see it when it is already close.',
+    abilities: ['Always cloaked: towers only see it within 2.5 tiles', 'Towers with detection can hit it at full range'],
+    good: [['tesla', 'Sees cloaked enemies'], ['laser', 'Sees cloaked enemies'], ['amplifier', 'Targeting Array reveals it to nearby towers']],
+    bad: [['railgun', 'Long range is wasted without detection'], ['mortar', 'Cannot see it from afar']],
+  },
   splitter: {
     id: 'splitter', name: 'Splitter', hp: 80, speed: 18, gold: 4, core: 1, minWave: 31, w: 3, split: 2, sector: 3,
     desc: 'An unstable blob of plasma that bursts into two fragments.',
@@ -368,7 +375,7 @@ Object.assign(ENEMIES, {
     id: 'corrupted', name: 'Corrupted Invaders', sprite: 'crawler', tint: 'rgba(255,0,140,0.45)', minWave: 999, w: 0, sector: 5,
     hp: 0, speed: 22, gold: 0, core: 1,
     desc: 'Past wave 50 the void corrupts the invaders: +40% HP and one extra ability each.',
-    abilities: ['+40% HP and +20% credits', 'Crawlers split, Scouts and Phantoms blink, Wasps and Blinkers cloak', 'Juggernauts and Swarmlings regenerate, Aegis and Nullifiers grow bigger shields', 'Medics heal twice as much, Splitters split into 3'],
+    abilities: ['+40% HP and +20% credits', 'Crawlers split, Scouts, Phantoms and Shades blink, Wasps and Blinkers cloak', 'Juggernauts and Swarmlings regenerate, Aegis and Nullifiers grow bigger shields', 'Medics heal twice as much, Splitters split into 3'],
     good: [['tesla', 'Reliable against every trick'], ['laser', 'Sustained damage']],
     bad: [],
   },
@@ -378,13 +385,13 @@ Object.assign(ENEMIES, {
 export const CORRUPTION = {
   crawler: { split: 2 }, scout: { blink: true }, swarm: { regen: true }, tank: { regen: true, shield: 0.4 },
   wasp: { cloaked: true }, aegis: { shield: 0.8 }, medic: { heal: 2 }, splitter: { split: 3 },
-  phantom: { blink: true }, nullifier: { shield: 0.5 }, blinker: { cloaked: true }, splitling: {},
+  phantom: { blink: true }, nullifier: { shield: 0.5 }, blinker: { cloaked: true }, splitling: {}, shade: { blink: true },
 };
 
 export const SECTOR_INTROS = [
   'The Magenta Rim: the invasion begins.',
   'Cyan Drift: armored walkers and flyers emerge.',
-  'Toxic Belt: shielded escorts and field medics.',
+  'Toxic Belt: shielded escorts, field medics and cloaked shades.',
   'Solar Forge: unstable plasma and phase wraiths.',
   'Void Reach: the void itself fights back.',
 ];

@@ -216,6 +216,10 @@ const ENEMY_PAT = {
     a: ['...kkk', '..kppp', '.kpppp', '.kpwkp', '.kpwkp', 'kppppp', 'kppppp', 'kppppp', 'kpPpPp', 'kPkPkP', 'k.k.k.', '......'],
     b: { 9: 'kPPkPk', 10: '.k.k.k' },
   },
+  shade: {
+    a: ['......', '...kkk', '..kVVV', '.kVvvv', '.kVcwk', '.kVvvv', 'kVvvvv', 'kVvVvv', 'kV.kVv', 'k...kV', '.....k', '......'],
+    b: { 8: 'k.kVkv', 9: '.k..kV', 10: '......' },
+  },
   wasp: {
     a: ['kk....', 'kwk...', 'kwwk..', '.kwwkk', '..kkyy', '...kyk', '...kyy', '...kkk', '...kyy', '....ky', '.....k', '......'],
     b: { 0: '......', 1: '......', 2: 'kkk...', 3: 'kwwkkk' },
