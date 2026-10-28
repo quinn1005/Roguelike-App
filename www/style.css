@@ -196,8 +196,10 @@ img.px, canvas.px { image-rendering: pixelated; image-rendering: crisp-edges; }
 .card.chunk .tag, .card.chunk .ds { font-size: 7px; line-height: 1.4; }
 
 /* ---------- made by Quinn badge ---------- */
-.quinn { position: fixed; left: calc(6px + var(--sl)); bottom: 4px; display: flex; align-items: flex-end; gap: 6px; pointer-events: none; }
-.quinn canvas { width: 48px; height: 96px; image-rendering: pixelated; filter: drop-shadow(0 0 4px rgba(164,102,255,0.6)); }
-.quinn-label { font-size: 7px; color: var(--dim); line-height: 1.6; margin-bottom: 6px; }
+.quinn-stage { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; pointer-events: none; image-rendering: pixelated; z-index: 2; }
+.quinn-hit { position: fixed; bottom: 4px; pointer-events: auto; cursor: pointer; z-index: 3; }
+.quinn-label { position: fixed; bottom: 10px; font-size: 7px; color: var(--dim); line-height: 1.6; pointer-events: none; }
 .quinn-label span { font-size: 10px; color: var(--mag); text-shadow: 0 0 6px var(--mag); }
 .version { position: fixed; right: calc(8px + var(--sr)); bottom: 6px; font-size: 7px; color: var(--dim); pointer-events: none; }
+.item canvas.cmd-sprite { width: 40px; height: 80px; image-rendering: pixelated; }
+.item.off canvas.cmd-sprite { filter: grayscale(0.5) brightness(0.9); }

@@ -10,6 +10,7 @@ import { towerSprites, enemySprite, makeCanvas, uiIcon } from './sprites.js';
 import { previewCanvas } from './world.js';
 import { sfx, setSfx } from './audio.js';
 import { quinnBadge } from './quinn.js';
+import { commanderCanvas } from './commanders.js';
 import { VERSION } from './version.js';
 
 const $ = (id) => document.getElementById(id);
@@ -164,6 +165,7 @@ export class UI {
       const it = el('div', 'item' + (meta.commander === c.id ? ' selc' : ''));
       const sig = c.sig ? `<div class="ds">Signature: ${TOWERS[c.sig].name}</div>` : '';
       it.innerHTML = `<div class="grow"><div class="nm" style="color:${c.color}">${c.name}</div><div class="ds">${c.desc}</div>${sig}</div>`;
+      it.prepend(commanderCanvas(c.id));
       it.onclick = () => { sfx('click'); meta.commander = c.id; saveMeta(); this.showNewRun(); };
       grid.append(it);
     }
@@ -274,6 +276,7 @@ export class UI {
       const has = meta.commanders.includes(c.id);
       const it = el('div', 'item' + (meta.commander === c.id ? ' selc' : '') + (has ? '' : ' off'));
       it.innerHTML = `<div class="grow"><div class="nm" style="color:${c.color}">${c.name}</div><div class="ds">${c.desc}</div></div>`;
+      it.prepend(commanderCanvas(c.id));
       if (has) it.append(button(meta.commander === c.id ? 'ACTIVE' : 'SELECT', meta.commander === c.id ? 'on sm' : 'sm', () => { meta.commander = c.id; saveMeta(); this.showCommanders(); }));
       else {
         const b = button('', meta.shards >= c.cost ? 'mag sm' : 'sm', () => {
