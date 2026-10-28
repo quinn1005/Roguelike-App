@@ -319,11 +319,18 @@ export class Run {
       const B = this.baseMods || m, Bt = (B.t && B.t[tw.type]) || ZERO_TM;
       // Talents = everything the run started with (talent trees, commander passive
       // and skill tree, prestige); augments = everything gained since.
-      const split = (s0, tal, aug) => ({ tal: (s0 + tal) / s0 - 1, aug: (s0 + tal + aug) / Math.max(0.05, s0 + tal) - 1 });
+      // Location = nearby Amplifiers plus the tile (Power Node / High Ground).
+      const split = (ampAdd, tileMul, tal, aug) => {
+        const s0 = 1 + ampAdd;
+        return { loc: s0 * tileMul - 1, tal: (s0 + tal) / s0 - 1, aug: (s0 + tal + aug) / Math.max(0.05, s0 + tal) - 1 };
+      };
+      const ampRangeAug = d.buff ? m.ampRange : 0;
+      const rng = split(amp.range, tile === T.HIGH ? 1.25 : 1, B.range, m.range - B.range);
+      rng.aug = (1 + rng.aug) * (1 + ampRangeAug) - 1;
       const bd = {
-        dmg: { ...split(1 + amp.dmg, B.dmg + Bt.dmg, (m.dmg - B.dmg) + (tm.dmg - Bt.dmg)), relic: relic === 'overcharger' ? 0.4 : 0, vet: vet.dmg },
-        rate: { ...split(1 + amp.rate, B.rate + Bt.rate, (m.rate - B.rate) + (tm.rate - Bt.rate)), relic: relic === 'coils' ? 0.35 : 0, vet: vet.rate },
-        range: { ...split(1 + amp.range, B.range, m.range - B.range), relic: relic === 'lens' ? 0.3 : 0, vet: vet.range },
+        dmg: { ...split(amp.dmg, tile === T.NODE ? 1.3 : 1, B.dmg + Bt.dmg, (m.dmg - B.dmg) + (tm.dmg - Bt.dmg)), relic: relic === 'overcharger' ? 0.4 : 0, vet: vet.dmg },
+        rate: { ...split(amp.rate, 1, B.rate + Bt.rate, (m.rate - B.rate) + (tm.rate - Bt.rate)), relic: relic === 'coils' ? 0.35 : 0, vet: vet.rate },
+        range: { ...rng, relic: relic === 'lens' ? 0.3 : 0, vet: vet.range },
       };
       return {
         bd,

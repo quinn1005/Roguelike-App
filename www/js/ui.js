@@ -793,11 +793,11 @@ export class UI {
     const cv = VETERANCY[(tw.vet || 0) - 1];
     rows.push(['Rank', (cv ? `<span style="color:${cv.color}">${cv.name}</span>` : 'Recruit') + (nv ? ` <span class="c-dim">(${tw.kills}/${nv.kills})</span>` : '')]);
     // Bonus from the current veterancy rank, shown in that rank's colour.
-    // Shows "base +talent% +aug% +relic% +rank% = total" for stats with bonuses.
-    const TAL_COL = '#2ef2ff', AUG_COL = '#ff3df2';
+    // Shows "base +location% +talent% +aug% +relic% +rank% = total" for stats with bonuses.
+    const LOC_COL = '#a466ff', TAL_COL = '#2ef2ff', AUG_COL = '#ff3df2';
     const relicCol = tw.relic ? RELIC_BY_ID[tw.relic].color : '#ffffff';
     const vstat = (total, b, show, unit = '') => {
-      const parts = [[b.tal, TAL_COL], [b.aug, AUG_COL], [b.relic, relicCol], [b.vet, cv ? cv.color : '#fff']].filter(([v]) => Math.abs(v) > 0.004);
+      const parts = [[b.loc, LOC_COL], [b.tal, TAL_COL], [b.aug, AUG_COL], [b.relic, relicCol], [b.vet, cv ? cv.color : '#fff']].filter(([v]) => Math.abs(v) > 0.004);
       if (!parts.length) return show(total) + unit;
       const base = parts.reduce((t, [v]) => t / (1 + v), total);
       const chips = parts.map(([v, c]) => `<span class="vetbuff" style="color:${c}">${v > 0 ? '+' : ''}${Math.round(v * 100)}%</span>`).join(' ');
@@ -805,9 +805,9 @@ export class UI {
     };
     const num = (v) => (v < 100 ? String(Math.round(v * 10) / 10) : fmt(v));
     const bd = s.bd || { dmg: {}, rate: {}, range: {} };
-    const z = (o) => ({ tal: o.tal || 0, aug: o.aug || 0, relic: o.relic || 0, vet: o.vet || 0 });
+    const z = (o) => ({ loc: o.loc || 0, tal: o.tal || 0, aug: o.aug || 0, relic: o.relic || 0, vet: o.vet || 0 });
     const bDmg = z(bd.dmg), bRate = z(bd.rate), bRange = z(bd.range);
-    const comb = (a, b2) => ({ tal: (1 + a.tal) * (1 + b2.tal) - 1, aug: (1 + a.aug) * (1 + b2.aug) - 1, relic: (1 + a.relic) * (1 + b2.relic) - 1, vet: (1 + a.vet) * (1 + b2.vet) - 1 });
+    const comb = (a, b2) => ({ loc: (1 + a.loc) * (1 + b2.loc) - 1, tal: (1 + a.tal) * (1 + b2.tal) - 1, aug: (1 + a.aug) * (1 + b2.aug) - 1, relic: (1 + a.relic) * (1 + b2.relic) - 1, vet: (1 + a.vet) * (1 + b2.vet) - 1 });
     if (d.dmg) {
       const beam = d.proj === 'beam';
       rows.push([beam ? 'DPS (base)' : 'Damage', vstat(s.dmg * (beam ? s.rate : 1), beam ? comb(bDmg, bRate) : bDmg, num)]);
@@ -828,8 +828,8 @@ export class UI {
     if (s.crit > 0.031 && d.dmg) rows.push(['Crit', pct(s.crit)]);
     if (d.dmg || d.drones) rows.push(['Dealt', fmt(tw.dmgDealt)], ['Kills', tw.kills]);
     const has = (k) => [bDmg, bRate, bRange].some((b) => Math.abs(b[k]) > 0.004);
-    const any = has('tal') || has('aug') || has('relic') || has('vet');
-    if (any) rows.push(['', `<span class="legend">${has('tal') ? `<i style="color:${TAL_COL}">TALENTS</i>` : ''} <i style="color:${AUG_COL}">${has('aug') ? 'AUGMENTS' : ''}</i> <i style="color:${relicCol}">${tw.relic ? 'RELIC' : ''}</i> <i style="color:${cv ? cv.color : '#fff'}">${cv ? 'RANK' : ''}</i></span>`]);
+    const any = has('loc') || has('tal') || has('aug') || has('relic') || has('vet');
+    if (any) rows.push(['', `<span class="legend">${has('loc') ? `<i style="color:${LOC_COL}">LOCATION</i>` : ''} ${has('tal') ? `<i style="color:${TAL_COL}">TALENTS</i>` : ''} <i style="color:${AUG_COL}">${has('aug') ? 'AUGMENTS' : ''}</i> <i style="color:${relicCol}">${tw.relic ? 'RELIC' : ''}</i> <i style="color:${cv ? cv.color : '#fff'}">${cv ? 'RANK' : ''}</i></span>`]);
     return rows.map(([k, v]) => `<div class="row"><span>${k}</span><span>${v}</span></div>`).join('');
   }
 

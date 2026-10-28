@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.5.5
+
+### Changed
+- The tower stat breakdown now includes a **location bonus** (purple): buffs from nearby Amplifier Pylons plus the tile the tower stands on (Power Node damage, High Ground range). Full order: base, location, talents, augments, relic, rank, then the total.
+
 ## v1.5.4
 
 ### Changed
