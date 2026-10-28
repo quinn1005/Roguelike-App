@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.5.1
+
+### Changed
+- **Run Again** now starts a new run with the same commander, Heat level and mutators as the run you just finished.
+- The tower panel shows your veterancy bonuses next to each boosted stat (Damage, Rate, Range), coloured to match the tower's current rank: bronze, silver or gold.
+
 ## v1.5.0
 
 ### Changed

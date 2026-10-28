@@ -792,19 +792,23 @@ export class UI {
     const nv = VETERANCY[tw.vet || 0];
     const cv = VETERANCY[(tw.vet || 0) - 1];
     rows.push(['Rank', (cv ? `<span style="color:${cv.color}">${cv.name}</span>` : 'Recruit') + (nv ? ` <span class="c-dim">(${tw.kills}/${nv.kills})</span>` : '')]);
+    // Bonus from the current veterancy rank, shown in that rank's colour.
+    const vb = (v) => (cv && v > 0.0001 ? ` <span class="vetbuff" style="color:${cv.color}">+${Math.round(v * 100)}%</span>` : '');
+    const vDmg = cv ? cv.dmg : 0, vRate = cv ? cv.rate : 0, vRange = cv ? cv.range : 0;
     if (d.dmg) {
-      rows.push([d.proj === 'beam' ? 'DPS (base)' : 'Damage', fmt(s.dmg * (d.proj === 'beam' ? s.rate : 1))]);
-      if (d.proj !== 'beam') rows.push(['Rate', s.rate.toFixed(2) + '/s']);
+      const beam = d.proj === 'beam';
+      rows.push([beam ? 'DPS (base)' : 'Damage', fmt(s.dmg * (beam ? s.rate : 1)) + vb(beam ? (1 + vDmg) * (1 + vRate) - 1 : vDmg)]);
+      if (!beam) rows.push(['Rate', s.rate.toFixed(2) + '/s' + vb(vRate)]);
       rows.push(['Type', DTYPE_NAME[d.dtype]]);
     }
-    if (s.range) rows.push(['Range', (s.range / 16).toFixed(1) + ' tiles']);
+    if (s.range) rows.push(['Range', (s.range / 16).toFixed(1) + ' tiles' + (d.dmg || d.drones ? vb(vRange) : '')]);
     if (s.minRange) rows.push(['Min range', (s.minRange / 16).toFixed(1)]);
     if (s.splash && d.id !== 'cryo') rows.push(['Blast', (s.splash / 16).toFixed(1)]);
     if (s.chains) rows.push(['Chains', s.chains]);
     if (s.slow) rows.push(['Chill', pct(s.slow)]);
     if (s.poison) rows.push(['Poison', fmt(s.poison) + '/s']);
     if (d.proj === 'beam') rows.push(['Ramp', 'x' + s.ramp.toFixed(1)]);
-    if (d.drones) rows.push(['Drones', s.drones], ['Drone HP', fmt(s.droneHp)], ['Drone dmg', fmt(s.droneDmg)]);
+    if (d.drones) rows.push(['Drones', s.drones], ['Drone HP', fmt(s.droneHp)], ['Drone dmg', fmt(s.droneDmg) + vb(vDmg)]);
     if (d.income) rows.push(['Income', '+' + Math.round(s.income) + '/wave']);
     if (d.buff) rows.push(['Buff', '+' + pct(s.buff) + ' dmg']);
     if (d.revive) rows.push(['Revive', pct(s.revive)]);
@@ -1012,7 +1016,7 @@ export class UI {
       if (d.heatUp) box.append(el('p', 'c-red', `HEAT ${meta.heatUnlocked} UNLOCKED!`));
       for (const a of d.ach) box.append(el('p', 'c-grn', `ACHIEVEMENT: ${a.name} (+${a.shards} shards)`));
       const row = el('div', 'mrow');
-      row.append(button('MAIN MENU', '', () => this.app.toMenu()), button('RUN AGAIN', 'go', () => this.app.newRun(meta.commander, meta.heat)));
+      row.append(button('MAIN MENU', '', () => this.app.toMenu()), button('RUN AGAIN', 'go', () => { const p = this.run; this.app.newRun(p.commander, p.heat, (p.mutators || []).slice()); }));
       box.append(row);
     });
   }

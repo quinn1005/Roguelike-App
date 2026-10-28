@@ -360,3 +360,4 @@ body::after {
 ::-webkit-scrollbar-track { background: transparent; }
 #screen > .quinn, #screen > .version { animation: none; }
 #screen.sub { background: radial-gradient(ellipse at 50% 30%, rgba(14, 12, 40, 0.86), rgba(3, 3, 10, 0.94)); }
+.vetbuff { font-size: 7px; text-shadow: 0 0 4px currentColor; }
