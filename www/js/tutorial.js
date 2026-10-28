@@ -55,6 +55,7 @@ export const PAGES = [
     body: () => `
       <p>Press ${k('WAVE', 'grn')} to send the next wave, or turn on ${k('AUTO')} to start waves automatically. The ${k('wave preview')} bar shows exactly what's coming next.</p>
       <p>Every ${k('10th wave', 'red')} is a ${k('BOSS', 'red')} wave. From wave 15, every 5th wave is an ${k('ELITE', 'yel')} wave where enemies get a special trait (armored, fast, cloaked, shielded, regenerating, giant). From wave 25, ${k('mini-bosses', 'mag')} show up between bosses, and after wave 50 ${k('corrupted', 'red')} enemies gain extra abilities.</p>
+      <p>${k('CLOAKED', 'mag')} enemies can only be shot from up close (2.5 tiles) unless a tower has ${k('detection', 'grn')}: the Tesla Coil and Beam Laser always have it, the Cryo Blizzard, Railgun Assassin and Mortar Carpet Barrage branches add it, the Amplifier's Targeting Array grants it to nearby towers, and the Sensor Beacon relic grants it to its tower and every tower touching it.</p>
       <p>Each new neon sector (every 10 waves) brings new enemy types. The first time you meet one, an ${k('intel')} screen shows its stats, abilities, and which towers counter it. You can read all of them again in the ${k('CODEX')}.</p>`,
   },
   {

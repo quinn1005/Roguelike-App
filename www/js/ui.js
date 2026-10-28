@@ -841,6 +841,7 @@ export class UI {
     if (d.buff) rows.push(['Buff', '+' + pct(s.buff) + ' dmg']);
     if (d.revive) rows.push(['Revive', pct(s.revive)]);
     if (s.crit > 0.031 && d.dmg) rows.push(['Crit', pct(s.crit)]);
+    if (tw.reveal && (d.dmg || d.drones)) rows.push(['Detection', '<span class="c-grn">Sees cloaked</span>']);
     if (d.dmg || d.drones) rows.push(['Dealt', fmt(tw.dmgDealt)], ['Kills', tw.kills]);
     const has = (k) => [bDmg, bRate, bRange].some((b) => Math.abs(b[k]) > 0.004);
     const any = has('loc') || has('tal') || has('aug') || has('relic') || has('vet');

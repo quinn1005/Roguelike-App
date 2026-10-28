@@ -28,13 +28,13 @@ export const TOWERS = {
     slow: 0.45, slowDur: 2,
     branches: {
       A: { name: 'Absolute Zero', desc: '20% chance to freeze solid for 1s.', freeze: 0.2 },
-      B: { name: 'Blizzard', desc: 'Constant aura chills everything in range.', aura: true },
+      B: { name: 'Blizzard', desc: 'Constant aura chills everything in range. Frost outlines cloaked enemies so it can see them.', aura: true, detect: true },
     },
   },
   tesla: {
     id: 'tesla', name: 'Tesla Coil', color: '#ffe84a', cost: 140, unlock: 6, rotates: false,
-    desc: 'Lightning chains between enemies. Shocks targets.',
-    dmg: 22, rate: 1, range: 40, dtype: 'eng', proj: 'chain', chains: 3, chainRange: 36,
+    desc: 'Lightning chains between enemies. Shocks targets. Sees cloaked enemies.',
+    dmg: 22, rate: 1, range: 40, dtype: 'eng', proj: 'chain', chains: 3, chainRange: 36, detect: true,
     branches: {
       A: { name: 'Storm Lattice', desc: '+4 chain jumps.', chainBonus: 4 },
       B: { name: 'Overload', desc: '25% chance to stun for 0.7s.', stun: 0.25 },
@@ -55,7 +55,7 @@ export const TOWERS = {
     desc: 'Extreme range, huge single hits. Crits often.',
     dmg: 47, rate: 0.35, range: 104, dtype: 'kin', proj: 'rail', crit: 0.1,
     branches: {
-      A: { name: 'Assassin', desc: '+25% crit, crits x3. Executes non-bosses under 15%.', critBonus: 0.25, critMult: 3, execute: 0.15 },
+      A: { name: 'Assassin', desc: '+25% crit, crits x3. Executes non-bosses under 15%. Thermal scope sees cloaked enemies.', critBonus: 0.25, critMult: 3, execute: 0.15, detect: true },
       B: { name: 'Penetrator', desc: 'Slug pierces every enemy in a line.', pierce: 99 },
     },
   },
@@ -91,14 +91,14 @@ export const TOWERS = {
     desc: 'Huge range artillery. Has a minimum range. Cannot hit flyers.',
     dmg: 85, rate: 0.5, range: 132, minRange: 24, dtype: 'exp', proj: 'mortar', splash: 32, ground: true,
     branches: {
-      A: { name: 'Carpet Barrage', desc: 'Fires 3 shells per volley.', volley: 3 },
+      A: { name: 'Carpet Barrage', desc: 'Fires 3 shells per volley. Orbital spotting sees cloaked enemies.', volley: 3, detect: true },
       B: { name: 'Napalm', desc: 'Blasts leave burning fields.', napalm: true },
     },
   },
   laser: {
     id: 'laser', name: 'Beam Laser', color: '#ff2fa0', cost: 190, unlock: 120,
-    desc: 'Continuous beam. Damage ramps up on the same target.',
-    dmg: 17, rate: 1, range: 48, dtype: 'eng', proj: 'beam', ramp: 4, rampTime: 3,
+    desc: 'Continuous beam. Damage ramps up on the same target. Sees cloaked enemies.',
+    dmg: 17, rate: 1, range: 48, dtype: 'eng', proj: 'beam', ramp: 4, rampTime: 3, detect: true,
     branches: {
       A: { name: 'Prism Split', desc: 'Beam splits to 2 extra targets.', prism: 2 },
       B: { name: 'Melter', desc: 'Ramps to x8, twice as fast.', rampMult: 2, rampSpeed: 2 },
@@ -131,7 +131,7 @@ Object.assign(TOWERS, {
   arclance: {
     id: 'arclance', name: 'Arc Lance', color: '#fff36a', cost: 420, fused: true,
     desc: 'Tesla + Laser. A ramping lightning beam that forks to 3 extra targets and shocks.',
-    dmg: 55, rate: 1, range: 60, dtype: 'eng', proj: 'beam', ramp: 5, rampTime: 2.5, fx: { prism: 3, shockBeam: true },
+    dmg: 55, rate: 1, range: 60, dtype: 'eng', proj: 'beam', ramp: 5, rampTime: 2.5, fx: { prism: 3, shockBeam: true, detect: true },
   },
   frostfire: {
     id: 'frostfire', name: 'Frostfire Cannon', color: '#8fe8ff', cost: 380, fused: true,
@@ -147,12 +147,12 @@ Object.assign(TOWERS, {
   stormrail: {
     id: 'stormrail', name: 'Storm Rail', color: '#ff3df2', cost: 480, fused: true,
     desc: 'Railgun + Tesla. Piercing slugs that arc lightning off every enemy they hit.',
-    dmg: 380, rate: 0.4, range: 124, dtype: 'kin', proj: 'rail', crit: 0.2, fx: { pierce: 3, chainOnHit: 3 },
+    dmg: 380, rate: 0.4, range: 124, dtype: 'kin', proj: 'rail', crit: 0.2, fx: { pierce: 3, chainOnHit: 3, detect: true },
   },
   quasar: {
     id: 'quasar', name: 'Quasar', color: '#7fd8ff', cost: 520, fused: true,
     desc: 'Black Hole + Tesla. Huge singularities that hurl lightning at every enemy around them while they are open.',
-    dmg: 60, rate: 0.3, range: 72, dtype: 'eng', proj: 'hole', projSpeed: 140, holeR: 24, holeDur: 3.5, fx: { quasar: true, shockBeam: true },
+    dmg: 60, rate: 0.3, range: 72, dtype: 'eng', proj: 'hole', projSpeed: 140, holeR: 24, holeDur: 3.5, fx: { quasar: true, shockBeam: true, detect: true },
   },
   goldpylon: {
     id: 'goldpylon', name: 'Golden Pylon', color: '#ffd23f', cost: 420, fused: true, rotates: false,
@@ -182,6 +182,7 @@ export const RELICS = [
   { id: 'toxic', name: 'Toxic Rounds', color: '#4dff8a', desc: 'Hits poison for 25% of their damage per second.' },
   { id: 'bounty', name: 'Bounty Chip', color: '#ffd23f', desc: 'Kills by this tower give +3 credits.' },
   { id: 'medal', name: 'Veteran Medal', color: '#e6f6ff', desc: 'Kills count double toward veterancy.' },
+  { id: 'sensor', name: 'Sensor Beacon', color: '#7dffd9', desc: 'This tower and every tower touching it (including diagonals) can see cloaked enemies.' },
 ];
 export const RELIC_BY_ID = Object.fromEntries(RELICS.map((r) => [r.id, r]));
 
@@ -202,7 +203,7 @@ export const SKINS = [
 // Optional run mutators: harder runs for more XP and shards.
 export const MUTATORS = [
   { id: 'scorched', name: 'Scorched Earth', desc: 'Towers cannot be sold.', bonus: 0.15 },
-  { id: 'shroud', name: 'Shroud', desc: 'Every enemy is cloaked.', bonus: 0.3 },
+  { id: 'shroud', name: 'Shroud', desc: 'Every enemy is cloaked. Bring towers with detection.', bonus: 0.3 },
   { id: 'surge', name: 'Swarm Surge', desc: '+50% enemies every wave.', bonus: 0.3 },
   { id: 'glass', name: 'Glass Core', desc: 'Core max HP is 5.', bonus: 0.35 },
   { id: 'inflation', name: 'Inflation', desc: 'Towers and upgrades cost 30% more.', bonus: 0.2 },
@@ -400,7 +401,7 @@ export const ELITE_MODS = {
   armored: { name: 'Armored', desc: '+6 armor', tint: 'rgba(120,140,255,0.35)' },
   fast: { name: 'Overdriven', desc: '+40% speed', tint: 'rgba(255,240,80,0.35)' },
   regen: { name: 'Regenerating', desc: 'Heals 3%/s', tint: 'rgba(80,255,120,0.35)' },
-  cloaked: { name: 'Cloaked', desc: 'Only visible up close', tint: 'rgba(160,100,255,0.45)' },
+  cloaked: { name: 'Cloaked', desc: 'Only visible up close or to towers with detection', tint: 'rgba(160,100,255,0.45)' },
   shielded: { name: 'Shielded', desc: '+60% hp shield', tint: 'rgba(80,240,255,0.35)' },
   giant: { name: 'Titan', desc: 'x3 hp, bigger', tint: 'rgba(255,60,90,0.35)' },
 };

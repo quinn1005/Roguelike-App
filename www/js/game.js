@@ -390,8 +390,13 @@ export class Run {
       // Stacked pylons have diminishing returns past +60% damage.
       if (amp.dmg > 0.6) amp.dmg = 0.6 + (amp.dmg - 0.6) * 0.3;
       tw.stats = base(tw, amp);
-      tw.reveal = amp.reveal;
+      tw.reveal = amp.reveal || !!tw.def.detect || !!tw.stats.br.detect;
       tw.buffed = amp.dmg > 0;
+    }
+    // Sensor Beacon relic: its tower and the 8 tiles around it see cloaked enemies.
+    for (const src of this.towers) {
+      if (src.relic !== 'sensor') continue;
+      for (const tw of this.towers) if (Math.abs(tw.tx - src.tx) <= 1 && Math.abs(tw.ty - src.ty) <= 1) tw.reveal = true;
     }
   }
 

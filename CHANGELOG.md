@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.8.0
+
+### Cloaked enemy detection
+Cloaked enemies (Shroud mutator, cloaked elite waves, corrupted Wasps and Blinkers) can normally only be shot from 2.5 tiles away. There are now more ways to see them at full range:
+
+- **Always have detection**: Tesla Coil and Beam Laser.
+- **Detection through an upgrade path**: Cryo Emitter (Blizzard), Railgun (Assassin), Orbital Mortar (Carpet Barrage).
+- **Fusions keep it**: Arc Lance, Storm Rail and Quasar.
+- **Amplifier Pylon (Targeting Array)** still grants detection to every tower in its range.
+- **New relic, Sensor Beacon**: the tower it's installed on, plus every tower touching it (sides and diagonals), can see cloaked enemies.
+- The tower panel now shows **Detection: Sees cloaked** on towers that can see them, and the How to Play guide explains detection.
+
 ## v1.7.0
 
 ### New tower: Black Hole Cannon
