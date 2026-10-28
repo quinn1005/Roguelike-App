@@ -74,6 +74,14 @@ const SFX = {
   expand: () => { tone({ type: 'triangle', f0: 200, f1: 800, dur: 0.35, vol: 0.25 }); },
   lose: () => { [392, 330, 262, 196].forEach((f, i) => tone({ type: 'square', f0: f, dur: 0.25, vol: 0.25, delay: i * 0.2 })); },
   click: () => tone({ f0: 1200, dur: 0.03, vol: 0.12 }),
+  strumE: () => { const r = [164.8, 207.7, 246.9, 329.6][Math.floor(Math.random() * 4)]; [1, 1.26, 1.5].forEach((m, i) => tone({ type: 'sawtooth', f0: r * m, f1: r * m * 0.99, dur: 0.25, vol: 0.09, delay: i * 0.012 })); },
+  strumA: () => { const r = [130.8, 146.8, 174.6, 196][Math.floor(Math.random() * 4)]; [1, 1.26, 1.5, 2].forEach((m, i) => tone({ type: 'triangle', f0: r * m, f1: r * m, dur: 0.45, vol: 0.12, delay: i * 0.02 })); },
+  puff: () => noise({ dur: 0.4, vol: 0.12, f: 900 }),
+  poof: () => { noise({ dur: 0.35, vol: 0.25, f: 2500 }); tone({ type: 'triangle', f0: 400, f1: 1200, dur: 0.3, vol: 0.15 }); },
+  buster: () => { tone({ type: 'square', f0: 880, f1: 1760, dur: 0.06, vol: 0.18 }); tone({ type: 'square', f0: 1320, f1: 660, dur: 0.08, vol: 0.12, delay: 0.05 }); },
+  thwip: () => { noise({ dur: 0.12, vol: 0.2, f: 5000 }); tone({ type: 'sine', f0: 1800, f1: 600, dur: 0.12, vol: 0.1 }); },
+  gbBeep: () => tone({ type: 'square', f0: [523, 659, 784, 1046][Math.floor(Math.random() * 4)], dur: 0.07, vol: 0.1 }),
+  portal: () => { tone({ type: 'sine', f0: 200, f1: 900, dur: 0.4, vol: 0.2 }); noise({ dur: 0.3, vol: 0.08, f: 3000, delay: 0.05 }); },
   pick: () => { tone({ f0: 784, dur: 0.06, vol: 0.2 }); tone({ f0: 1175, dur: 0.12, vol: 0.2, delay: 0.06 }); },
 };
 
