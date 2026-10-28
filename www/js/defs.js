@@ -9,7 +9,7 @@ export const TOWERS = {
     dmg: 5, rate: 2.9, range: 44, dtype: 'kin', proj: 'bolt', projSpeed: 230,
     branches: {
       A: { name: 'Scatter Array', desc: 'Fires at 3 targets at once.', multi: 3 },
-      B: { name: 'Piercer', desc: 'Bolts pierce through 3 enemies. +30% dmg.', pierce: 3, dmgMult: 1.3 },
+      B: { name: 'Piercer', desc: 'Bolts pierce through 2 enemies. +15% dmg.', pierce: 2, dmgMult: 1.15 },
     },
   },
   cannon: {
@@ -24,8 +24,8 @@ export const TOWERS = {
   cryo: {
     id: 'cryo', name: 'Cryo Emitter', color: '#8fe8ff', cost: 90, unlock: 3,
     desc: 'Chills enemies, slowing them down.',
-    dmg: 3, rate: 1.2, range: 40, dtype: 'cry', proj: 'bolt', projSpeed: 170, splash: 10,
-    slow: 0.35, slowDur: 1.6,
+    dmg: 4, rate: 1.2, range: 40, dtype: 'cry', proj: 'bolt', projSpeed: 170, splash: 10,
+    slow: 0.45, slowDur: 2,
     branches: {
       A: { name: 'Absolute Zero', desc: '20% chance to freeze solid for 1s.', freeze: 0.2 },
       B: { name: 'Blizzard', desc: 'Constant aura chills everything in range.', aura: true },
@@ -34,7 +34,7 @@ export const TOWERS = {
   tesla: {
     id: 'tesla', name: 'Tesla Coil', color: '#ffe84a', cost: 140, unlock: 6, rotates: false,
     desc: 'Lightning chains between enemies. Shocks targets.',
-    dmg: 12, rate: 1, range: 40, dtype: 'eng', proj: 'chain', chains: 3, chainRange: 30,
+    dmg: 22, rate: 1, range: 40, dtype: 'eng', proj: 'chain', chains: 3, chainRange: 36,
     branches: {
       A: { name: 'Storm Lattice', desc: '+4 chain jumps.', chainBonus: 4 },
       B: { name: 'Overload', desc: '25% chance to stun for 0.7s.', stun: 0.25 },
@@ -43,8 +43,8 @@ export const TOWERS = {
   nanite: {
     id: 'nanite', name: 'Nanite Sprayer', color: '#4dff8a', cost: 100, unlock: 30,
     desc: 'Corrosive nanite globs that poison in an area.',
-    dmg: 2, rate: 1.1, range: 40, dtype: 'bio', proj: 'glob', projSpeed: 140, splash: 13,
-    poison: 8, poisonDur: 4,
+    dmg: 4, rate: 1.1, range: 40, dtype: 'bio', proj: 'glob', projSpeed: 140, splash: 16,
+    poison: 12, poisonDur: 4,
     branches: {
       A: { name: 'Plague', desc: 'Poison spreads when a victim dies.', plague: true },
       B: { name: 'Corrode', desc: 'Poisoned enemies take +25% dmg and lose armor.', corrode: true },
@@ -53,7 +53,7 @@ export const TOWERS = {
   railgun: {
     id: 'railgun', name: 'Railgun', color: '#ff3df2', cost: 180, unlock: 60,
     desc: 'Extreme range, huge single hits. Crits often.',
-    dmg: 70, rate: 0.35, range: 104, dtype: 'kin', proj: 'rail', crit: 0.1,
+    dmg: 47, rate: 0.35, range: 104, dtype: 'kin', proj: 'rail', crit: 0.1,
     branches: {
       A: { name: 'Assassin', desc: '+25% crit, crits x3. Executes non-bosses under 15%.', critBonus: 0.25, critMult: 3, execute: 0.15 },
       B: { name: 'Penetrator', desc: 'Slug pierces every enemy in a line.', pierce: 99 },
@@ -62,7 +62,7 @@ export const TOWERS = {
   drone: {
     id: 'drone', name: 'Drone Bay', color: '#3d7bff', cost: 130, unlock: 45, rotates: false,
     desc: 'Deploys drones that block and fight on the path.',
-    range: 36, drones: 2, droneHp: 60, droneDmg: 8, droneRate: 1.5, dtype: 'kin', proj: 'none',
+    range: 36, drones: 2, droneHp: 160, droneDmg: 26, droneRate: 1.5, dtype: 'kin', proj: 'none',
     branches: {
       A: { name: 'Heavy Frames', desc: 'Drones get x3 HP and +50% dmg.', droneHpMult: 3, droneDmgMult: 1.5 },
       B: { name: 'Swarm Protocol', desc: 'Deploys 4 drones.', dronesBonus: 2 },
@@ -71,25 +71,25 @@ export const TOWERS = {
   miner: {
     id: 'miner', name: 'Credit Miner', color: '#ffd23f', cost: 160, unlock: 50, rotates: false,
     desc: 'Generates credits at the end of every wave.',
-    range: 0, income: 25, proj: 'none',
+    range: 0, income: 45, proj: 'none',
     branches: {
       A: { name: 'Bank Node', desc: '+4% interest on held credits (max 80).', bank: 0.04 },
       B: { name: 'Shard Extractor', desc: '+1 Void Shard every wave.', shards: 1 },
     },
   },
   amplifier: {
-    id: 'amplifier', name: 'Amplifier Pylon', color: '#a466ff', cost: 150, unlock: 75, rotates: false,
-    desc: 'Boosts damage of nearby towers by 15%.',
-    range: 36, buff: 0.15, proj: 'none',
+    id: 'amplifier', name: 'Amplifier Pylon', color: '#a466ff', cost: 130, unlock: 75, rotates: false,
+    desc: 'Boosts damage of nearby towers by 35%.',
+    range: 44, buff: 0.35, proj: 'none',
     branches: {
-      A: { name: 'Overclock', desc: 'Nearby towers also fire 20% faster.', buffRate: 0.2 },
+      A: { name: 'Overclock', desc: 'Nearby towers also fire 25% faster.', buffRate: 0.25 },
       B: { name: 'Targeting Array', desc: 'Nearby towers +15% range, +10% crit. Reveals cloaked.', buffRange: 0.15, buffCrit: 0.1 },
     },
   },
   mortar: {
     id: 'mortar', name: 'Orbital Mortar', color: '#ff5533', cost: 170, unlock: 90,
     desc: 'Huge range artillery. Has a minimum range. Cannot hit flyers.',
-    dmg: 34, rate: 0.4, range: 132, minRange: 40, dtype: 'exp', proj: 'mortar', splash: 24, ground: true,
+    dmg: 85, rate: 0.5, range: 132, minRange: 24, dtype: 'exp', proj: 'mortar', splash: 32, ground: true,
     branches: {
       A: { name: 'Carpet Barrage', desc: 'Fires 3 shells per volley.', volley: 3 },
       B: { name: 'Napalm', desc: 'Blasts leave burning fields.', napalm: true },
@@ -98,7 +98,7 @@ export const TOWERS = {
   laser: {
     id: 'laser', name: 'Beam Laser', color: '#ff2fa0', cost: 190, unlock: 120,
     desc: 'Continuous beam. Damage ramps up on the same target.',
-    dmg: 14, rate: 1, range: 48, dtype: 'eng', proj: 'beam', ramp: 4, rampTime: 3,
+    dmg: 17, rate: 1, range: 48, dtype: 'eng', proj: 'beam', ramp: 4, rampTime: 3,
     branches: {
       A: { name: 'Prism Split', desc: 'Beam splits to 2 extra targets.', prism: 2 },
       B: { name: 'Melter', desc: 'Ramps to x8, twice as fast.', rampMult: 2, rampSpeed: 2 },
@@ -107,9 +107,9 @@ export const TOWERS = {
   reclaimer: {
     id: 'reclaimer', name: 'Reclaimer', color: '#b6ff3d', cost: 170, unlock: 150, rotates: false,
     desc: 'Enemies that die in range may rise as allied husks.',
-    dmg: 10, rate: 0.8, range: 44, dtype: 'bio', proj: 'orb', projSpeed: 110, revive: 0.25,
+    dmg: 38, rate: 1, range: 44, dtype: 'bio', proj: 'orb', projSpeed: 110, revive: 0.4,
     branches: {
-      A: { name: 'Legion', desc: '45% revive chance, husks are tougher.', reviveBonus: 0.2, husk: 2 },
+      A: { name: 'Legion', desc: '60% revive chance, husks are tougher.', reviveBonus: 0.2, husk: 2 },
       B: { name: 'Siphon', desc: 'Kills in range grant +3 credits.', siphon: 3 },
     },
   },

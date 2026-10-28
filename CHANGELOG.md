@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.6.0
+
+### Tower balance pass
+Every tower is now a solid pick, and towers that take longer to unlock hit harder, so each unlock feels like a real step up.
+
+- **Pulse Blaster**: Piercer branch now pierces 2 enemies (was 3) with +15% damage (was +30%).
+- **Cryo Emitter**: damage 3 → 4, slow 35% → 45%, slow lasts 2s (was 1.6s).
+- **Tesla Coil**: damage 12 → 22, chain jump range increased.
+- **Nanite Sprayer**: damage 2 → 4, poison 8 → 12 per second, bigger splash.
+- **Drone Bay**: drone HP 60 → 160, drone damage 8 → 26.
+- **Credit Miner**: income 25 → 45 credits per wave.
+- **Railgun**: damage 70 → 47. It was far ahead of everything else.
+- **Amplifier Pylon**: cost 150 → 130, damage boost 15% → 35%, bigger range, Overclock branch +25% fire rate (was +20%). Stacking several pylons on one tower now has diminishing returns past +60%.
+- **Orbital Mortar**: damage 34 → 85, fire rate 0.4 → 0.5, bigger blast, minimum range 2.5 → 1.5 tiles. Still can't hit flyers, so pair it with anti-air.
+- **Beam Laser**: damage 14 → 17.
+- **Reclaimer**: damage 10 → 38, fire rate 0.8 → 1, revive chance 25% → 40% (Legion 60%). Husk damage now scales with the wave.
+
+### Fixed
+- Beam Laser (and Arc Lance) lost almost all of their damage against armored enemies because armor was applied to every frame of the beam. Armor now applies to beams like it does to normal shots.
+
 ## v1.5.9
 
 ### Fixed

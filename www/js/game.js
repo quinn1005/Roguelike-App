@@ -384,6 +384,8 @@ export class Run {
         if (br.buffRange) { amp.range += br.buffRange; amp.reveal = true; }
         if (br.buffCrit) amp.crit += br.buffCrit;
       }
+      // Stacked pylons have diminishing returns past +60% damage.
+      if (amp.dmg > 0.6) amp.dmg = 0.6 + (amp.dmg - 0.6) * 0.3;
       tw.stats = base(tw, amp);
       tw.reveal = amp.reveal;
       tw.buffed = amp.dmg > 0;
@@ -1216,7 +1218,7 @@ export class Run {
     const mult = 1 + (s.ramp - 1) * (tw.rampT / s.rampTime);
     const dps = s.dmg * mult * s.rate * (tw.rateMul || 1);
     tw.beam.push([tgt, mult]);
-    this.hit(tw, tgt, dps * dt, s, { beam: true });
+    this.hit(tw, tgt, dps * dt, s, { beam: true, armorScale: dt * s.rate });
     if (s.br.prism) {
       const extras = [];
       for (const e of this.enemies) {
@@ -1224,7 +1226,7 @@ export class Run {
         if (dist2(e.x, e.y, tgt.x, tgt.y) < 40 * 40) extras.push(e);
         if (extras.length >= s.br.prism) break;
       }
-      for (const e of extras) { tw.beam.push([e, mult * 0.5, tgt]); this.hit(tw, e, dps * dt * 0.5, s, { beam: true }); }
+      for (const e of extras) { tw.beam.push([e, mult * 0.5, tgt]); this.hit(tw, e, dps * dt * 0.5, s, { beam: true, armorScale: dt * s.rate }); }
     }
     if (Math.random() < dt * 6) this.sfx('laser');
   }
@@ -1452,7 +1454,7 @@ export class Run {
       if (tw.relic === 'frostshell') { e.slow = Math.max(e.slow, 0.25); e.slowT = Math.max(e.slowT, 1.5); }
       if (tw.relic === 'toxic') { e.poison = Math.max(e.poison, dmg * 0.25); e.poisonT = Math.max(e.poisonT, 3); e.poisonSrc = tw; }
     }
-    this.damage(e, dmg, tw.def.dtype, tw, { crit, execute: s.execute });
+    this.damage(e, dmg, tw.def.dtype, tw, { crit, execute: s.execute, armorScale: opts.armorScale });
     if (tw.relic === 'ricochet' && !opts.rico) {
       let best = null, bd = 40 * 40;
       for (const o of this.enemies) {
@@ -1487,7 +1489,8 @@ export class Run {
       if (a <= 0) { e.hitFlash = 0.05; return; }
     }
     if (dtype !== 'bio' && !(e.corrode > 0) && e.armor > 0) {
-      const ar = e.armor * (dtype === 'eng' ? 0.5 : 1) * (opts.dot ? 0.1 : 1);
+      // Beams hit every frame, so armor is scaled to the slice of a second they cover.
+      const ar = e.armor * (dtype === 'eng' ? 0.5 : 1) * (opts.armorScale != null ? opts.armorScale : opts.dot ? 0.1 : 1);
       a = Math.max(a * 0.25, a - ar);
     }
     e.hp -= a;
@@ -1561,7 +1564,7 @@ export class Run {
           const mult = r.stats.br.husk || 1;
           this.units.push({
             kind: 'husk', tw: r, x: e.x, y: e.y, route: e.route, i: e.i + 1, alive: true, anim: 0, cd: 0,
-            hp: Math.min(e.maxHp * 0.6, 40 * this.hpScale(this.wave)) * (1 + this.mods.huskHp) * mult, dmg: 6 * r.stats.dmgMult * mult,
+            hp: Math.min(e.maxHp * 0.6, 40 * this.hpScale(this.wave)) * (1 + this.mods.huskHp) * mult, dmg: 6 * r.stats.dmgMult * mult * (1 + this.wave * 0.08),
             speed: 20, life: 20, engaged: null,
           });
           const u = this.units[this.units.length - 1];
