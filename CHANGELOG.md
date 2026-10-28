@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.5.2
+
+### Changed
+- Veterancy-boosted stats in the tower panel now show the full breakdown: base value, rank bonus and total (for example `5 +20% = 6`).
+
 ## v1.5.1
 
 ### Changed

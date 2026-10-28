@@ -361,3 +361,4 @@ body::after {
 #screen > .quinn, #screen > .version { animation: none; }
 #screen.sub { background: radial-gradient(ellipse at 50% 30%, rgba(14, 12, 40, 0.86), rgba(3, 3, 10, 0.94)); }
 .vetbuff { font-size: 7px; text-shadow: 0 0 4px currentColor; }
+.vettotal { font-weight: normal; color: #ffffff; text-shadow: 0 0 4px rgba(255,255,255,0.5); }
