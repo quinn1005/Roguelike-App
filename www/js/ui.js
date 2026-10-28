@@ -17,6 +17,7 @@ import { sfx, setSfx } from './audio.js';
 import { quinnBadge } from './quinn.js';
 import { commanderCanvas } from './commanders.js';
 import { VERSION } from './version.js';
+import { fillTutorial } from './tutorial.js';
 
 const $ = (id) => document.getElementById(id);
 const ICON = { coin: uiIcon('coin'), heart: uiIcon('heart'), shard: uiIcon('shard'), wave: uiIcon('wave') };
@@ -128,10 +129,19 @@ export class UI {
       button('COMMANDERS', '', () => this.showCommanders()),
       button('CODEX', '', () => this.showCodex('enemies')),
       button('HISTORY', '', () => this.showHistory()),
-      button('SETTINGS', '', () => this.showSettings()),
+      button('GUIDE', '', () => this.showTutorial()),
+      button('SETTINGS', 'wide', () => this.showSettings()),
     );
     m.append(logo, col);
     this.screen.append(m, quinnBadge(), el('div', 'version', 'v' + VERSION));
+    if (!meta.tutorialSeen) this.showTutorial();
+  }
+
+  showTutorial() {
+    this.openModal((box) => fillTutorial(box, button, () => {
+      meta.tutorialSeen = true; saveMeta();
+      this.closeModal();
+    }));
   }
 
   header(title, extra) {

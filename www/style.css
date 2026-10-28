@@ -365,3 +365,19 @@ body::after {
 .legend i { font-style: normal; font-size: 6px; margin-left: 4px; } #panel .row span:last-child { text-align: right; }
 #panel { width: 240px; } .vettotal { white-space: nowrap; }
 #panel .row { gap: 8px; }
+
+/* ---- how to play guide ---- */
+.mbox.tut { max-width: 620px; text-align: left; display: flex; flex-direction: column; }
+.mbox.tut h2, .tut-step { text-align: center; }
+.tut-step { font-size: 7px; margin-bottom: 4px; letter-spacing: 1px; }
+.tut-art { display: flex; justify-content: center; align-items: flex-end; gap: 10px; margin: 2px 0 8px; min-height: 36px; }
+.tut-art .tut-ic { width: 36px; height: 36px; }
+.tut-body p { font-size: 9px; line-height: 1.7; margin: 0 0 8px; }
+.tut-body .tut-ic { width: 12px; height: 12px; vertical-align: middle; }
+.tut-dots { display: flex; justify-content: center; gap: 6px; margin: 4px 0 2px; }
+.tut-dots span { width: 8px; height: 8px; background: #2a3366; cursor: pointer; }
+.tut-dots span.on { background: var(--cyan); box-shadow: 0 0 6px var(--cyan); }
+.px, .tut-ic { image-rendering: pixelated; object-fit: contain; }
+.mbox.tut { overflow: hidden; }
+.mbox.tut .tut-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding-right: 4px; }
+.mbox.tut .mrow, .mbox.tut .tut-dots { flex: none; }

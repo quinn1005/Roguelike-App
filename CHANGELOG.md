@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.5.8
+
+### New
+- **How to Play guide**: an 11-page guide opens on the main menu the first time you launch the game. It covers the basics, building and upgrading towers, waves and bosses, the expanding map, risk tiles, augments and the shop, combos, veterancy, fusion and overclock, commanders, meta progression, and controls.
+- Reopen the guide any time with the new **GUIDE** button on the main menu.
+
 ## v1.5.7
 
 ### Changed
