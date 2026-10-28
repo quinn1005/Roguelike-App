@@ -1,7 +1,7 @@
 // Persistent progression: account XP/levels, talent trees, unlocks, commanders,
 // heat (ascension), bestiary and achievements. Saved to localStorage.
 
-import { TOWERS, TOWER_ORDER } from './defs.js';
+import { TOWERS, TOWER_ORDER, MUTATORS, SKINS } from './defs.js';
 
 const KEY = 'neonbastion_meta_v1';
 const RUN_KEY = 'neonbastion_run_v1';
@@ -125,7 +125,8 @@ function fresh() {
     v: 1, xp: 0, level: 1, shards: 0, talents: {}, unlocked: ['blaster'],
     commanders: ['vanguard'], commander: 'vanguard', heatUnlocked: 0, heat: 0,
     bestWave: 0, totalKills: 0, runs: 0, bestiary: {}, bossKills: {}, achievements: {}, seen: {},
-    settings: { sfx: true, shake: true, autoWave: false },
+    cmd: {}, prestige: 0, history: [], towerKills: {}, skins: {}, mutators: [],
+    settings: { sfx: true, shake: true, autoWave: false, haptics: true },
   };
 }
 
@@ -134,7 +135,7 @@ export const meta = load();
 function load() {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) return { ...fresh(), ...JSON.parse(raw) };
+    if (raw) { const f = fresh(); const d = JSON.parse(raw); return { ...f, ...d, settings: { ...f.settings, ...(d.settings || {}) } }; }
   } catch (e) { /* storage unavailable */ }
   return fresh();
 }
@@ -195,7 +196,7 @@ export function allNodes() {
 
 export function baseMods() {
   const t = {};
-  for (const id of TOWER_ORDER) t[id] = { dmg: 0, rate: 0, cost: 0, splash: 0 };
+  for (const id of Object.keys(TOWERS)) t[id] = { dmg: 0, rate: 0, cost: 0, splash: 0 };
   return {
     dmg: 0, rate: 0, range: 0, crit: 0.03, critMult: 2, cost: 0, killGold: 0, goldMult: 1, interest: 0,
     refund: 0.6, coreMax: 15, enemySpeed: 0, shieldDmg: 0, execute: 0, combo: 1, emergency: 0,
@@ -216,8 +217,138 @@ export function buildRunMods(commanderId) {
   }
   const cmd = COMMANDERS.find((c) => c.id === commanderId) || COMMANDERS[0];
   cmd.apply(m);
+  for (const node of COMMANDER_TREES[cmd.id] || []) {
+    const r = cmdNodeRank(cmd.id, node.id);
+    if (r > 0 && node.apply) node.apply(m, r);
+  }
+  // prestige: permanent small bonuses
+  m.dmg += 0.03 * (meta.prestige || 0);
+  m.shardMult += 0.05 * (meta.prestige || 0);
   return m;
 }
+
+// ---------- Commander skill trees ----------
+// Each commander levels up from XP earned in runs with them. Every level is a
+// point for their own tree: four small buffs and three active abilities.
+const buff = (id, name, desc, apply) => ({ id, name, max: 3, desc, apply });
+const abil = (id, ability, req) => ({ id, name: 'Ability', ability, max: 1, req, desc: () => 'Unlocks an active ability' });
+const cmdTree = (b, a) => [
+  { ...b[0], tier: 0 },
+  { ...abil(a[0] + '_a', a[0], [b[0].id]), tier: 1 },
+  { ...b[1], tier: 2, req: [a[0] + '_a'] },
+  { ...b[2], tier: 2, req: [a[0] + '_a'] },
+  { ...abil(a[1] + '_a', a[1], [b[1].id, b[2].id]), any: true, tier: 3 },
+  { ...b[3], tier: 4, req: [a[1] + '_a'] },
+  { ...abil(a[2] + '_a', a[2], [b[3].id]), tier: 5 },
+];
+
+export const COMMANDER_TREES = {
+  vanguard: cmdTree([
+    buff('vg_dmg', 'Drill Sergeant', (r) => `+${2 * r}% tower damage`, (m, r) => { m.dmg += 0.02 * r; }),
+    buff('vg_rate', 'Lock and Load', (r) => `+${2 * r}% fire rate`, (m, r) => { m.rate += 0.02 * r; }),
+    buff('vg_crit', 'Marksmen', (r) => `+${2 * r}% crit chance`, (m, r) => { m.crit += 0.02 * r; }),
+    buff('vg_core', 'Hold the Line', (r) => `+${r} core HP`, (m, r) => { m.coreMax += r; }),
+  ], ['airstrike', 'rally', 'lance']),
+  engineer: cmdTree([
+    buff('en_cost', 'Bulk Orders', (r) => `-${2 * r}% tower cost`, (m, r) => { m.cost -= 0.02 * r; }),
+    buff('en_gold', 'Toolbox', (r) => `+${15 * r} starting credits`, (m, r) => { m.startGold += 15 * r; }),
+    buff('en_sell', 'Scrapper', (r) => `+${4 * r}% sell refund`, (m, r) => { m.refund += 0.04 * r; }),
+    buff('en_wave', 'Overtime Pay', (r) => `+${5 * r}% wave credits`, (m, r) => { m.waveGold += 0.05 * r; }),
+  ], ['repair', 'overdrive', 'refund']),
+  cryomancer: cmdTree([
+    buff('cr_chill', 'Cold Snap', (r) => `Chill +${3 * r}% stronger`, (m, r) => { m.chill += 0.03 * r; }),
+    buff('cr_dur', 'Permafrost', (r) => `Chill lasts +${10 * r}%`, (m, r) => { m.chillDur += 0.1 * r; }),
+    buff('cr_brittle', 'Brittle', (r) => `Chilled enemies take +${4 * r}% damage`, (m, r) => { m.brittle += 0.04 * r; }),
+    buff('cr_cryo', 'Ice Core', (r) => `Cryo Emitters +${5 * r}% damage`, (m, r) => { m.t.cryo.dmg += 0.05 * r; }),
+  ], ['freeze', 'blizzard', 'shatter']),
+  biotech: cmdTree([
+    buff('bi_pois', 'Potent Strains', (r) => `+${6 * r}% poison damage`, (m, r) => { m.poison += 0.06 * r; }),
+    buff('bi_dur', 'Long Incubation', (r) => `Poison lasts +${10 * r}%`, (m, r) => { m.poisonDur += 0.1 * r; }),
+    buff('bi_nan', 'Nanite Swarm', (r) => `Nanite Sprayers +${5 * r}% damage`, (m, r) => { m.t.nanite.dmg += 0.05 * r; }),
+    buff('bi_combo', 'Catalyst', (r) => `Combos +${8 * r}% stronger`, (m, r) => { m.combo += 0.08 * r; }),
+  ], ['toxic', 'mutagen', 'burst']),
+  tycoon: cmdTree([
+    buff('ty_gold', 'Investor', (r) => `+${4 * r}% kill credits`, (m, r) => { m.goldMult += 0.04 * r; }),
+    buff('ty_int', 'Dividends', (r) => `+${r}% interest`, (m, r) => { m.interest += 0.01 * r; }),
+    buff('ty_wave', 'Quarterly Bonus', (r) => `+${6 * r}% wave credits`, (m, r) => { m.waveGold += 0.06 * r; }),
+    buff('ty_shop', 'Connections', (r) => `-${4 * r}% shop prices`, (m, r) => { m.shop -= 0.04 * r; }),
+  ], ['payday', 'bribe', 'crash']),
+  warden: cmdTree([
+    buff('wa_core', 'Bulwark', (r) => `+${r} core HP`, (m, r) => { m.coreMax += r; }),
+    buff('wa_drone', 'Plated Drones', (r) => `+${8 * r}% drone HP`, (m, r) => { m.droneHp += 0.08 * r; }),
+    buff('wa_slow', 'Gravity Ward', (r) => `Enemies ${1.5 * r}% slower`, (m, r) => { m.enemySpeed -= 0.015 * r; }),
+    buff('wa_ddmg', 'Shield Bash', (r) => `Drone Bays +${5 * r}% damage`, (m, r) => { m.t.drone.dmg += 0.05 * r; }),
+  ], ['barrier', 'fortify', 'shove']),
+  gunslinger: cmdTree([
+    buff('gu_crit', 'Steady Hands', (r) => `+${2 * r}% crit chance`, (m, r) => { m.crit += 0.02 * r; }),
+    buff('gu_cdmg', 'Hollow Tips', (r) => `+${10 * r}% crit damage`, (m, r) => { m.critMult += 0.1 * r; }),
+    buff('gu_rail', 'Long Barrel', (r) => `Railguns +${5 * r}% damage`, (m, r) => { m.t.railgun.dmg += 0.05 * r; }),
+    buff('gu_blast', 'Fan the Hammer', (r) => `Pulse Blasters +${5 * r}% damage`, (m, r) => { m.t.blaster.dmg += 0.05 * r; }),
+  ], ['quickdraw', 'deadeye', 'bulletstorm']),
+  necromancer: cmdTree([
+    buff('ne_rev', 'Grave Pact', (r) => `+${3 * r}% revive chance`, (m, r) => { m.revive += 0.03 * r; }),
+    buff('ne_husk', 'Bone Armor', (r) => `Husks +${10 * r}% HP`, (m, r) => { m.huskHp += 0.1 * r; }),
+    buff('ne_recl', 'Soul Furnace', (r) => `Reclaimers +${5 * r}% damage`, (m, r) => { m.t.reclaimer.dmg += 0.05 * r; }),
+    buff('ne_gold', 'Grave Robber', (r) => `+${2 * r}% kill credits`, (m, r) => { m.goldMult += 0.02 * r; }),
+  ], ['raise', 'harvest', 'mark']),
+};
+
+export const CMD_MAX_LEVEL = 15;
+export const cmdXpNeed = (lvl) => 200 + lvl * 100;
+
+export function cmdState(id) {
+  if (!meta.cmd[id]) meta.cmd[id] = { xp: 0, level: 1, nodes: {} };
+  return meta.cmd[id];
+}
+export function cmdNodeRank(cid, nid) { return (meta.cmd[cid] && meta.cmd[cid].nodes[nid]) || 0; }
+export function cmdPointsFree(cid) {
+  const st = cmdState(cid);
+  return st.level - Object.values(st.nodes).reduce((a, b) => a + b, 0);
+}
+export function cmdNodeAvailable(cid, node) {
+  if (!node.req || !node.req.length) return true;
+  const ok = node.req.map((r) => cmdNodeRank(cid, r) > 0);
+  return node.any ? ok.some(Boolean) : ok.every(Boolean);
+}
+export function cmdBuyNode(cid, node) {
+  const st = cmdState(cid);
+  if (cmdPointsFree(cid) <= 0 || cmdNodeRank(cid, node.id) >= node.max || !cmdNodeAvailable(cid, node)) return false;
+  st.nodes[node.id] = cmdNodeRank(cid, node.id) + 1;
+  saveMeta();
+  return true;
+}
+export function cmdRespec(cid) { cmdState(cid).nodes = {}; saveMeta(); }
+export function cmdAddXp(cid, amount) {
+  const st = cmdState(cid);
+  let ups = 0;
+  if (st.level >= CMD_MAX_LEVEL) return 0;
+  st.xp += Math.floor(amount);
+  while (st.level < CMD_MAX_LEVEL && st.xp >= cmdXpNeed(st.level)) { st.xp -= cmdXpNeed(st.level); st.level++; ups++; }
+  return ups;
+}
+export function cmdAbilities(cid) {
+  return (COMMANDER_TREES[cid] || []).filter((n) => n.ability && cmdNodeRank(cid, n.id) > 0).map((n) => n.ability);
+}
+
+// ---------- Prestige ----------
+export const PRESTIGE_LEVEL = 30;
+export function canPrestige() { return meta.level >= PRESTIGE_LEVEL; }
+export function doPrestige() {
+  if (!canPrestige()) return false;
+  meta.prestige = (meta.prestige || 0) + 1;
+  meta.level = 1; meta.xp = 0; meta.talents = {};
+  saveMeta();
+  return true;
+}
+
+// ---------- Mastery skins ----------
+export function skinUnlocked(tid, skin) {
+  const s = SKINS.find((x) => x.id === skin);
+  return !!s && (meta.towerKills[tid] || 0) >= s.kills;
+}
+export function towerSkin(tid) { const s = meta.skins[tid] || 'default'; return skinUnlocked(tid, s) ? s : 'default'; }
+
+export function mutatorBonus(ids) { return ids.reduce((a, id) => a + ((MUTATORS.find((m) => m.id === id) || {}).bonus || 0), 0); }
 
 export function checkAchievements(run) {
   const got = [];

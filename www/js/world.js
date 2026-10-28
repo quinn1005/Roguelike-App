@@ -56,9 +56,12 @@ function polyRoute(rng, pts) {
 const CANON_OUT = { F: 'E', L: 'N', R: 'S' };
 
 // Generates canonical routes for an archetype (entry W).
-function canonicalRoutes(rng, arch, flip) {
+// Rotating a chunk cycles its outward exits around the non-entry sides.
+const ROT = [{ E: 'E', N: 'N', S: 'S' }, { E: 'N', N: 'S', S: 'E' }, { E: 'S', N: 'E', S: 'N' }];
+
+function canonicalRoutes(rng, arch, flip, rot = 0) {
   const routes = {};
-  const outs = arch.outs.map((o) => (flip && o !== 'F' ? (o === 'L' ? 'R' : 'L') : o)).map((o) => CANON_OUT[o]);
+  const outs = arch.outs.map((o) => (flip && o !== 'F' ? (o === 'L' ? 'R' : 'L') : o)).map((o) => ROT[rot % 3][CANON_OUT[o]]);
   const entryPts = [[0, 3], [1, 3]];
   for (const s of outs) {
     const ex = EXIT[s];
@@ -86,10 +89,10 @@ function canonicalRoutes(rng, arch, flip) {
 }
 
 // Build a chunk's tile data. blocked(side) says if an actual side can't be an exit.
-export function genChunk({ arch, mods, sector, seed, entry, blocked = () => false }) {
+export function genChunk({ arch, mods, sector, seed, entry, blocked = () => false, rot = 0 }) {
   const rng = mulberry32(seed);
   const flip = arch.flip && rng() < 0.5;
-  const canon = canonicalRoutes(rng, arch, flip);
+  const canon = canonicalRoutes(rng, arch, flip, rot);
   const tiles = new Uint8Array(CS * CS).fill(T.GROUND);
   const routes = {};
   const outs = [];
@@ -105,7 +108,7 @@ export function genChunk({ arch, mods, sector, seed, entry, blocked = () => fals
     for (const r of routes[side]) for (const [x, y] of r) tiles[y * CS + x] = T.PATH;
   }
   applyMods(rng, tiles, mods);
-  return { entry, outs, routes, tiles, sector, arch: arch.id, mods: mods.slice() };
+  return { entry, outs, routes, tiles, sector, arch: arch.id, mods: mods.slice(), seed, rot };
 }
 
 function applyMods(rng, tiles, mods) {
@@ -235,6 +238,25 @@ export class World {
     return ch;
   }
 
+  // Rebuilds a chunk in place (used by chunk relocation).
+  regen(ch, arch, mods, seed, rot = 0) {
+    const blocked = (s) => !!this.get(ch.cx + SIDE_DIR[s][0], ch.cy + SIDE_DIR[s][1]);
+    const data = genChunk({ arch, mods, sector: ch.sector, seed, entry: ch.entry, blocked, rot });
+    Object.assign(ch, { outs: data.outs, routes: data.routes, tiles: data.tiles, arch: data.arch, mods: data.mods, seed, rot, gate: false, canvas: null });
+    for (const s of Object.keys(SIDE_DIR)) {
+      const n = this.get(ch.cx + SIDE_DIR[s][0], ch.cy + SIDE_DIR[s][1]);
+      if (n) n.canvas = null;
+    }
+    this.computePortals();
+    if (!this.portals.length) {
+      ch.gate = true;
+      const r = polyRoute(mulberry32(seed + 1), [[3, 3], ...this._toEntry(ch.entry)]);
+      ch.routes.G = [r];
+      for (const [x, y] of r) if (!isPath(ch.tiles[y * CS + x])) ch.tiles[y * CS + x] = T.PATH;
+      this.computePortals();
+    }
+  }
+
   _toEntry(entry) {
     const e = EXIT[entry];
     return [[e[0] + INWARD[entry][0], e[1] + INWARD[entry][1]], e];
@@ -309,7 +331,7 @@ export class World {
   serialize() {
     return [...this.chunks.values()].map((c) => ({
       cx: c.cx, cy: c.cy, entry: c.entry, outs: c.outs, routes: c.routes, tiles: Array.from(c.tiles),
-      sector: c.sector, arch: c.arch, mods: c.mods, parent: c.parent, parentSide: c.parentSide, gate: !!c.gate,
+      sector: c.sector, arch: c.arch, mods: c.mods, parent: c.parent, parentSide: c.parentSide, gate: !!c.gate, seed: c.seed, rot: c.rot || 0,
     }));
   }
 

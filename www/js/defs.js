@@ -114,7 +114,115 @@ export const TOWERS = {
     },
   },
 };
-export const TOWER_ORDER = Object.keys(TOWERS);
+
+// Fused towers: made by fusing two max-level towers that sit side by side.
+// They are never built directly. `fx` works like a branch's flags.
+Object.assign(TOWERS, {
+  arclance: {
+    id: 'arclance', name: 'Arc Lance', color: '#fff36a', cost: 420, fused: true,
+    desc: 'Tesla + Laser. A ramping lightning beam that forks to 3 extra targets and shocks.',
+    dmg: 55, rate: 1, range: 60, dtype: 'eng', proj: 'beam', ramp: 5, rampTime: 2.5, fx: { prism: 3, shockBeam: true },
+  },
+  frostfire: {
+    id: 'frostfire', name: 'Frostfire Cannon', color: '#8fe8ff', cost: 380, fused: true,
+    desc: 'Cryo + Cannon. Huge cluster blasts that deep-chill everything they hit.',
+    dmg: 110, rate: 0.9, range: 54, dtype: 'exp', proj: 'shell', projSpeed: 170, splash: 30, slow: 0.4, slowDur: 2.2, fx: { cluster: 3 },
+  },
+  plaguemortar: {
+    id: 'plaguemortar', name: 'Plague Mortar', color: '#9bff3a', cost: 420, fused: true,
+    desc: 'Nanite + Mortar. Twin toxic shells that poison and leave burning fields.',
+    dmg: 140, rate: 0.45, range: 140, minRange: 32, dtype: 'exp', proj: 'mortar', splash: 30, ground: true,
+    poison: 40, poisonDur: 5, fx: { napalm: true, volley: 2 },
+  },
+  stormrail: {
+    id: 'stormrail', name: 'Storm Rail', color: '#ff3df2', cost: 480, fused: true,
+    desc: 'Railgun + Tesla. Piercing slugs that arc lightning off every enemy they hit.',
+    dmg: 380, rate: 0.4, range: 124, dtype: 'kin', proj: 'rail', crit: 0.2, fx: { pierce: 3, chainOnHit: 3 },
+  },
+  goldpylon: {
+    id: 'goldpylon', name: 'Golden Pylon', color: '#ffd23f', cost: 420, fused: true, rotates: false,
+    desc: 'Miner + Amplifier. Boosts nearby towers and mints credits every wave.',
+    range: 44, buff: 0.2, income: 140, proj: 'none', fx: { buffRate: 0.15 },
+  },
+});
+
+export const TOWER_ORDER = Object.keys(TOWERS).filter((id) => !TOWERS[id].fused);
+
+export const FUSIONS = [
+  { id: 'arclance', a: 'tesla', b: 'laser' },
+  { id: 'frostfire', a: 'cryo', b: 'cannon' },
+  { id: 'plaguemortar', a: 'nanite', b: 'mortar' },
+  { id: 'stormrail', a: 'railgun', b: 'tesla' },
+  { id: 'goldpylon', a: 'miner', b: 'amplifier' },
+];
+
+// Single-tower relics. Each tower can hold one.
+export const RELICS = [
+  { id: 'overcharger', name: 'Overcharger', color: '#ff2f5a', desc: '+40% damage.' },
+  { id: 'coils', name: 'Rapid Coils', color: '#ffe84a', desc: '+35% fire rate.' },
+  { id: 'lens', name: 'Lens of Reach', color: '#2ef2ff', desc: '+30% range.' },
+  { id: 'ricochet', name: 'Ricochet Core', color: '#ff8a1f', desc: 'Every hit also strikes a nearby enemy for 50%.' },
+  { id: 'frostshell', name: 'Frost Shell', color: '#8fe8ff', desc: 'Hits chill enemies by 25%.' },
+  { id: 'toxic', name: 'Toxic Rounds', color: '#4dff8a', desc: 'Hits poison for 25% of their damage per second.' },
+  { id: 'bounty', name: 'Bounty Chip', color: '#ffd23f', desc: 'Kills by this tower give +3 credits.' },
+  { id: 'medal', name: 'Veteran Medal', color: '#e6f6ff', desc: 'Kills count double toward veterancy.' },
+];
+export const RELIC_BY_ID = Object.fromEntries(RELICS.map((r) => [r.id, r]));
+
+// Tower veterancy ranks earned from kills during a run.
+export const VETERANCY = [
+  { kills: 25, name: 'Bronze', color: '#cd7f32', dmg: 0.05, rate: 0, range: 0 },
+  { kills: 100, name: 'Silver', color: '#c0c8d8', dmg: 0.1, rate: 0.05, range: 0 },
+  { kills: 300, name: 'Gold', color: '#ffd23f', dmg: 0.2, rate: 0.1, range: 0.05 },
+];
+
+// Tower mastery skins, unlocked by total kills with that tower across all runs.
+export const SKINS = [
+  { id: 'default', name: 'Standard', kills: 0 },
+  { id: 'neon', name: 'Neon', kills: 400 },
+  { id: 'gold', name: 'Gold', kills: 1500 },
+];
+
+// Optional run mutators: harder runs for more XP and shards.
+export const MUTATORS = [
+  { id: 'scorched', name: 'Scorched Earth', desc: 'Towers cannot be sold.', bonus: 0.15 },
+  { id: 'shroud', name: 'Shroud', desc: 'Every enemy is cloaked.', bonus: 0.3 },
+  { id: 'surge', name: 'Swarm Surge', desc: '+50% enemies every wave.', bonus: 0.3 },
+  { id: 'glass', name: 'Glass Core', desc: 'Core max HP is 5.', bonus: 0.35 },
+  { id: 'inflation', name: 'Inflation', desc: 'Towers and upgrades cost 30% more.', bonus: 0.2 },
+  { id: 'plated', name: 'Armored Tide', desc: 'All enemies gain +4 armor.', bonus: 0.25 },
+  { id: 'haste', name: 'Haste', desc: 'Enemies move 20% faster.', bonus: 0.25 },
+  { id: 'famine', name: 'Famine', desc: 'No interest, wave bonus halved.', bonus: 0.2 },
+];
+
+// Commander active abilities (unlocked in each commander's skill tree).
+export const ABILITIES = {
+  airstrike: { name: 'Airstrike', cd: 35, color: '#2ef2ff', desc: 'Hits the 5 enemies closest to the core for 30% of their HP (6% on bosses).' },
+  rally: { name: 'Rally', cd: 45, color: '#2ef2ff', desc: 'All towers fire 30% faster for 8s.' },
+  lance: { name: 'Orbital Lance', cd: 70, color: '#2ef2ff', desc: 'Blasts the strongest enemy for 35% of its HP (12% on bosses).' },
+  repair: { name: 'Patch Job', cd: 60, color: '#ffe84a', desc: 'Repair 3 core HP.' },
+  overdrive: { name: 'Overdrive', cd: 50, color: '#ffe84a', desc: 'All towers deal +50% damage for 6s.' },
+  refund: { name: 'Salvage Op', cd: 90, color: '#ffe84a', desc: 'Gain credits equal to 8% of everything you have built.' },
+  freeze: { name: 'Flash Freeze', cd: 45, color: '#8fe8ff', desc: 'Freezes every enemy for 2.5s (bosses 0.8s).' },
+  blizzard: { name: 'Blizzard', cd: 50, color: '#8fe8ff', desc: 'All enemies are slowed 50% for 6s.' },
+  shatter: { name: 'Shatterstorm', cd: 70, color: '#8fe8ff', desc: 'Chilled enemies take 20% of their HP (6% on bosses).' },
+  toxic: { name: 'Toxic Cloud', cd: 40, color: '#4dff8a', desc: 'Poisons every enemy for 4% of its HP per second for 5s.' },
+  mutagen: { name: 'Mutagen', cd: 55, color: '#4dff8a', desc: 'All towers deal +25% damage for 8s.' },
+  burst: { name: 'Plague Burst', cd: 70, color: '#4dff8a', desc: 'Detonates all poison instantly for double damage.' },
+  payday: { name: 'Payday', cd: 50, color: '#ffd23f', desc: 'Instantly gain credits that scale with the wave.' },
+  bribe: { name: 'Bribe', cd: 60, color: '#ffd23f', desc: 'The strongest non-boss enemy simply leaves.' },
+  crash: { name: 'Market Crash', cd: 75, color: '#ffd23f', desc: 'Enemies slowed 30% for 6s; kills pay +50% for 10s.' },
+  barrier: { name: 'Barrier', cd: 60, color: '#3d7bff', desc: 'Leaks deal no core damage for 6s.' },
+  fortify: { name: 'Fortify', cd: 70, color: '#3d7bff', desc: 'Repair 2 core HP; towers are immune to EMP for 15s.' },
+  shove: { name: 'Shield Wall', cd: 60, color: '#3d7bff', desc: 'Pushes every non-boss enemy back 3 tiles.' },
+  quickdraw: { name: 'Quickdraw', cd: 45, color: '#ff3df2', desc: 'Towers gain +50% crit chance for 6s.' },
+  deadeye: { name: 'Dead Eye', cd: 55, color: '#ff3df2', desc: 'The 3 strongest enemies take 25% of their HP (8% on bosses).' },
+  bulletstorm: { name: 'Bullet Storm', cd: 75, color: '#ff3df2', desc: 'All towers fire twice as fast for 5s.' },
+  raise: { name: 'Raise Dead', cd: 50, color: '#b6ff3d', desc: 'Summons 6 husks that march out from the core.' },
+  harvest: { name: 'Soul Harvest', cd: 55, color: '#b6ff3d', desc: 'Kills pay double credits for 8s.' },
+  mark: { name: 'Death Mark', cd: 65, color: '#b6ff3d', desc: 'All enemies take +30% damage for 6s.' },
+};
+
 
 export const LEVELS = [
   null,
@@ -210,6 +318,49 @@ export const ENEMIES = {
     good: [['tesla', 'Instant lightning'], ['railgun', 'Instant slug'], ['laser', 'Beam re-locks instantly']],
     bad: [['mortar', 'Shells land where it was'], ['cannon', 'Leads the wrong spot']],
   },
+};
+
+// Mini-bosses appear on waves 25, 35, 45... alongside the normal wave.
+Object.assign(ENEMIES, {
+  carrier: {
+    id: 'carrier', name: 'Carrier', sprite: 'wasp', scale: 1.8, tint: 'rgba(255,210,63,0.35)', mini: true,
+    hp: 450, speed: 12, armor: 2, gold: 40, core: 4, minWave: 999, w: 0, flying: true, spawns: 'wasp', size: 9, sector: 2,
+    desc: 'A flying hive-ship that releases Void Wasps as it crosses the map.',
+    abilities: ['Mini-boss', 'Flying: ignores the path', 'Releases 2 Void Wasps every 3s'],
+    good: [['laser', 'Beam locks on'], ['railgun', 'Long-range burst'], ['tesla', 'Hits the escorts too']],
+    bad: [['mortar', 'Cannot hit flyers'], ['drone', 'Cannot block flyers']],
+  },
+  prime: {
+    id: 'prime', name: 'Juggernaut Prime', sprite: 'tank', scale: 1.8, tint: 'rgba(255,210,63,0.35)', mini: true,
+    hp: 700, shield: 320, speed: 10, armor: 12, gold: 45, core: 5, minWave: 999, w: 0, size: 9, sector: 2,
+    desc: 'A walking fortress wrapped in a regenerating shield.',
+    abilities: ['Mini-boss', 'Massive armor (Bio ignores it, Energy halves it)', 'Regenerating shield'],
+    good: [['nanite', 'Poison ignores armor'], ['laser', 'Ramping energy beam'], ['railgun', 'Huge single hits']],
+    bad: [['blaster', 'Bolts bounce off'], ['cryo', 'Barely scratches it']],
+  },
+  weaver: {
+    id: 'weaver', name: 'Rift Weaver', sprite: 'phantom', scale: 1.8, tint: 'rgba(255,210,63,0.35)', mini: true,
+    hp: 550, speed: 14, gold: 45, core: 4, minWave: 999, w: 0, aura: true, size: 9, sector: 3,
+    desc: 'A rift entity that speeds up and mends every invader near it.',
+    abilities: ['Mini-boss', 'Nearby enemies move 30% faster and regenerate 2% HP/s'],
+    good: [['railgun', 'Snipe it first'], ['tesla', 'Burst it down'], ['mortar', 'Hits the whole pack']],
+    bad: [['cryo', 'Its aura offsets slows'], ['nanite', 'Regeneration outpaces poison']],
+  },
+  corrupted: {
+    id: 'corrupted', name: 'Corrupted Invaders', sprite: 'crawler', tint: 'rgba(255,0,140,0.45)', minWave: 999, w: 0, sector: 5,
+    hp: 0, speed: 22, gold: 0, core: 1,
+    desc: 'Past wave 50 the void corrupts the invaders: +40% HP and one extra ability each.',
+    abilities: ['+40% HP and +20% credits', 'Crawlers split, Scouts and Phantoms blink, Wasps and Blinkers cloak', 'Juggernauts and Swarmlings regenerate, Aegis and Nullifiers grow bigger shields', 'Medics heal twice as much, Splitters split into 3'],
+    good: [['tesla', 'Reliable against every trick'], ['laser', 'Sustained damage']],
+    bad: [],
+  },
+});
+
+// Extra ability granted to each enemy type when corrupted (waves 51+).
+export const CORRUPTION = {
+  crawler: { split: 2 }, scout: { blink: true }, swarm: { regen: true }, tank: { regen: true, shield: 0.4 },
+  wasp: { cloaked: true }, aegis: { shield: 0.8 }, medic: { heal: 2 }, splitter: { split: 3 },
+  phantom: { blink: true }, nullifier: { shield: 0.5 }, blinker: { cloaked: true }, splitling: {},
 };
 
 export const SECTOR_INTROS = [

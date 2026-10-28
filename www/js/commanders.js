@@ -180,18 +180,61 @@ export function commanderFrame(id, f) {
   return c;
 }
 
-// An animated <canvas> for menus; stops itself once removed from the page.
+// Easter-egg effects when a commander sprite is tapped (canvas is 48x64,
+// sprite drawn at x=8). Each returns particles to spawn at time t.
+const EGG = {
+  vanguard: (t, add) => { if (Math.random() < 0.5) { add({ x: 40, y: 22 + Math.random() * 2, vx: 60, vy: 0, col: '#2ef2ff', life: 0.3 }); add({ x: 39, y: 21, col: '#ffffff', life: 0.06, size: 2 }); } },
+  engineer: (t, add) => { for (let i = 0; i < 2; i++) add({ x: 33, y: 2, vx: (Math.random() - 0.5) * 40, vy: -Math.random() * 30, g: 60, col: Math.random() < 0.5 ? '#ffe84a' : '#ff8a1f', life: 0.8 }); },
+  cryomancer: (t, add) => { add({ x: Math.random() * 48, y: -2, vx: (Math.random() - 0.5) * 6, vy: 18 + Math.random() * 10, col: '#e8f4ff', life: 3 }); if (Math.random() < 0.3) add({ x: 33, y: 1, vx: (Math.random() - 0.5) * 30, vy: (Math.random() - 0.5) * 30, col: '#2ef2ff', life: 0.5 }); },
+  biotech: (t, add) => { add({ x: 32 + Math.random() * 4, y: 4, vx: (Math.random() - 0.5) * 10, vy: -10 - Math.random() * 10, col: Math.random() < 0.5 ? '#4dff8a' : '#b6ff9a', life: 1.2, size: Math.random() < 0.4 ? 2 : 1 }); },
+  tycoon: (t, add) => { for (let i = 0; i < 2; i++) add({ x: Math.random() * 46, y: -3, vx: 0, vy: 20 + Math.random() * 20, g: 30, col: '#ffd23f', life: 3, coin: true }); },
+  warden: (t, add) => { if (Math.random() < 0.25) add({ ring: true, x: 16, y: 34, r: 2, vr: 30, col: '#2ef2ff', life: 0.6 }); },
+  gunslinger: (t, add) => { if (Math.floor(t * 4) % 2 === 0 && Math.random() < 0.4) { add({ x: 40, y: 19, vx: 80, vy: (Math.random() - 0.5) * 6, col: '#ff3df2', life: 0.3 }); add({ x: 39, y: 17, col: '#ffe84a', life: 0.06, size: 3 }); } },
+  necromancer: (t, add) => { const a = t * 6; add({ x: 16 + Math.cos(a) * 14, y: 30 + Math.sin(a) * 18, vx: 0, vy: -6, col: '#b6ff3d', life: 0.6, size: 2 }); },
+};
+
+// An animated <canvas> for menus; tap it for an easter egg. Stops itself
+// once removed from the page.
 export function commanderCanvas(id) {
-  const [c, ctx] = makeCanvas(SW, SH);
+  const W = 48;
+  const [c, ctx] = makeCanvas(W, SH);
   c.className = 'px cmd-sprite';
-  let f = 0;
-  const tick = () => {
-    if (!c.isConnected && f > 0) return;
-    ctx.clearRect(0, 0, SW, SH);
-    ctx.drawImage(commanderFrame(id, f % 4), 0, 0);
-    f++;
-    setTimeout(tick, 300);
+  let egg = -1, parts = [], last = performance.now(), idle = 0;
+  c.addEventListener('click', (ev) => { ev.stopPropagation(); if (egg < 0) egg = 0; });
+  const add = (p) => { if (parts.length < 120) parts.push({ vx: 0, vy: 0, ...p, max: p.life }); };
+  const tick = (now) => {
+    if (!c.isConnected && idle > 0.5) return;
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now; idle += dt;
+    ctx.clearRect(0, 0, W, SH);
+    let f = Math.floor(idle / 0.3) % 4;
+    let dx = 8, dy = 0;
+    if (egg >= 0) {
+      egg += dt;
+      f = Math.floor(egg / 0.12) % 4;
+      if (id === 'warden' || id === 'vanguard') dx = 8 + (Math.floor(egg * 20) % 2);
+      if (id === 'necromancer') dy = -Math.round(Math.sin(egg * 4) * 2);
+      (EGG[id] || EGG.vanguard)(egg, add);
+      if (egg > 1.6) egg = -1;
+    }
+    ctx.drawImage(commanderFrame(id, f), dx, dy);
+    if (id === 'cryomancer' && egg >= 0) { ctx.globalAlpha = 0.25; ctx.fillStyle = '#8fe8ff'; ctx.fillRect(dx, 0, SW, SH); ctx.globalAlpha = 1; }
+    for (const p of parts) {
+      p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; if (p.g) p.vy += p.g * dt;
+      ctx.globalAlpha = Math.max(0, Math.min(1, (p.life / p.max) * 2));
+      ctx.fillStyle = p.col;
+      if (p.ring) {
+        p.r += p.vr * dt;
+        for (let k = 0; k < 20; k++) { const a = (k / 20) * Math.PI * 2; ctx.fillRect(Math.round(p.x + Math.cos(a) * p.r) + dx - 8, Math.round(p.y + Math.sin(a) * p.r), 1, 1); }
+      } else if (p.coin) {
+        const w = Math.floor(p.y / 3) % 3 === 0 ? 1 : 3;
+        ctx.fillRect(Math.round(p.x) + (3 - w) / 2, Math.round(p.y), w, 3);
+      } else ctx.fillRect(Math.round(p.x), Math.round(p.y), p.size || 1, p.size || 1);
+    }
+    ctx.globalAlpha = 1;
+    parts = parts.filter((p) => p.life > 0 && p.y < SH + 4);
+    requestAnimationFrame(tick);
   };
-  tick();
+  requestAnimationFrame(tick);
   return c;
 }

@@ -121,6 +121,22 @@ export const BRANCH_ART = {
   reclaimerB: { color: '#ffe84a', rows: ['...kkkkkk...', '..kVvvvvVk..', '.kVyyyyyyVk.', '.kvyoyyoyvk.', '.kvxwkkwxvk.', '..kvvvvvvk..'] },
 };
 
+// Fused towers: two max-level towers merged into one.
+export const FUSED_ART = {
+  arclance: ['....kk.....k', '...kxxk...kx', '..kxhhxk.kxk', '.kxhwwhxkxk.', 'kxhwwwwhxxkk', 'kxhwwwwwwwwk'],
+  frostfire: ['..kkkkkkk...', '.kcxxxxxck..', 'kcxhwwhxxckk', 'kxhwccwhxxok', 'kxhwccwhxxok', 'kxxhwwhxxxyk'],
+  plaguemortar: ['.kkkk..kkkk.', 'kxwwxk.kxwwx', 'kxggxkkkxggx', 'kxggxkmkxggx', 'kkxxkmlmkxxk', '.kmmmlhlmmk.'],
+  stormrail: ['y...........', '.kkkkkkkkkkk', 'kxxxxxxxxxxk', 'kXhwhkykykyk', 'kxhwhwwwwwwk', 'kxhwhxxxxxxw'],
+  goldpylon: ['.....kk.....', '....kyyk....', '...kyhhyk...', '..kxywwyxk..', '.kxyywwyyxk.', 'kxyyywwyyyxk'],
+};
+
+// Mastery skins recolour a tower: Neon rotates its hue, Gold makes it gold.
+function skinColor(c, skin) {
+  if (skin === 'gold') return '#ffd23f';
+  if (skin === 'neon') { const n = parseInt(c.slice(1), 16); const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255; return '#' + [b, r, g].map((v) => v.toString(16).padStart(2, '0')).join(''); }
+  return c;
+}
+
 // Level 2 heads get brighter plating, level 3 glows with highlights.
 function headRows(id, level) {
   let rows = HEADS[id];
@@ -130,18 +146,21 @@ function headRows(id, level) {
 }
 
 const towerCache = new Map();
-export function towerSprites(def, level = 1, branch = null) {
-  const key = def.id + level + (branch || '');
+export function towerSprites(def, level = 1, branch = null, skin = 'default') {
+  const key = def.id + level + (branch || '') + skin;
   if (towerCache.has(key)) return towerCache.get(key);
-  let base, head, color = def.color;
-  if (level >= 4 && branch) {
+  let base, head, color = skinColor(def.color, skin);
+  if (def.fused) {
+    base = raster(expand(BASE_Q[4], 'hv'), color);
+    head = raster(expand(FUSED_ART[def.id], 'v'), color);
+  } else if (level >= 4 && branch) {
     const art = BRANCH_ART[def.id + branch];
-    color = art.color;
-    base = raster(expand(BASE_Q[4], 'hv'), art.color);
-    head = raster(expand(art.rows, 'v'), art.color);
+    color = skinColor(art.color, skin);
+    base = raster(expand(BASE_Q[4], 'hv'), color);
+    head = raster(expand(art.rows, 'v'), color);
   } else {
-    base = raster(expand(BASE_Q[Math.min(3, level)], 'hv'), def.color);
-    head = raster(expand(headRows(def.id, level), 'v'), def.color);
+    base = raster(expand(BASE_Q[Math.min(3, level)], 'hv'), color);
+    head = raster(expand(headRows(def.id, level), 'v'), color);
   }
   // icon: base + head composite, upscaled for UI
   const [ic, ictx] = makeCanvas(16, 16);

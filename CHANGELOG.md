@@ -1,5 +1,30 @@
 # Changelog
 
+## v1.4.0
+
+### New
+- **Commander skill trees**: each commander levels up from runs you play with them (max level 15). Spend points on 4 small passive buffs and unlock 3 active abilities per commander (24 abilities in total), used from buttons during waves.
+- **Run mutators**: optional modifiers on the New Run screen (Scorched Earth, Shroud, Swarm Surge, Glass Core, Inflation, Armored Tide, Haste, Famine). Each one adds bonus XP and shards.
+- **Chunk relocation**: rotate a map chunk or swap two of them. You start each run with 1 relocation and get another after every boss (max 2). Towers on moved chunks are fully refunded.
+- **Destructible asteroids**: tap a rock to blast it into a build tile, with a chance to find a Void Shard.
+- **Tower relics**: 8 relics that can be installed on a single tower, like Ricochet Core, Frost Shell, Toxic Rounds and Bounty Chip. They come from augment picks, the shop and boss spoils.
+- **Tower veterancy**: towers earn Bronze, Silver and Gold ranks from kills, with stat boosts and a badge on the sprite.
+- **Fusion**: two max-level towers side by side can fuse into one of 5 new towers: Arc Lance, Frostfire Cannon, Plague Mortar, Storm Rail and Golden Pylon.
+- **Overclock**: double a tower's fire rate for 5 seconds, after which it overheats and shuts down for 6.
+- **Prestige**: at level 30, reset your level and talents for a permanent damage and shard bonus, shown as stars on the menu.
+- **Mastery skins**: unlock Neon (400 kills) and Gold (1,500 kills) looks for each tower, and pick them in the Armory.
+- **Run history**: your last 20 runs, with wave, commander, top tower and what finally broke the core.
+- **Mini-bosses** on waves 25, 35, 45 and beyond: the Carrier, Juggernaut Prime and Rift Weaver.
+- **Corrupted enemies** after wave 50: tougher variants with an extra ability each.
+- **Wave preview bar** showing exactly which enemies are coming next.
+- Game speed now goes up to **5x**.
+- **Vibration** on hits, bosses, wave clears and game over, with a toggle in Settings.
+- **Commander easter eggs**: tap a commander's sprite for a themed animation.
+
+### Changed
+- Main menu buttons are now in two columns, with a new History button.
+- The New Run screen has a Launch button at the top.
+
 ## v1.3.0
 
 ### New

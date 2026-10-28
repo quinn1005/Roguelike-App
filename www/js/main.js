@@ -9,6 +9,7 @@ import { TS, T } from './sprites.js';
 import { CPX } from './world.js';
 import { SIDE_DIR } from './util.js';
 import { TOWERS } from './defs.js';
+import { haptic } from './haptics.js';
 
 const canvas = document.getElementById('game');
 const renderer = new Renderer(canvas);
@@ -21,6 +22,7 @@ const app = {
   bindRun(run) {
     this.run = run;
     run.sfx = sfx;
+    run.haptic = haptic;
     run.on('toast', ({ msg, color }) => ui.toast(msg, color));
     run.on('choice', (c) => ui.showChoice(c));
     run.on('build', () => { this.autoTimer = 2.5; ui.updateWaveButton(); });
@@ -34,10 +36,10 @@ const app = {
     this.autoTimer = 2.5;
   },
 
-  newRun(commander, heat) {
+  newRun(commander, heat, mutators = []) {
     clearRun();
     ui.closeModal();
-    this.bindRun(new Run({ commander, heat }));
+    this.bindRun(new Run({ commander, heat, mutators }));
     ui.toast('DEFEND THE CORE', '#2ef2ff');
   },
 
@@ -86,7 +88,7 @@ const app = {
 
   selectBuild(tid) {
     const v = this.view;
-    v.selected = null;
+    v.selected = null; v.rock = null; v.relocate = null;
     ui.hidePanel();
     v.buildType = v.buildType === tid ? null : tid;
     v.ghost = null;
@@ -95,10 +97,21 @@ const app = {
 
   deselect() {
     const v = this.view;
-    v.selected = null; v.buildType = null; v.ghost = null;
+    v.selected = null; v.buildType = null; v.ghost = null; v.rock = null; v.relocate = null;
     ui.hidePanel();
     ui.refreshTowerBar();
   },
+
+  // ---- chunk relocation ----
+  toggleRelocate() {
+    if (this.view.relocate) return this.cancelRelocate();
+    this.deselect();
+    this.view.relocate = { first: null, swapFrom: null };
+    ui.toast('TAP A GLOWING CHUNK TO MOVE IT', '#2ef2ff');
+  },
+  cancelRelocate() { this.view.relocate = null; ui.hidePanel(); },
+  rotateChunk(ch) { if (this.run.rotateChunk(ch)) { ui.toast('CHUNK ROTATED', '#2ef2ff'); } this.cancelRelocate(); },
+  beginSwap(ch) { this.view.relocate = { first: ch, swapFrom: ch }; ui.hidePanel(); ui.toast('NOW TAP ANOTHER GLOWING CHUNK', '#ff3df2'); },
 
   upgrade(tw, branch) {
     if (this.run.upgrade(tw, branch)) ui.refreshPanel(true);
@@ -133,9 +146,18 @@ const app = {
       }
       return;
     }
+    if (v.relocate) {
+      const ch = r.world.get(Math.floor(wx / CPX), Math.floor(wy / CPX));
+      if (!ch || !r.canRelocate(ch)) return;
+      if (v.relocate.swapFrom) {
+        if (ch !== v.relocate.swapFrom && r.swapChunks(v.relocate.swapFrom, ch)) ui.toast('CHUNKS SWAPPED', '#ff3df2');
+        this.cancelRelocate();
+      } else { v.relocate.first = ch; ui.showChunkPanel(ch); }
+      return;
+    }
     const tw = r.towerAt.get(tx + ',' + ty);
     if (tw) {
-      v.buildType = null; v.ghost = null;
+      v.buildType = null; v.ghost = null; v.rock = null;
       v.selected = tw;
       ui.showPanel(tw);
       ui.refreshTowerBar();
@@ -143,6 +165,7 @@ const app = {
       return;
     }
     if (r.world.tile(tx, ty) === T.CACHE) { r.salvage(tx, ty); return; }
+    if (!v.buildType && r.world.tile(tx, ty) === T.ROCK) { this.deselect(); v.rock = { x: tx, y: ty }; ui.showRockPanel(tx, ty); sfx('click'); return; }
     if (v.buildType) {
       if (v.ghost && v.ghost.x === tx && v.ghost.y === ty) {
         if (!r.canBuild(tx, ty)) { ui.toast("Can't build there", '#ff2f5a'); return; }

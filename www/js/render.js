@@ -4,7 +4,7 @@
 import { TS, T, SECTORS, makeCanvas, glow, towerSprites, enemySprite, coreArt, rgba, shade } from './sprites.js';
 import { CS, CPX, World } from './world.js';
 import { SIDE_DIR } from './util.js';
-import { DTYPE_COLOR, ELITE_MODS } from './defs.js';
+import { DTYPE_COLOR, ELITE_MODS, VETERANCY, RELIC_BY_ID } from './defs.js';
 
 const FONT = '8px "PressStart", monospace';
 
@@ -86,6 +86,13 @@ export class Renderer {
     this.drawPortals(run, time);
     this.drawCore(run, time);
     if (run.placing) this.drawSlots(run, time);
+    if (view.relocate) this.drawRelocate(run, view, time);
+    if (view.rock) {
+      const rx = view.rock.x * TS, ry = view.rock.y * TS, sel = Math.floor(time * 4) % 2;
+      b.fillStyle = '#ff8a1f';
+      b.fillRect(rx - sel, ry - sel, 16 + sel * 2, 1); b.fillRect(rx - sel, ry + 15 + sel, 16 + sel * 2, 1);
+      b.fillRect(rx - sel, ry - sel, 1, 16 + sel * 2); b.fillRect(rx + 15 + sel, ry - sel, 1, 16 + sel * 2);
+    }
 
     // fields
     for (const f of run.fields) {
@@ -267,6 +274,24 @@ export class Renderer {
     }
   }
 
+  // Outlines chunks that can be rotated or swapped; the picked one pulses magenta.
+  drawRelocate(run, view, time) {
+    const b = this.b;
+    for (const ch of run.world.chunks.values()) {
+      if (!run.canRelocate(ch)) continue;
+      const x = ch.cx * CPX, y = ch.cy * CPX;
+      const picked = view.relocate.first === ch;
+      b.fillStyle = picked ? '#ff3df2' : '#2ef2ff';
+      b.globalAlpha = picked ? 0.25 + 0.15 * Math.sin(time * 6) : 0.08;
+      b.fillRect(x + 1, y + 1, CPX - 2, CPX - 2);
+      b.globalAlpha = 1;
+      for (let i = 0; i < CPX; i += 4) {
+        b.fillRect(x + i, y, 2, 1); b.fillRect(x + i, y + CPX - 1, 2, 1);
+        b.fillRect(x, y + i, 1, 2); b.fillRect(x + CPX - 1, y + i, 1, 2);
+      }
+    }
+  }
+
   drawSlots(run, time) {
     const b = this.b;
     const seen = new Set();
@@ -318,14 +343,15 @@ export class Renderer {
   drawTowers(run, view, time) {
     const b = this.b;
     for (const tw of run.towers) {
-      const sp = towerSprites(tw.def, tw.level, tw.branch);
+      const sp = towerSprites(tw.def, tw.level, tw.branch, (run.skins && run.skins[tw.type]) || 'default');
+      if (tw.oc > 0) this.glowAt(tw.tx * TS + 8, tw.ty * TS + 8, 11, '#ff8a1f', 0.6 + 0.3 * Math.sin(time * 20));
       if (tw.level >= 3) this.glowAt(tw.tx * TS + 8, tw.ty * TS + 8, tw.level >= 4 ? 10 : 7, sp.color, tw.level >= 4 ? 0.45 + 0.15 * Math.sin(time * 3 + tw.id) : 0.25);
       const x = tw.tx * TS, y = tw.ty * TS;
       const off = tw.disabled > 0 && Math.floor(time * 10) % 2;
       b.drawImage(sp.base, x, y);
       if (tw.def.rotates === false) {
         let bob = 0;
-        if (tw.type === 'amplifier' || tw.type === 'reclaimer') bob = Math.round(Math.sin(time * 3 + tw.id) * 1);
+        if (tw.def.buff || tw.def.revive) bob = Math.round(Math.sin(time * 3 + tw.id) * 1);
         b.drawImage(sp.head, x + 2, y + 2 + bob);
       } else {
         const rec = (tw.recoil || 0);
@@ -341,11 +367,29 @@ export class Renderer {
       if (tw.branch) { b.fillStyle = sp.color; b.fillRect(x + 6, y + 14, 4, 1); b.fillStyle = '#ffffff'; b.fillRect(x + 7, y + 14, 2, 1); }
       if (tw.buffed) { b.fillStyle = '#a466ff'; b.fillRect(x + 1, y + 1, 1, 2); b.fillRect(x, y + 2, 3, 1); }
       if (off) { b.globalAlpha = 0.6; b.fillStyle = '#000'; b.fillRect(x + 1, y + 1, 14, 14); b.globalAlpha = 1; }
-      if (tw.disabled > 0) { b.fillStyle = '#ffe84a'; b.fillRect(x + 7 + Math.round(Math.random() * 4 - 2), y + 2, 1, 3); }
+      if (tw.disabled > 0 && !tw.overheat) { b.fillStyle = '#ffe84a'; b.fillRect(x + 7 + Math.round(Math.random() * 4 - 2), y + 2, 1, 3); }
+      if (tw.overheat > 0) {
+        b.globalAlpha = 0.35; b.fillStyle = '#ff2f5a'; b.fillRect(x + 2, y + 2, 12, 12); b.globalAlpha = 1;
+        if (Math.random() < 0.1) run.particle(x + 4 + Math.random() * 8, y + 4, '#9a9aa8', 0, -14, 0.7, 2);
+      }
+      if (tw.oc > 0 && Math.random() < 0.3) run.particle(x + 8, y + 8, '#ffe84a', (Math.random() - 0.5) * 40, (Math.random() - 0.5) * 40, 0.2);
+      if (tw.vet) { // veterancy chevrons
+        const v = VETERANCY[tw.vet - 1];
+        b.fillStyle = '#000'; b.fillRect(x, y + 1, 4, tw.vet * 2 + 1);
+        b.fillStyle = v.color;
+        for (let k = 0; k < tw.vet; k++) { b.fillRect(x + 1, y + 2 + k * 2, 1, 1); b.fillRect(x + 2, y + 3 + k * 2, 1, 1); b.fillRect(x + 3, y + 2 + k * 2, 1, 1); }
+      }
+      if (tw.relic) { // relic gem
+        const rc = RELIC_BY_ID[tw.relic].color;
+        b.fillStyle = '#000'; b.fillRect(x + 11, y, 5, 5);
+        b.fillStyle = rc; b.fillRect(x + 12, y + 1, 3, 3);
+        b.fillStyle = '#ffffff'; b.fillRect(x + 12, y + 1, 1, 1);
+      }
       // idle glows
       if (tw.type === 'tesla') this.glowAt(x + 8, y + 8, 7, '#ffe84a', 0.3 + 0.2 * Math.sin(time * 6 + tw.id));
-      if (tw.type === 'miner') this.glowAt(x + 8, y + 8, 6, '#ffd23f', 0.3);
-      if (tw.type === 'amplifier') { this.glowAt(x + 8, y + 5, 6, '#a466ff', 0.5); this.ringOutline(x + 8, y + 8, 3 + ((time * 8 + tw.id) % 6), rgba('#a466ff', 0.5)); }
+      if (tw.def.income) this.glowAt(x + 8, y + 8, 6, '#ffd23f', 0.3);
+      if (tw.def.fused) this.glowAt(x + 8, y + 8, 10, sp.color, 0.35 + 0.25 * Math.sin(time * 4 + tw.id));
+      if (tw.def.buff) { this.glowAt(x + 8, y + 5, 6, '#a466ff', 0.5); this.ringOutline(x + 8, y + 8, 3 + ((time * 8 + tw.id) % 6), rgba('#a466ff', 0.5)); }
       if (tw.type === 'reclaimer') this.glowAt(x + 8, y + 8, 7, '#b6ff3d', 0.35);
       if (view.selected === tw) {
         b.fillStyle = '#ffffff';
@@ -405,8 +449,8 @@ export class Renderer {
     const sorted = run.enemies.slice().sort((a, c) => (a.flying - c.flying) || (a.y - c.y));
     for (const e of sorted) {
       const frame = Math.floor(e.anim * (e.boss ? 3 : 5)) % 2;
-      const spr = enemySprite(e.type, frame, e.hitFlash > 0 ? '#ffffff' : null);
-      const scale = e.elite === 'giant' ? 1.5 : 1;
+      const spr = enemySprite(e.sprite || e.type, frame, e.hitFlash > 0 ? '#ffffff' : (e.tint || null));
+      const scale = e.scale || (e.elite === 'giant' ? 1.5 : 1);
       const w = spr.width * scale, h = spr.height * scale;
       const lift = e.flying ? 6 + Math.sin(e.anim * 4) * 1.5 : 0;
       const x = Math.round(e.x - w / 2), y = Math.round(e.y - h / 2 - 2 - lift);
@@ -416,6 +460,8 @@ export class Renderer {
       if (e.phased) alpha = 0.25;
       b.globalAlpha = alpha;
       if (e.boss) this.glowAt(e.x, e.y - lift, 18, e.def.shieldType ? DTYPE_COLOR[e.weak] : '#ff2f5a', 0.5);
+      if (e.mini) this.glowAt(e.x, e.y - lift, 14, '#ffd23f', 0.45);
+      if (e.corrupted) this.glowAt(e.x, e.y - lift, 7, '#ff0090', 0.35);
       b.drawImage(spr, x, y, w, h);
       if (e.elite && !e.cloaked) {
         b.globalAlpha = 0.5 + 0.3 * Math.sin(time * 6);
@@ -440,8 +486,8 @@ export class Renderer {
         b.globalAlpha = 1;
       }
       // bars
-      const bw = e.boss ? 22 : 10;
-      if (e.hp < e.maxHp || e.boss) this.bar(Math.round(e.x - bw / 2), y - 3, bw, e.hp / e.maxHp, e.boss ? '#ff2f5a' : '#4dff8a');
+      const bw = e.boss ? 22 : e.mini ? 18 : 10;
+      if (e.hp < e.maxHp || e.boss || e.mini) this.bar(Math.round(e.x - bw / 2), y - 3, bw, e.hp / e.maxHp, e.boss ? '#ff2f5a' : e.mini ? '#ffd23f' : '#4dff8a');
       if (e.maxShield > 0 && e.shield > 0) this.bar(Math.round(e.x - bw / 2), y - 5, bw, e.shield / e.maxShield, '#2ef2ff', '#062030');
     }
   }
