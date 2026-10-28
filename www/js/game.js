@@ -350,6 +350,7 @@ export class Run {
         critMult: Math.max(br.critMult || 0, m.critMult),
         splash: (d.splash || 0) * (1 + (tw.type === 'cannon' ? m.splash : 0) + tm.splash) * (br.splashMult || 1),
         chains: (d.chains || 0) + (br.chainBonus || 0) + m.chainBonus,
+        chainRange: d.chainRange || 30,
         pierce: d.proj === 'rail' ? 1 + m.pierce + (br.pierce || 0) : (br.pierce || 0),
         multi: br.multi || 1,
         slow: Math.min(0.8, (d.slow || 0) + (d.slow ? m.chill : 0)),
@@ -1651,7 +1652,7 @@ export class Run {
     }
   }
   text(x, y, text, color, life = 0.9) { if (this.fx.texts.length < 40) this.fx.texts.push({ x, y, text, color, life, max: life }); }
-  line(x1, y1, x2, y2, color, kind) { this.fx.lines.push({ x1, y1, x2, y2, color, kind, life: kind === 'rail' ? 0.25 : 0.12, seed: Math.random() }); }
+  line(x1, y1, x2, y2, color, kind) { this.fx.lines.push({ x1, y1, x2, y2, color, kind, life: kind === 'rail' ? 0.25 : kind === 'chain' ? 0.2 : 0.12, seed: Math.random() }); }
   ring(x, y, r, color, life = 0.35) { this.fx.rings.push({ x, y, r, color, life, max: life }); }
 
   updateFx(dt) {

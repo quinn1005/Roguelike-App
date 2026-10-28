@@ -1,6 +1,6 @@
 {
   "name": "neon-bastion",
-  "version": "1.5.8",
+  "version": "1.5.9",
   "private": true,
   "description": "Neon Bastion - a 16-bit sci-fi endless tower defense roguelike",
   "scripts": {

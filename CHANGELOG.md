@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.5.9
+
+### Fixed
+- **Tesla Coil lightning now actually chains.** It was only ever hitting its first target. It now jumps to 3 more nearby enemies (7 with Storm Lattice), dealing 15% less damage with each jump.
+- Lightning arcs are thicker and stay on screen a little longer, so you can see each jump.
+
 ## v1.5.8
 
 ### New

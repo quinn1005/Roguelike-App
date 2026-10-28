@@ -653,7 +653,8 @@ export class Renderer {
           const t = i / segs;
           const nx = l.x1 + (l.x2 - l.x1) * t + (i < segs ? (Math.random() - 0.5) * 6 : 0);
           const ny = l.y1 + (l.y2 - l.y1) * t + (i < segs ? (Math.random() - 0.5) * 6 : 0);
-          this.pixLine(px, py, nx, ny, i % 2 ? '#ffffff' : l.color);
+          this.pixLine(px, py, nx, ny, l.color);
+          this.pixLine(px + 1, py, nx + 1, ny, i % 2 ? '#ffffff' : l.color);
           px = nx; py = ny;
         }
         this.glowAt(l.x2, l.y2, 5, l.color, 0.7);
