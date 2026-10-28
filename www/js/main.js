@@ -284,6 +284,7 @@ function frame(now) {
   last = now;
   const r = app.run;
   app.view.shakeOn = meta.settings.shake;
+  app.view.glowOn = meta.settings.glow !== false;
   if (r) {
     r.update(dt);
     if (app.view.selected && !r.towers.includes(app.view.selected)) app.deselect();

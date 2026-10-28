@@ -237,3 +237,126 @@ img.px, canvas.px { image-rendering: pixelated; image-rendering: crisp-edges; }
 #btn-move { position: absolute; right: 0; bottom: calc(100% + 4px); white-space: nowrap; }
 textarea.savecode { width: 100%; height: 90px; background: #070818; color: var(--cyan); border: 2px solid var(--line); font-family: monospace; font-size: 10px; padding: 6px; user-select: text; -webkit-user-select: text; resize: none; }
 #modal { z-index: 10; }
+
+/* =====================================================================
+   v1.5 visual polish: CRT overlay, HUD-bracket frames, nicer buttons,
+   chips, toasts and transitions. Same neon pixel style, more finish.
+   ===================================================================== */
+:root { --acc: #2ef2ff; --frame: #34407a; --bg1: rgba(18, 20, 52, 0.96); --bg2: rgba(8, 9, 26, 0.96); }
+
+/* subtle CRT scanlines + vignette over everything */
+body::after {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 50;
+  background:
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.13) 0 1px, transparent 1px 3px),
+    radial-gradient(ellipse at center, transparent 58%, rgba(0, 0, 0, 0.5) 100%);
+}
+
+/* HUD-bracket corners: bright L-shapes on every framed panel */
+.mbox, #panel, .item, .card, .node, .chip.mut {
+  --c1: var(--acc);
+  background:
+    linear-gradient(var(--c1), var(--c1)) top left / 10px 2px no-repeat,
+    linear-gradient(var(--c1), var(--c1)) top left / 2px 10px no-repeat,
+    linear-gradient(var(--c1), var(--c1)) top right / 10px 2px no-repeat,
+    linear-gradient(var(--c1), var(--c1)) top right / 2px 10px no-repeat,
+    linear-gradient(var(--c1), var(--c1)) bottom left / 10px 2px no-repeat,
+    linear-gradient(var(--c1), var(--c1)) bottom left / 2px 10px no-repeat,
+    linear-gradient(var(--c1), var(--c1)) bottom right / 10px 2px no-repeat,
+    linear-gradient(var(--c1), var(--c1)) bottom right / 2px 10px no-repeat,
+    linear-gradient(180deg, var(--bg1), var(--bg2));
+  border-color: var(--frame);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 14px rgba(0, 0, 0, 0.45);
+}
+.item, .node { --c1: rgba(46, 242, 255, 0.45); }
+.item.off, .node.locked { --c1: rgba(115, 128, 184, 0.35); }
+.item.selc { --c1: var(--acc); }
+.node.has { --c1: var(--c, var(--acc)); }
+.card { --c1: rgba(255, 255, 255, 0.55); }
+.mbox { box-shadow: 0 0 0 1px rgba(46, 242, 255, 0.25), 0 0 30px rgba(46, 242, 255, 0.18), 0 10px 40px rgba(0, 0, 0, 0.6); }
+.card { transition: transform 0.08s steps(2); }
+.card:hover { transform: translateY(-2px); }
+
+/* buttons */
+.btn {
+  background: linear-gradient(180deg, #1d2257 0%, #12153a 55%, #0c0e28 100%);
+  border-color: #3a4686;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), inset 0 -2px 0 rgba(0, 0, 0, 0.45), 0 2px 0 rgba(0, 0, 0, 0.5);
+  letter-spacing: 0.5px;
+  transition: filter 0.08s, transform 0.05s;
+}
+.btn:hover:not(:disabled) { filter: brightness(1.25); }
+.btn:active:not(:disabled) { transform: translateY(2px); box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.5); }
+.btn.go { background: linear-gradient(180deg, #0f4a2c, #0a2a1c); box-shadow: inset 0 1px 0 rgba(160, 255, 200, 0.25), 0 0 10px rgba(77, 255, 138, 0.25), 0 2px 0 rgba(0, 0, 0, 0.5); }
+.btn.red { background: linear-gradient(180deg, #4a0f22, #2a0a16); }
+.btn.yel { background: linear-gradient(180deg, #4a3d0c, #2a2208); }
+.btn.mag { background: linear-gradient(180deg, #45104a, #26092a); }
+.btn.hot { background: linear-gradient(180deg, #0d3c4c, #082430); }
+.btn.on { background: linear-gradient(180deg, #164a66, #0c2c40); }
+
+/* headings */
+.scr-head h2, .mbox h2 { position: relative; padding-bottom: 4px; }
+.mbox h2::after, .scr-head h2::after {
+  content: ''; position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); width: 60%; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--cyan), var(--mag), transparent);
+}
+.scr-head h2::after { left: 0; transform: none; width: 100%; max-width: 280px; background: linear-gradient(90deg, var(--cyan), var(--mag), transparent); }
+
+/* main menu */
+.logo h1 { animation: flicker 6s steps(1) infinite; }
+@keyframes flicker { 0%, 46%, 48%, 92%, 100% { opacity: 1; } 47%, 93% { opacity: 0.55; } }
+.logo .sub { letter-spacing: 3px; }
+.menu .col.grid2 { padding: 10px; border: 2px solid var(--frame); background: linear-gradient(180deg, rgba(14, 16, 44, 0.75), rgba(6, 7, 20, 0.75)); box-shadow: 0 0 24px rgba(255, 61, 242, 0.12); }
+.xpbar { border-color: #3a4686; background: #0a0c22; box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.6); }
+.xpbar div { background: linear-gradient(90deg, #1aa8c8, var(--cyan)); box-shadow: 0 0 6px var(--cyan); }
+
+/* screen + modal transitions */
+#screen > * { animation: fadeUp 0.22s steps(5) both; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } }
+.mbox { animation: popIn 0.16s steps(4) both; }
+@keyframes popIn { from { opacity: 0; transform: scale(0.94); } }
+
+/* HUD */
+.chip {
+  background: linear-gradient(180deg, rgba(20, 23, 60, 0.95), rgba(9, 10, 28, 0.95));
+  border-color: #34407a;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 0 rgba(0, 0, 0, 0.5);
+}
+#hud-core { border-left: 3px solid var(--red); }
+#hud-gold { border-left: 3px solid var(--yel); }
+#hud-shards { border-left: 3px solid var(--mag); }
+#hud-wave { border-left: 3px solid var(--cyan); }
+.hpbar { display: inline-block; width: 44px; height: 5px; background: #2a0a18; border: 1px solid #000; vertical-align: middle; margin-left: 2px; }
+.hpbar i { display: block; height: 100%; background: linear-gradient(90deg, #ff2f5a, #ff6a8a); box-shadow: 0 0 4px #ff2f5a; }
+.hpbar.ok i { background: linear-gradient(90deg, #1aa8c8, #2ef2ff); box-shadow: 0 0 4px #2ef2ff; }
+
+.tbtn {
+  background: linear-gradient(180deg, rgba(22, 26, 66, 0.95), rgba(9, 10, 28, 0.95));
+  border-color: #34407a;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 0 rgba(0, 0, 0, 0.5);
+}
+.tbtn.sel { background: linear-gradient(180deg, rgba(14, 70, 90, 0.95), rgba(8, 30, 44, 0.95)); transform: translateY(-3px); }
+.tbtn .cost { text-shadow: 0 1px 0 #000; }
+
+.toast {
+  background: linear-gradient(90deg, rgba(8, 9, 26, 0.97), rgba(20, 22, 56, 0.97));
+  border-width: 0 0 0 4px; padding: 7px 14px;
+  box-shadow: 0 0 14px currentColor, inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+#wavepreview { border-color: #34407a; background: linear-gradient(180deg, rgba(20, 23, 60, 0.95), rgba(9, 10, 28, 0.95)); }
+#bossbar .bb-track { height: 10px; box-shadow: 0 0 10px rgba(255, 47, 90, 0.45); }
+#bossbar .bb-fill { background: linear-gradient(90deg, #a01030, #ff2f5a 60%, #ff7a95); }
+#abilities .btn.abil.ready { box-shadow: 0 0 10px currentColor, inset 0 1px 0 rgba(255, 255, 255, 0.15); animation: readyPulse 1.2s steps(2) infinite; }
+@keyframes readyPulse { 50% { filter: brightness(1.35); } }
+#abilities .cdtxt { display: block; font-style: normal; font-size: 6px; opacity: 0.85; margin-top: 2px; }
+
+#panel { padding-top: 10px; }
+#panel h3 { border-bottom: 1px solid #2a3366; padding-bottom: 4px; }
+#panel .row:nth-child(odd) { background: rgba(255, 255, 255, 0.03); }
+
+/* thin neon scrollbars */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb { background: #34407a; }
+::-webkit-scrollbar-track { background: transparent; }
+#screen > .quinn, #screen > .version { animation: none; }
+#screen.sub { background: radial-gradient(ellipse at 50% 30%, rgba(14, 12, 40, 0.86), rgba(3, 3, 10, 0.94)); }

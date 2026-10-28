@@ -179,8 +179,8 @@ export const VETERANCY = [
 // Tower mastery skins, unlocked by total kills with that tower across all runs.
 export const SKINS = [
   { id: 'default', name: 'Standard', kills: 0 },
-  { id: 'neon', name: 'Neon', kills: 400 },
-  { id: 'gold', name: 'Gold', kills: 1500 },
+  { id: 'neon', name: 'Neon', kills: 3000 },
+  { id: 'gold', name: 'Gold', kills: 12000 },
 ];
 
 // Optional run mutators: harder runs for more XP and shards.
@@ -196,31 +196,32 @@ export const MUTATORS = [
 ];
 
 // Commander active abilities (unlocked in each commander's skill tree).
+// `cd` is measured in waves: after use, the ability recharges as waves end.
 export const ABILITIES = {
-  airstrike: { name: 'Airstrike', cd: 35, color: '#2ef2ff', desc: 'Hits the 5 enemies closest to the core for 30% of their HP (6% on bosses).' },
-  rally: { name: 'Rally', cd: 45, color: '#2ef2ff', desc: 'All towers fire 30% faster for 8s.' },
-  lance: { name: 'Orbital Lance', cd: 70, color: '#2ef2ff', desc: 'Blasts the strongest enemy for 35% of its HP (12% on bosses).' },
-  repair: { name: 'Patch Job', cd: 60, color: '#ffe84a', desc: 'Repair 3 core HP.' },
-  overdrive: { name: 'Overdrive', cd: 50, color: '#ffe84a', desc: 'All towers deal +50% damage for 6s.' },
-  refund: { name: 'Salvage Op', cd: 90, color: '#ffe84a', desc: 'Gain credits equal to 8% of everything you have built.' },
-  freeze: { name: 'Flash Freeze', cd: 45, color: '#8fe8ff', desc: 'Freezes every enemy for 2.5s (bosses 0.8s).' },
-  blizzard: { name: 'Blizzard', cd: 50, color: '#8fe8ff', desc: 'All enemies are slowed 50% for 6s.' },
-  shatter: { name: 'Shatterstorm', cd: 70, color: '#8fe8ff', desc: 'Chilled enemies take 20% of their HP (6% on bosses).' },
-  toxic: { name: 'Toxic Cloud', cd: 40, color: '#4dff8a', desc: 'Poisons every enemy for 4% of its HP per second for 5s.' },
-  mutagen: { name: 'Mutagen', cd: 55, color: '#4dff8a', desc: 'All towers deal +25% damage for 8s.' },
-  burst: { name: 'Plague Burst', cd: 70, color: '#4dff8a', desc: 'Detonates all poison instantly for double damage.' },
-  payday: { name: 'Payday', cd: 50, color: '#ffd23f', desc: 'Instantly gain credits that scale with the wave.' },
-  bribe: { name: 'Bribe', cd: 60, color: '#ffd23f', desc: 'The strongest non-boss enemy simply leaves.' },
-  crash: { name: 'Market Crash', cd: 75, color: '#ffd23f', desc: 'Enemies slowed 30% for 6s; kills pay +50% for 10s.' },
-  barrier: { name: 'Barrier', cd: 60, color: '#3d7bff', desc: 'Leaks deal no core damage for 6s.' },
-  fortify: { name: 'Fortify', cd: 70, color: '#3d7bff', desc: 'Repair 2 core HP; towers are immune to EMP for 15s.' },
-  shove: { name: 'Shield Wall', cd: 60, color: '#3d7bff', desc: 'Pushes every non-boss enemy back 3 tiles.' },
-  quickdraw: { name: 'Quickdraw', cd: 45, color: '#ff3df2', desc: 'Towers gain +50% crit chance for 6s.' },
-  deadeye: { name: 'Dead Eye', cd: 55, color: '#ff3df2', desc: 'The 3 strongest enemies take 25% of their HP (8% on bosses).' },
-  bulletstorm: { name: 'Bullet Storm', cd: 75, color: '#ff3df2', desc: 'All towers fire twice as fast for 5s.' },
-  raise: { name: 'Raise Dead', cd: 50, color: '#b6ff3d', desc: 'Summons 6 husks that march out from the core.' },
-  harvest: { name: 'Soul Harvest', cd: 55, color: '#b6ff3d', desc: 'Kills pay double credits for 8s.' },
-  mark: { name: 'Death Mark', cd: 65, color: '#b6ff3d', desc: 'All enemies take +30% damage for 6s.' },
+  airstrike: { name: 'Airstrike', cd: 2, color: '#2ef2ff', desc: 'Hits the 5 enemies closest to the core for 30% of their HP (6% on bosses).' },
+  rally: { name: 'Rally', cd: 2, color: '#2ef2ff', desc: 'All towers fire 30% faster for 8s.' },
+  lance: { name: 'Orbital Lance', cd: 4, color: '#2ef2ff', desc: 'Blasts the strongest enemy for 35% of its HP (12% on bosses).' },
+  repair: { name: 'Patch Job', cd: 3, color: '#ffe84a', desc: 'Repair 3 core HP.' },
+  overdrive: { name: 'Overdrive', cd: 3, color: '#ffe84a', desc: 'All towers deal +50% damage for 6s.' },
+  refund: { name: 'Salvage Op', cd: 5, color: '#ffe84a', desc: 'Gain credits equal to 8% of everything you have built.' },
+  freeze: { name: 'Flash Freeze', cd: 2, color: '#8fe8ff', desc: 'Freezes every enemy for 2.5s (bosses 0.8s).' },
+  blizzard: { name: 'Blizzard', cd: 3, color: '#8fe8ff', desc: 'All enemies are slowed 50% for 6s.' },
+  shatter: { name: 'Shatterstorm', cd: 4, color: '#8fe8ff', desc: 'Chilled enemies take 20% of their HP (6% on bosses).' },
+  toxic: { name: 'Toxic Cloud', cd: 2, color: '#4dff8a', desc: 'Poisons every enemy for 4% of its HP per second for 5s.' },
+  mutagen: { name: 'Mutagen', cd: 3, color: '#4dff8a', desc: 'All towers deal +25% damage for 8s.' },
+  burst: { name: 'Plague Burst', cd: 4, color: '#4dff8a', desc: 'Detonates all poison instantly for double damage.' },
+  payday: { name: 'Payday', cd: 3, color: '#ffd23f', desc: 'Instantly gain credits that scale with the wave.' },
+  bribe: { name: 'Bribe', cd: 3, color: '#ffd23f', desc: 'The strongest non-boss enemy simply leaves.' },
+  crash: { name: 'Market Crash', cd: 4, color: '#ffd23f', desc: 'Enemies slowed 30% for 6s; kills pay +50% for 10s.' },
+  barrier: { name: 'Barrier', cd: 3, color: '#3d7bff', desc: 'Leaks deal no core damage for 6s.' },
+  fortify: { name: 'Fortify', cd: 4, color: '#3d7bff', desc: 'Repair 2 core HP; towers are immune to EMP for 15s.' },
+  shove: { name: 'Shield Wall', cd: 3, color: '#3d7bff', desc: 'Pushes every non-boss enemy back 3 tiles.' },
+  quickdraw: { name: 'Quickdraw', cd: 2, color: '#ff3df2', desc: 'Towers gain +50% crit chance for 6s.' },
+  deadeye: { name: 'Dead Eye', cd: 3, color: '#ff3df2', desc: 'The 3 strongest enemies take 25% of their HP (8% on bosses).' },
+  bulletstorm: { name: 'Bullet Storm', cd: 4, color: '#ff3df2', desc: 'All towers fire twice as fast for 5s.' },
+  raise: { name: 'Raise Dead', cd: 3, color: '#b6ff3d', desc: 'Summons 6 husks that march out from the core.' },
+  harvest: { name: 'Soul Harvest', cd: 3, color: '#b6ff3d', desc: 'Kills pay double credits for 8s.' },
+  mark: { name: 'Death Mark', cd: 4, color: '#b6ff3d', desc: 'All enemies take +30% damage for 6s.' },
 };
 
 

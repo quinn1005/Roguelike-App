@@ -17,7 +17,104 @@ export class Renderer {
     this.stars = [];
     for (let i = 0; i < 160; i++) this.stars.push({ x: Math.random(), y: Math.random(), d: 0.05 + Math.random() * 0.25, c: Math.random() < 0.15 ? '#ff3df2' : Math.random() < 0.3 ? '#2ef2ff' : '#8a9ad8', t: Math.random() * 6 });
     this.routeCache = null;
+    [this.gcv, this.gctx] = makeCanvas(10, 10);
+    this.gctx.imageSmoothingEnabled = true;
+    // Bloom needs canvas filters; skip it on WebViews that ignore them.
+    this.gctx.filter = 'blur(1px)';
+    this.bloomOk = this.gctx.filter === 'blur(1px)';
+    this.gctx.filter = 'none';
     this.resize();
+  }
+
+  // Soft, dithered nebula clouds drawn once per resize (low res for a pixel look).
+  makeNebula() {
+    const W = Math.ceil((this.bw + 160) / 3), H = Math.ceil((this.bh + 160) / 3);
+    const [c, ctx] = makeCanvas(W, H);
+    const cols = ['#ff3df2', '#2ef2ff', '#a466ff', '#3d7bff', '#ff3df2'];
+    let seed = 7;
+    const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+    for (let i = 0; i < 9; i++) {
+      const x = rnd() * W, y = rnd() * H, r = (0.25 + rnd() * 0.35) * Math.max(W, H);
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, rgba(cols[i % cols.length], 0.16));
+      g.addColorStop(1, rgba(cols[i % cols.length], 0));
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+    }
+    const img = ctx.getImageData(0, 0, W, H), d = img.data;
+    const bayer = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const i = (y * W + x) * 4;
+        const th = (bayer[(y % 4) * 4 + (x % 4)] / 16) * 24;
+        d[i + 3] = Math.floor((d[i + 3] + th) / 24) * 24;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+    this.nebula = c;
+  }
+
+  drawNebula(px, py) {
+    if (!this.nebula) return;
+    const b = this.b;
+    const W = this.nebula.width * 3, H = this.nebula.height * 3;
+    const x = -((px % 160) + 160) % 160, y = -((py % 160) + 160) % 160;
+    b.drawImage(this.nebula, Math.round(x), Math.round(y), W, H);
+  }
+
+  // Synthwave horizon behind the menus.
+  drawMenuBg(time) {
+    const b = this.b, W = this.bw, H = this.bh;
+    const hz = Math.round(H * 0.64);
+    // sun
+    const cx = Math.round(W * 0.5), r = Math.round(H * 0.22);
+    for (let y = -r; y <= 0; y++) {
+      const t = (y + r) / r;
+      if (y > -r * 0.55 && Math.floor((y + time * 6) / 3) % 3 === 0) continue;
+      const w = Math.round(Math.sqrt(r * r - y * y));
+      b.fillStyle = t < 0.5 ? '#ffd23f' : t < 0.75 ? '#ff8a1f' : '#ff3df2';
+      b.globalAlpha = 0.55;
+      b.fillRect(cx - w, hz + y, w * 2, 1);
+    }
+    b.globalAlpha = 1;
+    // ground
+    b.fillStyle = '#07051a'; b.fillRect(0, hz, W, H - hz);
+    b.fillStyle = '#ff3df2'; b.fillRect(0, hz, W, 1);
+    b.globalAlpha = 0.25; b.fillRect(0, hz - 1, W, 1); b.globalAlpha = 1;
+    // receding horizontal lines
+    const n = 10;
+    for (let k = 0; k < n; k++) {
+      const f = ((k + (time * 0.6) % 1) / n);
+      const y = hz + Math.round((H - hz) * f * f);
+      b.globalAlpha = 0.15 + 0.6 * f;
+      b.fillStyle = '#ff3df2';
+      b.fillRect(0, y, W, 1);
+    }
+    // converging vertical lines
+    for (let i = -14; i <= 14; i++) {
+      b.globalAlpha = 0.45 - Math.abs(i) * 0.02;
+      this.pixLine(cx + i * 6, hz, cx + i * 70, H, '#c02fd8');
+    }
+    b.globalAlpha = 1;
+  }
+
+  bloom() {
+    if (!this.bloomOk) return;
+    const g = this.gctx, gw = this.gcv.width, gh = this.gcv.height;
+    g.globalCompositeOperation = 'source-over';
+    g.clearRect(0, 0, gw, gh);
+    g.filter = 'brightness(0.85) contrast(2.6) blur(2px)';
+    g.drawImage(this.buf, 0, 0, gw, gh);
+    g.filter = 'none';
+    const b = this.b;
+    b.setTransform(1, 0, 0, 1, 0, 0);
+    b.globalCompositeOperation = 'lighter';
+    b.globalAlpha = 0.5;
+    b.imageSmoothingEnabled = true;
+    b.drawImage(this.gcv, 0, 0, this.bw, this.bh);
+    b.imageSmoothingEnabled = false;
+    b.globalAlpha = 1;
+    b.globalCompositeOperation = 'source-over';
   }
 
   resize() {
@@ -30,6 +127,9 @@ export class Renderer {
     this.b.imageSmoothingEnabled = false;
     this.ctx.imageSmoothingEnabled = false;
     this.dpr = dpr;
+    this.gcv.width = Math.ceil(this.bw / 2); this.gcv.height = Math.ceil(this.bh / 2);
+    this.gctx.imageSmoothingEnabled = true;
+    this.makeNebula();
   }
 
   screenToWorld(cx, cy) {
@@ -56,8 +156,14 @@ export class Renderer {
     b.globalCompositeOperation = 'source-over';
     b.fillStyle = '#04040c';
     b.fillRect(0, 0, this.bw, this.bh);
+    this.drawNebula(cam.x * 0.15, cam.y * 0.15);
     this.drawStars(time);
-    if (!run) { this.blit(); return; }
+    if (!run) {
+      this.drawMenuBg(time);
+      if (view && view.glowOn) this.bloom();
+      this.blit();
+      return;
+    }
 
     let sx = 0, sy = 0;
     if (run.shake > 0 && view.shakeOn) { sx = (Math.random() - 0.5) * run.shake; sy = (Math.random() - 0.5) * run.shake; }
@@ -70,8 +176,8 @@ export class Renderer {
     for (const ch of world.chunks.values()) {
       const x = ch.cx * CPX, y = ch.cy * CPX;
       if (!world.get(ch.cx, ch.cy + 1)) {
-        b.fillStyle = '#0b0a1c'; b.fillRect(x, y + CPX, CPX, 5);
-        b.fillStyle = '#16142e'; b.fillRect(x, y + CPX, CPX, 1);
+        const shades = ['#1c1a3c', '#16142f', '#110f26', '#0d0b1e', '#0a0918', '#070612'];
+        for (let k = 0; k < shades.length; k++) { b.fillStyle = shades[k]; b.fillRect(x + (k > 3 ? 2 : 0), y + CPX + k, CPX - (k > 3 ? 4 : 0), 1); }
         const sec = SECTORS[ch.sector % SECTORS.length];
         for (let k = 0; k < 3; k++) {
           const lx = x + 18 + k * 38;
@@ -80,6 +186,12 @@ export class Renderer {
         }
       }
       b.drawImage(world.chunkCanvas(ch), x, y);
+      const sec2 = SECTORS[ch.sector % SECTORS.length];
+      b.fillStyle = shade(sec2.grid, 0.45);
+      if (!world.get(ch.cx, ch.cy - 1)) b.fillRect(x, y, CPX, 1);
+      if (!world.get(ch.cx - 1, ch.cy)) b.fillRect(x, y, 1, CPX);
+      b.fillStyle = shade(sec2.grid, -0.4);
+      if (!world.get(ch.cx + 1, ch.cy)) b.fillRect(x + CPX - 1, y, 1, CPX);
     }
     this.drawTileAnims(run, time);
     this.drawFlow(run, time);
@@ -112,6 +224,7 @@ export class Renderer {
     this.drawProjectiles(run);
     this.drawFx(run, time);
 
+    if (view.glowOn) this.bloom();
     // world-anchored text at buffer resolution
     b.setTransform(1, 0, 0, 1, 0, 0);
     b.font = FONT;
@@ -264,6 +377,15 @@ export class Renderer {
     this.glowAt(x, y, 22, '#2ef2ff', pulse);
     const bob = Math.round(Math.sin(time * 2) * 1);
     b.drawImage(coreArt(), x - 8, y - 9 + bob);
+    // rotating segmented shield ring
+    b.fillStyle = '#2ef2ff';
+    for (let i = 0; i < 36; i++) {
+      const a = (i / 36) * Math.PI * 2 + time * 0.8;
+      if (i % 12 > 7) continue;
+      b.globalAlpha = 0.35 + 0.25 * Math.sin(time * 3 + i);
+      b.fillRect(Math.round(x + Math.cos(a) * 15), Math.round(y + Math.sin(a) * 15), 1, 1);
+    }
+    b.globalAlpha = 1;
     // hp arc
     const frac = run.coreHp / run.maxCore;
     const n = 24;
@@ -454,7 +576,9 @@ export class Renderer {
       const w = spr.width * scale, h = spr.height * scale;
       const lift = e.flying ? 6 + Math.sin(e.anim * 4) * 1.5 : 0;
       const x = Math.round(e.x - w / 2), y = Math.round(e.y - h / 2 - 2 - lift);
-      if (e.flying) { b.fillStyle = 'rgba(0,0,0,0.45)'; b.fillRect(Math.round(e.x - w / 4), Math.round(e.y + 2), Math.round(w / 2), 2); }
+      b.fillStyle = 'rgba(0,0,0,0.4)';
+      if (e.flying) b.fillRect(Math.round(e.x - w / 4), Math.round(e.y + 2), Math.round(w / 2), 2);
+      else { b.fillRect(Math.round(e.x - w / 3), Math.round(y + h - 2), Math.round((w * 2) / 3), 1); b.fillRect(Math.round(e.x - w / 4), Math.round(y + h - 1), Math.round(w / 2), 1); }
       let alpha = 1;
       if (e.cloaked) alpha = 0.3 + 0.1 * Math.sin(time * 8);
       if (e.phased) alpha = 0.25;
@@ -499,8 +623,10 @@ export class Renderer {
       const x = Math.round(p.x), y = Math.round(p.y);
       if (p.kind === 'bolt') {
         this.glowAt(x, y, 3, p.color, 0.8);
+        b.fillStyle = p.color;
+        for (let k = 1; k <= 4; k++) { b.globalAlpha = 1 - k * 0.22; b.fillRect(Math.round(x - p.vx * 0.008 * k), Math.round(y - p.vy * 0.008 * k), 1, 1); }
+        b.globalAlpha = 1;
         b.fillStyle = '#ffffff'; b.fillRect(x, y, 1, 1);
-        b.fillStyle = p.color; b.fillRect(Math.round(x - p.vx * 0.012), Math.round(y - p.vy * 0.012), 1, 1);
       } else if (p.kind === 'orb') {
         this.glowAt(x, y, 4, '#b6ff3d', 0.8);
         b.fillStyle = '#e8ffc0'; b.fillRect(x - 1, y - 1, 2, 2);

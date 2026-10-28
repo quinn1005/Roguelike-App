@@ -1,5 +1,20 @@
 # Changelog
 
+## v1.5.0
+
+### Changed
+- **Commander abilities now recharge over waves instead of seconds** (2-5 waves depending on the ability), so saving them for the waves where you really need them pays off. Buttons show how many waves are left and pulse when ready.
+- Tower mastery skins now take longer to earn: Neon at 3,000 kills and Gold at 12,000 kills.
+
+### Visual polish
+- Animated synthwave horizon and sun behind the main menu.
+- Dithered nebula clouds drifting behind the map.
+- Soft neon bloom glow on lights, lasers and explosions (toggle in Settings if your phone struggles).
+- Deeper platform undersides and rim lighting on map chunks.
+- Shadows under enemies, trails on projectiles, and a rotating shield ring around the core.
+- New framed panels with corner brackets, richer buttons, colour-coded HUD chips, and a core health bar.
+- Subtle CRT scanlines and vignette, smoother screen and popup transitions, and darker backdrops behind menu screens for readability.
+
 ## v1.4.1
 
 ### Fixed

@@ -598,6 +598,7 @@ export class Run {
     this.addGold(income);
     if (this.mods.obelisk) this.shards += this.mods.obelisk;
     if (this.mods.regen) this.heal(this.mods.regen);
+    for (const k in this.cooldowns) if (this.cooldowns[k] > 0) this.cooldowns[k]--;
     this.toast(`WAVE ${w} CLEARED  +${income}c`, '#4dff8a');
     this.sfx('clear');
     this.haptic('light');
@@ -802,7 +803,6 @@ export class Run {
     this.tb = {};
     for (const b of this.timed) { b.t -= dt; this.tb[b.key] = (this.tb[b.key] || 0) + b.val; }
     this.timed = this.timed.filter((b) => b.t > 0);
-    for (const k in this.cooldowns) if (this.cooldowns[k] > 0) this.cooldowns[k] -= dt;
     if (this.shake > 0) this.shake = Math.max(0, this.shake - dt * 20);
     if (this.phase === 'wave') {
       this.waveTime += dt;
@@ -1638,7 +1638,7 @@ export class Run {
       v: 1, seed: this.seed, rng: this.rng.state(), commander: this.commander, heat: this.heat, wave: this.wave,
       gold: this.gold, shards: this.shards, coreHp: this.coreHp, mods: this.mods, augments: this.augments,
       rerolls: this.rerolls, stats: this.stats, world: this.world.serialize(),
-      mutators: this.mutators, relics: this.relics, relocations: this.relocations,
+      mutators: this.mutators, relics: this.relics, relocations: this.relocations, cooldowns: this.cooldowns,
       towers: this.towers.map((t) => ({ type: t.type, tx: t.tx, ty: t.ty, level: t.level, branch: t.branch, mode: t.mode, invested: t.invested, dmgDealt: t.dmgDealt, kills: t.kills, relic: t.relic, vet: t.vet })),
     });
   }
@@ -1650,6 +1650,7 @@ export class Run {
     Object.assign(this, { commander: s.commander, heat: s.heat, wave: s.wave, gold: s.gold, shards: s.shards, coreHp: s.coreHp, mods: s.mods, augments: s.augments, rerolls: s.rerolls, stats: s.stats });
     this.mutators = s.mutators || [];
     this.relics = s.relics || [];
+    this.cooldowns = s.cooldowns || {};
     this.relocations = s.relocations != null ? s.relocations : 1;
     this.world = World.deserialize(s.world);
     this.phase = 'build';

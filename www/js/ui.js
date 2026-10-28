@@ -94,7 +94,7 @@ export class UI {
   get run() { return this.app.run; }
 
   // ======================= MENUS =======================
-  clearScreen() { this.screen.innerHTML = ''; }
+  clearScreen() { this.screen.innerHTML = ''; this.screen.classList.add('sub'); }
 
   setInGame(on) {
     for (const id of ['hud', 'towerbar', 'wavectl']) $(id).classList.toggle('hidden', !on);
@@ -108,6 +108,7 @@ export class UI {
   showMenu() {
     this.setInGame(false);
     this.clearScreen();
+    this.screen.classList.remove('sub');
     const saved = loadRun();
     const m = el('div', 'menu');
     const logo = el('div', 'logo', `<h1>NEON<br><span>BASTION</span></h1><div class="sub">ENDLESS TOWER DEFENSE ROGUELIKE</div>`);
@@ -261,7 +262,7 @@ export class UI {
         if (n.ability) {
           const A = ABILITIES[n.ability];
           d.classList.add('abil');
-          d.innerHTML = `<div class="nm" style="color:${A.color}">${A.name}</div><div class="rk">${r ? 'OK' : '0/1'}</div><div class="ds">ACTIVE ABILITY (${A.cd}s cooldown)<br>${A.desc}</div>`;
+          d.innerHTML = `<div class="nm" style="color:${A.color}">${A.name}</div><div class="rk">${r ? 'OK' : '0/1'}</div><div class="ds">ACTIVE ABILITY (recharges over ${A.cd} waves)<br>${A.desc}</div>`;
         } else d.innerHTML = `<div class="nm">${n.name}</div><div class="rk">${r}/${n.max}</div><div class="ds">${r ? 'Now: ' + n.desc(r) + '<br>' : ''}${r < n.max ? 'Next: ' + next : 'MAXED'}</div>`;
         const label = (q) => { const nn = nodes.find((x) => x.id === q); return nn && nn.ability ? ABILITIES[nn.ability].name : names[q]; };
         if (!avail && n.req) d.innerHTML += `<div class="rq">Requires ${n.req.map(label).join(n.any ? ' or ' : ' + ')}</div>`;
@@ -496,6 +497,7 @@ export class UI {
     col.append(
       button('SOUND: ' + (meta.settings.sfx ? 'ON' : 'OFF'), '', () => { meta.settings.sfx = !meta.settings.sfx; setSfx(meta.settings.sfx); saveMeta(); this.showSettings(); }),
       button('SCREEN SHAKE: ' + (meta.settings.shake ? 'ON' : 'OFF'), '', () => { meta.settings.shake = !meta.settings.shake; saveMeta(); this.showSettings(); }),
+      button('NEON GLOW: ' + (meta.settings.glow !== false ? 'ON' : 'OFF'), '', () => { meta.settings.glow = meta.settings.glow === false; saveMeta(); this.showSettings(); }),
       button('VIBRATION: ' + (meta.settings.haptics ? 'ON' : 'OFF'), '', () => { meta.settings.haptics = !meta.settings.haptics; saveMeta(); this.showSettings(); }),
       button('FULLSCREEN', '', () => this.app.fullscreen()),
       button('EXPORT SAVE (BACKUP)', 'hot', () => this.showExport()),
@@ -510,6 +512,7 @@ export class UI {
   // ======================= IN-GAME =======================
   enterRun() {
     this.clearScreen();
+    this.screen.classList.remove('sub');
     this.setInGame(true);
     this.hudCache = {};
     this.buildTowerBar();
@@ -524,7 +527,7 @@ export class UI {
     this.abtns = {};
     for (const id of this.run.abilities) {
       const A = ABILITIES[id];
-      const b = el('button', 'btn abil', `<span>${A.name}</span><div class="cdbar"></div>`);
+      const b = el('button', 'btn abil', `<span>${A.name}</span><em class="cdtxt"></em><div class="cdbar"></div>`);
       b.style.borderColor = A.color; b.style.color = A.color;
       b.onclick = () => { if (this.run.useAbility(id)) sfx('pick'); };
       box.append(b);
@@ -600,7 +603,8 @@ export class UI {
   updateHud() {
     const r = this.run;
     if (!r) return;
-    this.setHud('hud-core', `${img('heart')} ${Math.ceil(r.coreHp)}/${r.maxCore}`, 'chip' + (r.coreHp <= r.maxCore * 0.3 ? ' low' : ''));
+    const hpf = Math.max(0, Math.min(1, r.coreHp / r.maxCore));
+    this.setHud('hud-core', `${img('heart')} ${Math.ceil(r.coreHp)}/${r.maxCore}<span class="hpbar${hpf > 0.3 ? ' ok' : ''}"><i style="width:${Math.round(hpf * 100)}%"></i></span>`, 'chip' + (r.coreHp <= r.maxCore * 0.3 ? ' low' : ''));
     this.setHud('hud-wave', `${img('wave')} WAVE ${r.wave}`);
     const pk = r.peekWave();
     this.setHud('hud-next', r.phase === 'wave' ? `${r.enemies.length + r.spawnQueue.length} LEFT` : 'NEXT: ' + pk.text, 'chip ' + (pk.boss && r.phase !== 'wave' ? 'c-red' : 'dim'));
@@ -616,7 +620,9 @@ export class UI {
     for (const [id, b] of Object.entries(this.abtns || {})) {
       const cd = Math.max(0, r.cooldowns[id] || 0), max = ABILITIES[id].cd;
       b.disabled = !r.abilityReady(id);
+      b.classList.toggle('ready', r.abilityReady(id));
       b.querySelector('.cdbar').style.width = (cd > 0 ? (1 - cd / max) * 100 : 100) + '%';
+      b.querySelector('.cdtxt').textContent = cd > 0 ? `${cd} WAVE${cd > 1 ? 'S' : ''}` : r.phase === 'wave' ? 'READY' : 'NEXT WAVE';
     }
     // relocation button
     const mv = $('btn-move');
