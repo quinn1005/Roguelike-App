@@ -731,7 +731,7 @@ export class UI {
       const oc = r.overclockCost();
       const label = tw.oc > 0 ? 'OVERCLOCKED!'
         : tw.overheat ? `OVERHEATED<small>Offline until wave ${tw.heatUntil} ends</small>`
-        : `OVERCLOCK - ${oc}c<small>${r.phase === 'wave' ? '' : 'Only during a wave. '}2x fire rate for 5s, then the tower shuts down until the end of the next wave</small>`;
+        : `OVERCLOCK - ${oc}c<small>${r.phase === 'wave' ? '' : 'Only during a wave. '}2x fire rate for 10s, then the tower shuts down until the end of the next wave</small>`;
       const ocb = button(label, 'yel', () => { if (r.overclock(tw)) this.refreshPanel(true); });
       ocb.disabled = !r.canOverclock(tw);
       btns.append(ocb);

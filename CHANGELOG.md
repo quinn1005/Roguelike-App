@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.5.7
+
+### Changed
+- Overclock now lasts **10 seconds** (was 5) to make up for its credit cost and the longer overheat.
+
 ## v1.5.6
 
 ### Changed

@@ -240,7 +240,7 @@ export class Run {
   overclock(tw) {
     if (!this.canOverclock(tw)) return false;
     this.gold -= this.overclockCost();
-    tw.oc = 5;
+    tw.oc = 10;
     this.ring(tw.x, tw.y, 12, '#ff8a1f');
     this.sfx('upgrade');
     return true;
