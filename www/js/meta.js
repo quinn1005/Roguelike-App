@@ -152,6 +152,24 @@ export function resetMeta() {
   clearRun();
 }
 
+// ---------- Save backup ----------
+// A portable text code holding your progress and any saved run.
+export function exportSave() {
+  saveMeta();
+  const data = { app: 'neonbastion', v: 1, meta, run: loadRun() };
+  return 'NB1:' + btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+}
+
+export function importSave(code) {
+  const txt = (code || '').trim();
+  if (!txt.startsWith('NB1:')) throw new Error('That is not a Neon Bastion save code.');
+  const data = JSON.parse(decodeURIComponent(escape(atob(txt.slice(4)))));
+  if (data.app !== 'neonbastion' || !data.meta) throw new Error('Save code is damaged.');
+  localStorage.setItem(KEY, JSON.stringify(data.meta));
+  if (data.run) localStorage.setItem(RUN_KEY, JSON.stringify(data.run));
+  else localStorage.removeItem(RUN_KEY);
+}
+
 export function saveRun(data) { try { localStorage.setItem(RUN_KEY, JSON.stringify(data)); } catch (e) { /* ignore */ } }
 export function loadRun() { try { const r = localStorage.getItem(RUN_KEY); return r ? JSON.parse(r) : null; } catch (e) { return null; } }
 export function clearRun() { try { localStorage.removeItem(RUN_KEY); } catch (e) { /* ignore */ } }

@@ -235,3 +235,5 @@ img.px, canvas.px { image-rendering: pixelated; image-rendering: crisp-edges; }
 #bossbar.mini .bb-fill { background: #ffd23f; }
 #wavectl { position: absolute; }
 #btn-move { position: absolute; right: 0; bottom: calc(100% + 4px); white-space: nowrap; }
+textarea.savecode { width: 100%; height: 90px; background: #070818; color: var(--cyan); border: 2px solid var(--line); font-family: monospace; font-size: 10px; padding: 6px; user-select: text; -webkit-user-select: text; resize: none; }
+#modal { z-index: 10; }

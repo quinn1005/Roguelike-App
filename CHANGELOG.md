@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.4.1
+
+### Fixed
+- New versions now install over the old one instead of failing, so updating keeps your save. Every build is now signed with the same key, and a build is rejected if it isn't. **You need to uninstall one last time before installing this version**, because the version on your phone was signed with a different key.
+
+### New
+- **Export Save / Import Save** in Settings: back up all your progress as a code you can copy, and restore it on any install or device.
+
 ## v1.4.0
 
 ### New

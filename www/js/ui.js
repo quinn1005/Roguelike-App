@@ -9,7 +9,7 @@ import {
   meta, saveMeta, TREES, towerTree, COMMANDERS, ACHIEVEMENTS, MAX_HEAT, heatInfo, xpNeed,
   pointsFree, pointsTotal, nodeRank, nodeAvailable, buyNode, respec, loadRun, resetMeta,
   COMMANDER_TREES, cmdState, cmdNodeRank, cmdPointsFree, cmdNodeAvailable, cmdBuyNode, cmdRespec, cmdXpNeed, CMD_MAX_LEVEL,
-  canPrestige, doPrestige, PRESTIGE_LEVEL, skinUnlocked, towerSkin, mutatorBonus,
+  canPrestige, doPrestige, PRESTIGE_LEVEL, skinUnlocked, towerSkin, mutatorBonus, exportSave, importSave,
 } from './meta.js';
 import { towerSprites, enemySprite, makeCanvas, uiIcon } from './sprites.js';
 import { previewCanvas } from './world.js';
@@ -351,6 +351,41 @@ export class UI {
     this.screen.append(wrap);
   }
 
+  showExport() {
+    const code = exportSave();
+    this.openModal((box) => {
+      box.append(el('h2', '', 'EXPORT SAVE'));
+      box.append(el('p', '', 'This code holds all of your progress. Copy it somewhere safe (a note or a message to yourself). Paste it into IMPORT SAVE to restore it, even on another device.'));
+      const ta = el('textarea', 'savecode');
+      ta.value = code; ta.readOnly = true;
+      box.append(ta);
+      const row = el('div', 'mrow');
+      const copy = button('COPY', 'go', async () => {
+        try { await navigator.clipboard.writeText(code); copy.textContent = 'COPIED!'; }
+        catch (e) { ta.focus(); ta.select(); document.execCommand('copy'); copy.textContent = 'COPIED!'; }
+      });
+      row.append(copy, button('CLOSE', '', () => this.closeModal()));
+      box.append(row);
+    });
+  }
+
+  showImport() {
+    this.openModal((box) => {
+      box.append(el('h2', '', 'IMPORT SAVE'));
+      box.append(el('p', 'c-red', 'This REPLACES your current progress with the save code you paste below.'));
+      const ta = el('textarea', 'savecode');
+      ta.placeholder = 'Paste your NB1:... save code here';
+      box.append(ta);
+      const msg = el('p', 'c-red', '');
+      const row = el('div', 'mrow');
+      row.append(button('IMPORT', 'yel', () => {
+        try { importSave(ta.value); location.reload(); }
+        catch (e) { msg.textContent = e.message || 'Could not read that save code.'; }
+      }), button('CANCEL', '', () => this.closeModal()));
+      box.append(msg, row);
+    });
+  }
+
   // Each commander has a small skill tree; levels come from runs with them.
   showCommanderTree(cid) {
     this.clearScreen();
@@ -463,6 +498,8 @@ export class UI {
       button('SCREEN SHAKE: ' + (meta.settings.shake ? 'ON' : 'OFF'), '', () => { meta.settings.shake = !meta.settings.shake; saveMeta(); this.showSettings(); }),
       button('VIBRATION: ' + (meta.settings.haptics ? 'ON' : 'OFF'), '', () => { meta.settings.haptics = !meta.settings.haptics; saveMeta(); this.showSettings(); }),
       button('FULLSCREEN', '', () => this.app.fullscreen()),
+      button('EXPORT SAVE (BACKUP)', 'hot', () => this.showExport()),
+      button('IMPORT SAVE', '', () => this.showImport()),
       button('RESET ALL PROGRESS', 'red', () => this.confirm('Erase ALL progress, unlocks and talents? This cannot be undone.', () => { resetMeta(); this.showMenu(); })),
     );
     wrap.append(col);
