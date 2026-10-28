@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.5.3
+
+### Changed
+- The tower panel now breaks down every bonus on Damage, Rate and Range: base value, then augment bonuses (pink), the installed relic's bonus (in the relic's colour) and the veterancy rank bonus (rank colour), then the total. A small legend shows which colour is which.
+- Small stat values show one decimal so totals are exact.
+- The tower panel is a little wider so the breakdown fits.
+
 ## v1.5.2
 
 ### Changed

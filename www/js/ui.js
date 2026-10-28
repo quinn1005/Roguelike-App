@@ -793,31 +793,42 @@ export class UI {
     const cv = VETERANCY[(tw.vet || 0) - 1];
     rows.push(['Rank', (cv ? `<span style="color:${cv.color}">${cv.name}</span>` : 'Recruit') + (nv ? ` <span class="c-dim">(${tw.kills}/${nv.kills})</span>` : '')]);
     // Bonus from the current veterancy rank, shown in that rank's colour.
-    // Shows "base +X% = total" when the current rank boosts a stat.
-    const vstat = (total, v, show, unit = '') => {
-      if (!cv || v <= 0.0001) return show(total) + unit;
-      return `<span class="c-dim">${show(total / (1 + v))}</span> <span class="vetbuff" style="color:${cv.color}">+${Math.round(v * 100)}%</span> = <b class="vettotal">${show(total)}${unit}</b>`;
+    // Shows "base +aug% +relic% +rank% = total" for stats with bonuses.
+    const AUG_COL = '#ff3df2';
+    const relicCol = tw.relic ? RELIC_BY_ID[tw.relic].color : '#ffffff';
+    const vstat = (total, b, show, unit = '') => {
+      const parts = [[b.aug, AUG_COL], [b.relic, relicCol], [b.vet, cv ? cv.color : '#fff']].filter(([v]) => Math.abs(v) > 0.004);
+      if (!parts.length) return show(total) + unit;
+      const base = parts.reduce((t, [v]) => t / (1 + v), total);
+      const chips = parts.map(([v, c]) => `<span class="vetbuff" style="color:${c}">${v > 0 ? '+' : ''}${Math.round(v * 100)}%</span>`).join(' ');
+      return `<span class="c-dim">${show(base)}</span> ${chips} <b class="vettotal">= ${show(total)}${unit}</b>`;
     };
-    const vDmg = cv ? cv.dmg : 0, vRate = cv ? cv.rate : 0, vRange = cv ? cv.range : 0;
+    const num = (v) => (v < 100 ? String(Math.round(v * 10) / 10) : fmt(v));
+    const bd = s.bd || { dmg: {}, rate: {}, range: {} };
+    const z = (o) => ({ aug: o.aug || 0, relic: o.relic || 0, vet: o.vet || 0 });
+    const bDmg = z(bd.dmg), bRate = z(bd.rate), bRange = z(bd.range);
+    const comb = (a, b2) => ({ aug: (1 + a.aug) * (1 + b2.aug) - 1, relic: (1 + a.relic) * (1 + b2.relic) - 1, vet: (1 + a.vet) * (1 + b2.vet) - 1 });
     if (d.dmg) {
       const beam = d.proj === 'beam';
-      rows.push([beam ? 'DPS (base)' : 'Damage', vstat(s.dmg * (beam ? s.rate : 1), beam ? (1 + vDmg) * (1 + vRate) - 1 : vDmg, fmt)]);
-      if (!beam) rows.push(['Rate', vstat(s.rate, vRate, (v) => v.toFixed(2), '/s')]);
+      rows.push([beam ? 'DPS (base)' : 'Damage', vstat(s.dmg * (beam ? s.rate : 1), beam ? comb(bDmg, bRate) : bDmg, num)]);
+      if (!beam) rows.push(['Rate', vstat(s.rate, bRate, (v) => v.toFixed(2), '/s')]);
       rows.push(['Type', DTYPE_NAME[d.dtype]]);
     }
-    if (s.range) rows.push(['Range', vstat(s.range / 16, d.dmg || d.drones ? vRange : 0, (v) => v.toFixed(1), ' tiles')]);
+    if (s.range) rows.push(['Range', vstat(s.range / 16, bRange, (v) => v.toFixed(1), ' tiles')]);
     if (s.minRange) rows.push(['Min range', (s.minRange / 16).toFixed(1)]);
     if (s.splash && d.id !== 'cryo') rows.push(['Blast', (s.splash / 16).toFixed(1)]);
     if (s.chains) rows.push(['Chains', s.chains]);
     if (s.slow) rows.push(['Chill', pct(s.slow)]);
     if (s.poison) rows.push(['Poison', fmt(s.poison) + '/s']);
     if (d.proj === 'beam') rows.push(['Ramp', 'x' + s.ramp.toFixed(1)]);
-    if (d.drones) rows.push(['Drones', s.drones], ['Drone HP', fmt(s.droneHp)], ['Drone dmg', vstat(s.droneDmg, vDmg, fmt)]);
+    if (d.drones) rows.push(['Drones', s.drones], ['Drone HP', fmt(s.droneHp)], ['Drone dmg', vstat(s.droneDmg, bDmg, num)]);
     if (d.income) rows.push(['Income', '+' + Math.round(s.income) + '/wave']);
     if (d.buff) rows.push(['Buff', '+' + pct(s.buff) + ' dmg']);
     if (d.revive) rows.push(['Revive', pct(s.revive)]);
     if (s.crit > 0.031 && d.dmg) rows.push(['Crit', pct(s.crit)]);
     if (d.dmg || d.drones) rows.push(['Dealt', fmt(tw.dmgDealt)], ['Kills', tw.kills]);
+    const any = [bDmg, bRate, bRange].some((b) => Math.abs(b.aug) > 0.004 || b.relic || b.vet);
+    if (any) rows.push(['', `<span class="legend"><i style="color:${AUG_COL}">AUGMENTS</i> <i style="color:${relicCol}">${tw.relic ? 'RELIC' : ''}</i> <i style="color:${cv ? cv.color : '#fff'}">${cv ? 'RANK' : ''}</i></span>`]);
     return rows.map(([k, v]) => `<div class="row"><span>${k}</span><span>${v}</span></div>`).join('');
   }
 

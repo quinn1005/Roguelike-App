@@ -64,6 +64,7 @@ export class Run {
     if (mutators.includes('haste')) this.mods.enemySpeed += 0.2;
     this.relics = [];
     this.relocations = 1;
+    this.baseMods = JSON.parse(JSON.stringify(this.mods)); // run-start bonuses, before any augments
     this.wave = 0;
     this.gold = this.mods.startGold;
     this.shards = 0;
@@ -314,7 +315,16 @@ export class Run {
         * (1 + vet.dmg) * (relic === 'overcharger' ? 1.4 : 1);
       let range = d.range * L.range * (1 + m.range + amp.range) * (tile === T.HIGH ? 1.25 : 1) * (1 + vet.range) * (relic === 'lens' ? 1.3 : 1);
       if (d.buff) range *= 1 + m.ampRange;
+      // Breakdown of where bonuses come from, for the tower panel.
+      const B = this.baseMods || m, Bt = (B.t && B.t[tw.type]) || ZERO_TM;
+      const augPart = (sum, gained) => sum / Math.max(0.05, sum - gained) - 1;
+      const bd = {
+        dmg: { aug: augPart(1 + m.dmg + tm.dmg + amp.dmg, (m.dmg - B.dmg) + (tm.dmg - Bt.dmg)), relic: relic === 'overcharger' ? 0.4 : 0, vet: vet.dmg },
+        rate: { aug: augPart(1 + m.rate + tm.rate + amp.rate, (m.rate - B.rate) + (tm.rate - Bt.rate)), relic: relic === 'coils' ? 0.35 : 0, vet: vet.rate },
+        range: { aug: augPart(1 + m.range + amp.range, m.range - B.range), relic: relic === 'lens' ? 0.3 : 0, vet: vet.range },
+      };
       return {
+        bd,
         dmg: (d.dmg || 0) * dmgMult,
         dmgMult,
         rate: (d.rate || 1) * L.rate * (1 + m.rate + tm.rate + amp.rate) * (1 + vet.rate) * (relic === 'coils' ? 1.35 : 1),
@@ -1637,7 +1647,7 @@ export class Run {
     saveRun({
       v: 1, seed: this.seed, rng: this.rng.state(), commander: this.commander, heat: this.heat, wave: this.wave,
       gold: this.gold, shards: this.shards, coreHp: this.coreHp, mods: this.mods, augments: this.augments,
-      rerolls: this.rerolls, stats: this.stats, world: this.world.serialize(),
+      rerolls: this.rerolls, stats: this.stats, world: this.world.serialize(), baseMods: this.baseMods,
       mutators: this.mutators, relics: this.relics, relocations: this.relocations, cooldowns: this.cooldowns,
       towers: this.towers.map((t) => ({ type: t.type, tx: t.tx, ty: t.ty, level: t.level, branch: t.branch, mode: t.mode, invested: t.invested, dmgDealt: t.dmgDealt, kills: t.kills, relic: t.relic, vet: t.vet })),
     });
@@ -1650,6 +1660,7 @@ export class Run {
     Object.assign(this, { commander: s.commander, heat: s.heat, wave: s.wave, gold: s.gold, shards: s.shards, coreHp: s.coreHp, mods: s.mods, augments: s.augments, rerolls: s.rerolls, stats: s.stats });
     this.mutators = s.mutators || [];
     this.relics = s.relics || [];
+    this.baseMods = s.baseMods || buildRunMods(s.commander);
     this.cooldowns = s.cooldowns || {};
     this.relocations = s.relocations != null ? s.relocations : 1;
     this.world = World.deserialize(s.world);
