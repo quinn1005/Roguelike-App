@@ -231,8 +231,15 @@ export class Run {
   }
 
   // ---------------- overclock ----------------
+  // Overclock costs credits that scale with the wave. Afterwards the tower
+  // overheats and stays offline until the end of the following wave.
+  overclockCost() { return 25 + this.wave * 8; }
+  canOverclock(tw) {
+    return this.phase === 'wave' && tw.def.dmg && !(tw.oc > 0) && !tw.overheat && !(tw.disabled > 0) && this.gold >= this.overclockCost();
+  }
   overclock(tw) {
-    if (tw.oc > 0 || tw.disabled > 0 || !tw.def.dmg) return false;
+    if (!this.canOverclock(tw)) return false;
+    this.gold -= this.overclockCost();
     tw.oc = 5;
     this.ring(tw.x, tw.y, 12, '#ff8a1f');
     this.sfx('upgrade');
@@ -618,6 +625,9 @@ export class Run {
     if (this.mods.obelisk) this.shards += this.mods.obelisk;
     if (this.mods.regen) this.heal(this.mods.regen);
     for (const k in this.cooldowns) if (this.cooldowns[k] > 0) this.cooldowns[k]--;
+    for (const tw of this.towers) {
+      if (tw.overheat && w >= tw.heatUntil) { tw.overheat = 0; tw.heatUntil = 0; this.text(tw.x, tw.y - 8, 'COOLED DOWN', '#2ef2ff', 0.8); }
+    }
     this.toast(`WAVE ${w} CLEARED  +${income}c`, '#4dff8a');
     this.sfx('clear');
     this.haptic('light');
@@ -1027,12 +1037,17 @@ export class Run {
     if (tw.disabled > 0) {
       tw.disabled -= dt;
       tw.beam = [];
-      if (tw.disabled <= 0) { tw.overheat = 0; if (tw.def.buff) this.recomputeStats(); }
+      if (tw.disabled <= 0 && tw.def.buff) this.recomputeStats();
       return;
     }
+    if (tw.overheat) { tw.beam = []; return; }
     if (tw.oc > 0) {
       tw.oc -= dt;
-      if (tw.oc <= 0) { tw.oc = 0; tw.disabled = 6; tw.overheat = 6; this.text(tw.x, tw.y - 8, 'OVERHEAT', '#ff5533', 0.8); }
+      if (tw.oc <= 0) {
+        tw.oc = 0; tw.overheat = 1; tw.heatUntil = this.wave + 1; tw.beam = [];
+        this.text(tw.x, tw.y - 8, 'OVERHEAT', '#ff5533', 0.8);
+        return;
+      }
     }
     tw.rateMul = (tw.oc > 0 ? 2 : 1) * (1 + (this.tb.rate || 0));
     const s = tw.stats;
@@ -1658,7 +1673,7 @@ export class Run {
       gold: this.gold, shards: this.shards, coreHp: this.coreHp, mods: this.mods, augments: this.augments,
       rerolls: this.rerolls, stats: this.stats, world: this.world.serialize(), baseMods: this.baseMods,
       mutators: this.mutators, relics: this.relics, relocations: this.relocations, cooldowns: this.cooldowns,
-      towers: this.towers.map((t) => ({ type: t.type, tx: t.tx, ty: t.ty, level: t.level, branch: t.branch, mode: t.mode, invested: t.invested, dmgDealt: t.dmgDealt, kills: t.kills, relic: t.relic, vet: t.vet })),
+      towers: this.towers.map((t) => ({ type: t.type, tx: t.tx, ty: t.ty, level: t.level, branch: t.branch, mode: t.mode, invested: t.invested, dmgDealt: t.dmgDealt, kills: t.kills, relic: t.relic, vet: t.vet, overheat: t.overheat || 0, heatUntil: t.heatUntil || 0 })),
     });
   }
 
@@ -1679,7 +1694,7 @@ export class Run {
         id: this.nextId++, type: t.type, def: TOWERS[t.type], tx: t.tx, ty: t.ty, x: center(t.tx), y: center(t.ty),
         level: t.level, branch: t.branch, cd: 0.2, angle: -Math.PI / 2, mode: t.mode, invested: t.invested,
         dmgDealt: t.dmgDealt || 0, kills: t.kills || 0, disabled: 0, drones: [], beam: [], rampT: 0, rampTarget: null,
-        relic: t.relic || null, vet: t.vet || 0, oc: 0,
+        relic: t.relic || null, vet: t.vet || 0, oc: 0, overheat: t.overheat || 0, heatUntil: t.heatUntil || 0,
       };
       this.towers.push(tw);
       this.towerAt.set(t.tx + ',' + t.ty, tw);

@@ -684,7 +684,7 @@ export class UI {
     if (!tw || !r || !r.towers.includes(tw)) { this.hidePanel(); return; }
     const cost = r.upgradeCost(tw);
     const fus = r.fusionOptions(tw);
-    const key = [tw.id, tw.type, tw.level, tw.branch, tw.mode, cost, cost != null && r.gold >= cost, r.sellValue(tw), tw.relic, r.relics.join(), tw.oc > 0, tw.overheat > 0, tw.vet, fus.map((f) => f.other.id + (r.gold >= f.cost)).join()].join('|');
+    const key = [tw.id, tw.type, tw.level, tw.branch, tw.mode, cost, cost != null && r.gold >= cost, r.sellValue(tw), tw.relic, r.relics.join(), tw.oc > 0, tw.overheat > 0, tw.vet, r.canOverclock(tw), r.overclockCost(), fus.map((f) => f.other.id + (r.gold >= f.cost)).join()].join('|');
     if (force || key !== this.panelKey || !this.panelStats) {
       this.panelKey = key;
       this.buildPanel(tw);
@@ -728,8 +728,12 @@ export class UI {
       }
     }
     if (d.dmg) {
-      const ocb = button(tw.oc > 0 ? 'OVERCLOCKED!' : tw.overheat > 0 ? 'OVERHEATED' : 'OVERCLOCK<small>2x fire rate for 5s, then shuts down for 6s</small>', 'yel', () => { if (r.overclock(tw)) this.refreshPanel(true); });
-      ocb.disabled = tw.oc > 0 || tw.disabled > 0;
+      const oc = r.overclockCost();
+      const label = tw.oc > 0 ? 'OVERCLOCKED!'
+        : tw.overheat ? `OVERHEATED<small>Offline until wave ${tw.heatUntil} ends</small>`
+        : `OVERCLOCK - ${oc}c<small>${r.phase === 'wave' ? '' : 'Only during a wave. '}2x fire rate for 5s, then the tower shuts down until the end of the next wave</small>`;
+      const ocb = button(label, 'yel', () => { if (r.overclock(tw)) this.refreshPanel(true); });
+      ocb.disabled = !r.canOverclock(tw);
       btns.append(ocb);
     }
     for (const f of r.fusionOptions(tw)) {
@@ -786,7 +790,7 @@ export class UI {
   panelRows(tw) {
     const s = tw.stats, d = tw.def;
     const rows = [];
-    if (tw.overheat > 0) rows.push(['STATUS', '<span class="c-red">OVERHEATED</span>']);
+    if (tw.overheat) rows.push(['STATUS', `<span class="c-red">OVERHEATED until wave ${tw.heatUntil} ends</span>`]);
     else if (tw.disabled > 0) rows.push(['STATUS', '<span class="c-yel">EMP!</span>']);
     if (tw.oc > 0) rows.push(['STATUS', '<span class="c-yel">OVERCLOCKED ' + tw.oc.toFixed(1) + 's</span>']);
     const nv = VETERANCY[tw.vet || 0];

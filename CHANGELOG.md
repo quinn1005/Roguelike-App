@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.5.6
+
+### Changed
+- **Overclock now costs credits** (25 + 8 per wave), so it can't be spammed. It can only be used during a wave.
+- **Overheating is much longer**: after the 5 second boost the tower shuts down until the end of the *next* wave. Overclock on wave 5 and the tower is offline for the rest of wave 5 and all of wave 6, then back for wave 7. Overheated towers stay overheated if you save and quit between waves.
+
 ## v1.5.5
 
 ### Changed
