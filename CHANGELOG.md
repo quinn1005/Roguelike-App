@@ -1,5 +1,20 @@
 # Changelog
 
+## v1.7.0
+
+### New tower: Black Hole Cannon
+Designed by **Levi**, who found the Quinn easter egg. Thanks Levi!
+
+- Unlocks in the Armory for 180 Void Shards and costs 210 credits to build.
+- Lobs a singularity onto the track that opens a black hole for 2.5 seconds. Every enemy in reach is pulled into the core and held there, taking damage the whole time. Bosses and mini-bosses can't be held, but they are slowed.
+- Caught enemies shrink and spin around the event horizon. An enemy that was just released can't be grabbed again right away.
+- **Path A, Supermassive Collapse**: when a hole closes it implodes, blasting everything nearby. The blast gets bigger for every enemy it was holding.
+- **Path B, Wormhole**: holes are 25% bigger. When one closes, everything it held is flung back up the path toward its portal and takes heavy damage. Bosses inside get shoved back too.
+- Its talent tree has a new special, **Long Night**: black holes last 1 second longer.
+
+### New fusion: Quasar
+- Fuse a max-level Black Hole Cannon with a max-level Tesla Coil next to it. It fires huge, long-lasting black holes that hurl lightning at every enemy around them while they are open.
+
 ## v1.6.0
 
 ### Tower balance pass

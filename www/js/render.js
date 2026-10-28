@@ -213,6 +213,8 @@ export class Renderer {
       b.globalAlpha = 1;
     }
 
+    for (const h of run.holes || []) this.drawHole(h, time);
+
     // range rings
     if (view.selected) this.dotCircle(view.selected.x, view.selected.y, view.selected.stats.range, view.selected.def.color, time);
     if (view.selected && view.selected.stats.minRange) this.dotCircle(view.selected.x, view.selected.y, view.selected.stats.minRange, '#ff2f5a', time);
@@ -571,17 +573,21 @@ export class Renderer {
     const sorted = run.enemies.slice().sort((a, c) => (a.flying - c.flying) || (a.y - c.y));
     for (const e of sorted) {
       const frame = Math.floor(e.anim * (e.boss ? 3 : 5)) % 2;
-      const spr = enemySprite(e.sprite || e.type, frame, e.hitFlash > 0 ? '#ffffff' : (e.tint || null));
-      const scale = e.scale || (e.elite === 'giant' ? 1.5 : 1);
+      // Enemies caught in a black hole shrink, tint violet and orbit the core.
+      const held = e.held > 0;
+      const spr = enemySprite(e.sprite || e.type, frame, held ? '#b36bff' : e.hitFlash > 0 ? '#ffffff' : (e.tint || null));
+      const scale = (e.scale || (e.elite === 'giant' ? 1.5 : 1)) * (held ? 0.55 : 1);
       const w = spr.width * scale, h = spr.height * scale;
       const lift = e.flying ? 6 + Math.sin(e.anim * 4) * 1.5 : 0;
-      const x = Math.round(e.x - w / 2), y = Math.round(e.y - h / 2 - 2 - lift);
+      const ox = held ? Math.cos(time * 9 + e.id) * 4 : 0, oy = held ? Math.sin(time * 9 + e.id) * 3 : 0;
+      const x = Math.round(e.x + ox - w / 2), y = Math.round(e.y + oy - h / 2 - 2 - lift);
       b.fillStyle = 'rgba(0,0,0,0.4)';
       if (e.flying) b.fillRect(Math.round(e.x - w / 4), Math.round(e.y + 2), Math.round(w / 2), 2);
       else { b.fillRect(Math.round(e.x - w / 3), Math.round(y + h - 2), Math.round((w * 2) / 3), 1); b.fillRect(Math.round(e.x - w / 4), Math.round(y + h - 1), Math.round(w / 2), 1); }
       let alpha = 1;
       if (e.cloaked) alpha = 0.3 + 0.1 * Math.sin(time * 8);
       if (e.phased) alpha = 0.25;
+      if (held) alpha *= 0.8;
       b.globalAlpha = alpha;
       if (e.boss) this.glowAt(e.x, e.y - lift, 18, e.def.shieldType ? DTYPE_COLOR[e.weak] : '#ff2f5a', 0.5);
       if (e.mini) this.glowAt(e.x, e.y - lift, 14, '#ffd23f', 0.45);
@@ -616,6 +622,35 @@ export class Renderer {
     }
   }
 
+  // A black hole: soft violet halo, spiral arms of dithered dust turning inward,
+  // and a pitch-black core with a bright event-horizon rim. Grows in, shrinks out.
+  drawHole(h, time) {
+    const b = this.b;
+    const age = h.max - h.t;
+    const k = Math.min(1, age / 0.2, h.t / 0.25);
+    const r = h.r * Math.max(0.05, k);
+    b.globalAlpha = 0.18;
+    this.pixelDisc(h.x, h.y, r, h.color);
+    b.globalAlpha = 0.3;
+    this.pixelDisc(h.x, h.y, r * 0.7, '#4b2a9a');
+    b.globalAlpha = 1;
+    for (let arm = 0; arm < 3; arm++) {
+      for (let i = 0; i < 14; i++) {
+        const f = i / 14;
+        const a = h.spin * 4 + arm * (Math.PI * 2 / 3) + f * 3.2;
+        const d = r * (1 - f * 0.75);
+        b.fillStyle = i % 3 === 0 ? '#ffffff' : i % 2 ? h.color : '#ff3df2';
+        b.globalAlpha = 0.35 + f * 0.6;
+        b.fillRect(Math.round(h.x + Math.cos(a) * d), Math.round(h.y + Math.sin(a) * d), 1, 1);
+      }
+    }
+    b.globalAlpha = 1;
+    this.glowAt(h.x, h.y, r * 0.9, h.color, 0.5);
+    const core = Math.max(1, r * 0.38);
+    this.ringOutline(h.x, h.y, core + 1, Math.floor(time * 12) % 2 ? '#ffffff' : h.color);
+    this.pixelDisc(h.x, h.y, core, '#000000');
+  }
+
   drawProjectiles(run) {
     const b = this.b;
     for (const p of run.projectiles) {
@@ -627,6 +662,12 @@ export class Renderer {
         for (let k = 1; k <= 4; k++) { b.globalAlpha = 1 - k * 0.22; b.fillRect(Math.round(x - p.vx * 0.008 * k), Math.round(y - p.vy * 0.008 * k), 1, 1); }
         b.globalAlpha = 1;
         b.fillStyle = '#ffffff'; b.fillRect(x, y, 1, 1);
+      } else if (p.kind === 'hole') {
+        const hgt = Math.round(p.h || 0);
+        b.fillStyle = 'rgba(0,0,0,0.4)'; b.fillRect(x - 1, y + 1, 3, 1);
+        this.glowAt(x, y - hgt, 6, p.color, 0.9);
+        b.fillStyle = p.color; b.fillRect(x - 2, y - hgt - 1, 5, 3); b.fillRect(x - 1, y - hgt - 2, 3, 5);
+        b.fillStyle = '#000000'; b.fillRect(x - 1, y - hgt - 1, 3, 3);
       } else if (p.kind === 'orb') {
         this.glowAt(x, y, 4, '#b6ff3d', 0.8);
         b.fillStyle = '#e8ffc0'; b.fillRect(x - 1, y - 1, 2, 2);

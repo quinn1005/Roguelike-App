@@ -89,6 +89,7 @@ const HEADS = {
   amplifier: ['.....kk.....', '....kwwk....', '...kahhak...', '..kAahhaAk..', '.kAaawwaaAk.', 'kAaawwwwaaAk'],
   mortar: ['............', '..kkkkkk....', '.kAaaaaAkkk.', '.kaammaaAmmk', '.kamkkmaAkdk', '.kamkkmaAkdk'],
   laser: ['............', '..kkkk......', '.kAaaAkk....', '.kaahhaAkkkk', '.kahwwhaammk', '.kahwwhaawwk'],
+  blackhole: ['....kkkk....', '..kkmmmmkk..', '.kmAaaaaAmk.', '.kmakkkkamk.', 'kmakkVVkkamk', 'kmhkVkkVkhmk'],
   reclaimer: ['...kkkkkk...', '..kVvvvvVk..', '.kVvvvvvvVk.', '.kvaawwaavk.', '.kvawkkwavk.', '..kvvvvvvk..'],
 };
 
@@ -118,6 +119,8 @@ export const BRANCH_ART = {
   laserA: { color: '#2ef2ff', rows: ['............', '..kk........', '.kxpkk......', '.kxhwpkkk...', '.kxhwwwpxkkk', '.kxhwwwwwwwk'] },
   laserB: { color: '#ff2f5a', rows: ['...kkkkk....', '..kxxxxxk...', '.kxhhhhxxk..', 'kxhwwwhxxkkk', 'kxhwwwwhxXXk', 'kxhwwwwhxwwk'] },
   reclaimerA: { color: '#b6ff3d', rows: ['k..........k', 'kxk.kkkk.kxk', '.kxkVvvVkxk.', '.kVvxwwxvVk.', '.kvxwkkwxvk.', '..kvvvvvvk..'] },
+  blackholeA: { color: '#f0d0ff', rows: ['k...kkkk...k', '.k.kxxxxk.k.', '..kxhhhhxk..', '.kxhkkkkhxk.', 'kxhkkVVkkhxk', 'kxhkVkkVkhxk'] },
+  blackholeB: { color: '#ff3df2', rows: ['...kkkkkk...', '.kkxxxxxxkk.', 'kxxkcccckxxk', 'kxkcppppckxk', 'kxkcpkkpckxk', 'kxkcpkkpckxk'] },
   reclaimerB: { color: '#ffe84a', rows: ['...kkkkkk...', '..kVvvvvVk..', '.kVyyyyyyVk.', '.kvyoyyoyvk.', '.kvxwkkwxvk.', '..kvvvvvvk..'] },
 };
 
@@ -127,6 +130,7 @@ export const FUSED_ART = {
   frostfire: ['..kkkkkkk...', '.kcxxxxxck..', 'kcxhwwhxxckk', 'kxhwccwhxxok', 'kxhwccwhxxok', 'kxxhwwhxxxyk'],
   plaguemortar: ['.kkkk..kkkk.', 'kxwwxk.kxwwx', 'kxggxkkkxggx', 'kxggxkmkxggx', 'kkxxkmlmkxxk', '.kmmmlhlmmk.'],
   stormrail: ['y...........', '.kkkkkkkkkkk', 'kxxxxxxxxxxk', 'kXhwhkykykyk', 'kxhwhwwwwwwk', 'kxhwhxxxxxxw'],
+  quasar: ['.....yy.....', '.k...yy...k.', '..kxxwwxxk..', '.kxhkyykhxk.', 'kxhkykkykhxk', 'kxhkykkykhxk'],
   goldpylon: ['.....kk.....', '....kyyk....', '...kyhhyk...', '..kxywwyxk..', '.kxyywwyyxk.', 'kxyyywwyyyxk'],
 };
 

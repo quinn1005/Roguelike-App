@@ -96,7 +96,7 @@ export const PAGES = [
     body: () => `
       <p>${k('COMBOS', 'grn')}: some towers work together. Tesla on chilled enemies causes <b>Shatter</b>, explosions detonate poison, railguns always crit shocked enemies, and lasers burn chilled targets.</p>
       <p>${k('VETERANCY', 'yel')}: towers rank up to Bronze (25 kills), Silver (100) and Gold (300), with stat boosts and a badge on the sprite.</p>
-      <p>${k('FUSION', 'mag')}: two specific max-level towers side by side can fuse into one of 5 powerful fused towers.</p>
+      <p>${k('FUSION', 'mag')}: two specific max-level towers side by side can fuse into one of 6 powerful fused towers.</p>
       <p>${k('OVERCLOCK', 'red')}: during a wave, pay credits (more each wave) to double a tower's fire rate for 10 seconds. Afterward it <b>overheats</b> and shuts down until the end of the next wave, so time it carefully.</p>`,
   },
   {

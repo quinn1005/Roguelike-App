@@ -63,6 +63,7 @@ const SPECIALS = {
   mortar: ['Close Support', '-50% minimum range', (m) => { m.mortarMinMult *= 0.5; }],
   laser: ['Focused Core', '+30% beam ramp', (m) => { m.laserRamp += 0.3; }],
   reclaimer: ['Necro-Weave', 'Husks have +50% HP', (m) => { m.huskHp += 0.5; }],
+  blackhole: ['Long Night', 'Black holes last 1s longer', (m) => { m.holeDur += 1; }],
 };
 const SECOND = {
   miner: ['Yield', (r) => `+${8 * r}% income`, (m, r) => { m.miner += 0.08 * r; }],
@@ -222,7 +223,7 @@ export function baseMods() {
     poison: 0, poisonDur: 0, pierce: 0, drones: 0, miner: 0, ampRange: 0, ampBuff: 0, mortarMin: 1,
     mortarMinMult: 1, laserRamp: 0, revive: 0, huskHp: 0, chill: 0, chillDur: 0, doubleTap: 0,
     droneHp: 0, startGold: 160, obelisk: 0, waveGold: 1, shop: 1, regen: 0, startAug: 0, shardMult: 1,
-    xpMult: 1, rerolls: 0, hpMult: 1, t,
+    xpMult: 1, rerolls: 0, hpMult: 1, holeDur: 0, t,
   };
 }
 

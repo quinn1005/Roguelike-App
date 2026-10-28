@@ -113,6 +113,16 @@ export const TOWERS = {
       B: { name: 'Siphon', desc: 'Kills in range grant +3 credits.', siphon: 3 },
     },
   },
+  blackhole: {
+    id: 'blackhole', name: 'Black Hole Cannon', color: '#b36bff', cost: 210, unlock: 180,
+    desc: 'Lobs black holes onto the track that pull in, hold and crush enemies.',
+    dmg: 26, rate: 0.3, range: 56, dtype: 'eng', proj: 'hole', projSpeed: 120, holeR: 18, holeDur: 2.5,
+    credit: 'Designed by Levi',
+    branches: {
+      A: { name: 'Supermassive Collapse', desc: 'Holes implode when they close, blasting everything nearby. Bigger blast for every enemy held.', collapse: true },
+      B: { name: 'Wormhole', desc: '+25% hole size. When a hole closes, everything it held is flung back up the path toward its portal and torn for heavy damage. Bosses inside are shoved back too.', wormhole: 6, holeMult: 1.25 },
+    },
+  },
 };
 
 // Fused towers: made by fusing two max-level towers that sit side by side.
@@ -139,6 +149,11 @@ Object.assign(TOWERS, {
     desc: 'Railgun + Tesla. Piercing slugs that arc lightning off every enemy they hit.',
     dmg: 380, rate: 0.4, range: 124, dtype: 'kin', proj: 'rail', crit: 0.2, fx: { pierce: 3, chainOnHit: 3 },
   },
+  quasar: {
+    id: 'quasar', name: 'Quasar', color: '#7fd8ff', cost: 520, fused: true,
+    desc: 'Black Hole + Tesla. Huge singularities that hurl lightning at every enemy around them while they are open.',
+    dmg: 60, rate: 0.3, range: 72, dtype: 'eng', proj: 'hole', projSpeed: 140, holeR: 24, holeDur: 3.5, fx: { quasar: true, shockBeam: true },
+  },
   goldpylon: {
     id: 'goldpylon', name: 'Golden Pylon', color: '#ffd23f', cost: 420, fused: true, rotates: false,
     desc: 'Miner + Amplifier. Boosts nearby towers and mints credits every wave.',
@@ -154,6 +169,7 @@ export const FUSIONS = [
   { id: 'plaguemortar', a: 'nanite', b: 'mortar' },
   { id: 'stormrail', a: 'railgun', b: 'tesla' },
   { id: 'goldpylon', a: 'miner', b: 'amplifier' },
+  { id: 'quasar', a: 'blackhole', b: 'tesla' },
 ];
 
 // Single-tower relics. Each tower can hold one.

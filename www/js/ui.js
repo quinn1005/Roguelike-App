@@ -296,7 +296,7 @@ export class UI {
       const it = el('div', 'item' + (has ? '' : ' off'));
       const stats = d.dmg ? `${DTYPE_NAME[d.dtype]} - DMG ${d.dmg} - RNG ${(d.range / 16).toFixed(1)}` : '';
       it.innerHTML = `<img src="${towerSprites(d).iconUrl}"><div class="grow"><div class="nm" style="color:${d.color}">${d.name}</div><div class="ds">${d.desc}</div><div class="ds">${stats}</div>
-        <div class="ds">A: ${d.branches.A.name} / B: ${d.branches.B.name}</div>
+        <div class="ds">A: ${d.branches.A.name} / B: ${d.branches.B.name}</div>${d.credit ? `<div class="ds c-yel">${d.credit}</div>` : ''}
         <div class="ds c-cyan">Mastery: ${meta.towerKills[tid] || 0} kills</div></div>`;
       if (has) {
         const sk = el('div', 'skins');
@@ -824,7 +824,7 @@ export class UI {
     const comb = (a, b2) => ({ loc: (1 + a.loc) * (1 + b2.loc) - 1, tal: (1 + a.tal) * (1 + b2.tal) - 1, aug: (1 + a.aug) * (1 + b2.aug) - 1, relic: (1 + a.relic) * (1 + b2.relic) - 1, vet: (1 + a.vet) * (1 + b2.vet) - 1 });
     if (d.dmg) {
       const beam = d.proj === 'beam';
-      rows.push([beam ? 'DPS (base)' : 'Damage', vstat(s.dmg * (beam ? s.rate : 1), beam ? comb(bDmg, bRate) : bDmg, num)]);
+      rows.push([beam ? 'DPS (base)' : d.proj === 'hole' ? 'Hole DPS' : 'Damage', vstat(s.dmg * (beam ? s.rate : 1), beam ? comb(bDmg, bRate) : bDmg, num)]);
       if (!beam) rows.push(['Rate', vstat(s.rate, bRate, (v) => v.toFixed(2), '/s')]);
       rows.push(['Type', DTYPE_NAME[d.dtype]]);
     }
@@ -832,6 +832,7 @@ export class UI {
     if (s.minRange) rows.push(['Min range', (s.minRange / 16).toFixed(1)]);
     if (s.splash && d.id !== 'cryo') rows.push(['Blast', (s.splash / 16).toFixed(1)]);
     if (s.chains) rows.push(['Chains', s.chains]);
+    if (s.holeR) rows.push(['Singularity', (s.holeR / 16).toFixed(1) + ' tiles, ' + s.holeDur.toFixed(1) + 's']);
     if (s.slow) rows.push(['Chill', pct(s.slow)]);
     if (s.poison) rows.push(['Poison', fmt(s.poison) + '/s']);
     if (d.proj === 'beam') rows.push(['Ramp', 'x' + s.ramp.toFixed(1)]);

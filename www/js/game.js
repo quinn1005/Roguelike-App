@@ -32,6 +32,7 @@ export class Run {
     this.projectiles = [];
     this.units = [];
     this.fields = [];
+    this.holes = [];
     this.spawnQueue = [];
     this.towers = [];
     this.towerAt = new Map();
@@ -351,6 +352,8 @@ export class Run {
         splash: (d.splash || 0) * (1 + (tw.type === 'cannon' ? m.splash : 0) + tm.splash) * (br.splashMult || 1),
         chains: (d.chains || 0) + (br.chainBonus || 0) + m.chainBonus,
         chainRange: d.chainRange || 30,
+        holeR: (d.holeR || 0) * L.range * (br.holeMult || 1),
+        holeDur: d.holeR ? d.holeDur + m.holeDur : 0,
         pierce: d.proj === 'rail' ? 1 + m.pierce + (br.pierce || 0) : (br.pierce || 0),
         multi: br.multi || 1,
         slow: Math.min(0.8, (d.slow || 0) + (d.slow ? m.chill : 0)),
@@ -562,7 +565,7 @@ export class Run {
       x: route[0][0], y: route[0][1], hp, maxHp: hp, shield: 0, maxShield: 0, armor: (def.armor || 0) * (1 + w * 0.02),
       speed: def.speed * Math.min(1.3, 1 + w * 0.005) * this.heatMul.speed, flying, size: def.size || (bossIdx != null ? 10 : 5),
       gold: def.gold * (1 + 0.03 * (w - 1)), core: def.core, alive: true, traveled: 0, len: 0,
-      slow: 0, slowT: 0, freeze: 0, stun: 0, shock: 0, poison: 0, poisonT: 0, corrode: 0, plague: false,
+      slow: 0, slowT: 0, freeze: 0, stun: 0, held: 0, holeImmune: 0, shock: 0, poison: 0, poisonT: 0, corrode: 0, plague: false,
       shieldDelay: 0, hitFlash: 0, anim: this.rng() * 10, timers: {}, elite: null, atk: (def.atk || 5) * (1 + 0.07 * (w - 1)),
       spawnSlow: this.mods.spawnSlow, ccImmune: 0, goldMult: 1, phased: false, cloaked: false, blocker: null, dir: 1,
     };
@@ -614,6 +617,7 @@ export class Run {
 
   endWave() {
     this.phase = 'reward';
+    this.holes = [];
     const w = this.wave;
     let income = Math.round((15 + w * 3) * this.mods.waveGold * (this.mut.has('famine') ? 0.5 : 1));
     const interest = this.mut.has('famine') ? 0 : Math.min(50 + w * 10, Math.floor(this.gold * this.mods.interest));
@@ -853,10 +857,12 @@ export class Run {
     for (const p of this.projectiles) this.updateProjectile(p, dt);
     for (const u of this.units) if (u.alive) this.updateUnit(u, dt);
     for (const f of this.fields) this.updateField(f, dt);
+    for (const h of this.holes) this.updateHole(h, dt);
     this.enemies = this.enemies.filter((e) => e.alive);
     this.projectiles = this.projectiles.filter((p) => p.alive);
     this.units = this.units.filter((u) => u.alive);
     this.fields = this.fields.filter((f) => f.t > 0);
+    this.holes = this.holes.filter((h) => h.t > 0);
     this.updateFx(dt);
     if (this.phase === 'wave' && !this.spawnQueue.length && !this.enemies.length) this.endWave();
   }
@@ -865,7 +871,7 @@ export class Run {
     e.anim += dt;
     if (e.hitFlash > 0) e.hitFlash -= dt;
     e.slowT -= dt; if (e.slowT <= 0) e.slow = 0;
-    e.freeze -= dt; e.stun -= dt; e.ccImmune -= dt; e.shock -= dt; e.corrode -= dt; e.spawnSlow -= dt;
+    e.freeze -= dt; e.stun -= dt; e.held -= dt; e.holeImmune -= dt; e.ccImmune -= dt; e.shock -= dt; e.corrode -= dt; e.spawnSlow -= dt;
     // poison
     if (e.poisonT > 0) {
       e.poisonT -= dt;
@@ -912,8 +918,8 @@ export class Run {
 
     // movement
     let spd = e.speed * Math.max(0.2, 1 + this.mods.enemySpeed);
-    if (this.overtime) { e.freeze = 0; e.stun = 0; e.slow = 0; spd *= 1.5; }
-    if (e.freeze > 0 || (e.stun > 0)) spd = 0;
+    if (this.overtime) { e.freeze = 0; e.stun = 0; e.slow = 0; e.held = 0; spd *= 1.5; }
+    if (e.freeze > 0 || (e.stun > 0) || e.held > 0) spd = 0;
     if (e.slow > 0) spd *= 1 - e.slow;
     if (e.spawnSlow > 0) spd *= 0.5;
     if (e.auraT > 0) spd *= 1.3;
@@ -1117,6 +1123,12 @@ export class Run {
           this.projectiles.push({ kind: 'mortar', tw, x: tw.x, y: tw.y, sx: tw.x, sy: tw.y, tx: lead[0] + ox, ty: lead[1] + oy, t: -k * 0.15, flight: 1.1, color: d.color, alive: true });
         }
         this.sfx('mortar');
+        break;
+      }
+      case 'hole': {
+        const lead = this.predict(tgt, 0.8);
+        this.projectiles.push({ kind: 'hole', tw, x: mx, y: my, sx: mx, sy: my, tx: lead[0], ty: lead[1], t: 0, flight: 0.8, color: d.color, alive: true });
+        this.sfx('glob');
         break;
       }
       case 'chain': this.fireChain(tw, tgt); break;
@@ -1360,8 +1372,8 @@ export class Run {
       const k = Math.min(1, p.t / p.flight);
       p.x = p.sx + (p.tx - p.sx) * k;
       p.y = p.sy + (p.ty - p.sy) * k;
-      p.h = p.kind === 'mortar' ? Math.sin(k * Math.PI) * 40 : Math.sin(k * Math.PI) * 6;
-      if (k >= 1) { p.alive = false; this.explode(p); }
+      p.h = p.kind === 'mortar' ? Math.sin(k * Math.PI) * 40 : p.kind === 'hole' ? Math.sin(k * Math.PI) * 18 : Math.sin(k * Math.PI) * 6;
+      if (k >= 1) { p.alive = false; if (p.kind === 'hole') this.openHole(p); else this.explode(p); }
     }
   }
 
@@ -1393,6 +1405,91 @@ export class Run {
     }
     if (p.kind === 'mortar' && s.br.napalm) this.fields.push({ x: p.x, y: p.y, r: r * 0.8, dps: s.dmg * 0.35, t: 3, tick: 0, tw });
     if (p.kind === 'mortar') this.shake = Math.min(5, this.shake + 1);
+  }
+
+  // ---- black holes ----
+  openHole(p) {
+    const tw = p.tw, s = tw.stats;
+    this.holes.push({ x: p.x, y: p.y, r: s.holeR, t: s.holeDur, max: s.holeDur, tick: 0, arc: 0, tw, held: new Set(), color: tw.def.color, spin: this.rng() * 6 });
+    this.ring(p.x, p.y, s.holeR, tw.def.color, 0.4);
+    this.sfx('portal');
+  }
+
+  updateHole(h, dt) {
+    const tw = h.tw, s = tw.stats;
+    h.t -= dt;
+    h.spin += dt;
+    // Pull: ordinary enemies are dragged to the centre and held; bosses and
+    // mini-bosses are only slowed. Freshly released enemies can't be re-grabbed at once.
+    for (const e of this.enemies) {
+      if (!e.alive) continue;
+      const d2 = dist2(e.x, e.y, h.x, h.y);
+      if (d2 > (h.r + e.size) * (h.r + e.size)) continue;
+      if (e.boss || e.mini || e.def.nullify || this.overtime) { e.slow = Math.max(e.slow, 0.5); e.slowT = Math.max(e.slowT, 0.2); continue; }
+      if (!h.held.has(e) && e.holeImmune > 0) { e.slow = Math.max(e.slow, 0.5); e.slowT = Math.max(e.slowT, 0.2); continue; }
+      h.held.add(e);
+      e.held = 0.1;
+      const k = Math.min(1, dt * 5);
+      e.x += (h.x - e.x) * k; e.y += (h.y - e.y) * k;
+    }
+    h.tick -= dt;
+    if (h.tick <= 0) {
+      h.tick = 0.25;
+      for (const e of h.held) if (e.alive) this.damage(e, s.dmg * 0.25, 'eng', tw, { armorScale: 0.25 });
+      if (s.br.quasar) {
+        let n = 0;
+        for (const e of this.enemies) {
+          if (!e.alive || e.phased || n >= 5) continue;
+          if (dist2(e.x, e.y, h.x, h.y) > (h.r * 2.5) * (h.r * 2.5)) continue;
+          n++;
+          this.line(h.x, h.y, e.x, e.y, '#7fd8ff', 'chain');
+          e.shock = 1.5;
+          this.damage(e, s.dmg * 0.3, 'eng', tw);
+        }
+        if (n) this.sfx('zap');
+      }
+    }
+    if (this.rng() < dt * 30) {
+      const a = this.rng() * Math.PI * 2, d = h.r + 6;
+      this.particle(h.x + Math.cos(a) * d, h.y + Math.sin(a) * d, this.rng() < 0.5 ? h.color : '#ff3df2', -Math.cos(a) * d * 2.2, -Math.sin(a) * d * 2.2, 0.4);
+    }
+    if (h.t <= 0) this.closeHole(h);
+  }
+
+  closeHole(h) {
+    const tw = h.tw, s = tw.stats;
+    const held = [...h.held].filter((e) => e.alive);
+    for (const e of held) { e.held = 0; e.holeImmune = 1.5; }
+    if (s.br.collapse) {
+      const r = h.r * 1.6;
+      const dmg = s.dmg * 3 * (1 + 0.25 * held.length);
+      this.ring(h.x, h.y, r, '#ffffff', 0.5);
+      this.ring(h.x, h.y, r * 0.6, h.color, 0.5);
+      this.burst(h.x, h.y, h.color, 18);
+      for (const e of this.enemies) if (e.alive && dist2(e.x, e.y, h.x, h.y) <= (r + e.size) * (r + e.size)) this.hit(tw, e, dmg, s, { splash: true });
+      this.shake = Math.min(5, this.shake + 1.5);
+      this.sfx('boom');
+      if (held.length >= 4) this.text(h.x, h.y - 10, 'COLLAPSE x' + held.length, '#ffffff', 0.8);
+    }
+    if (s.br.wormhole) {
+      for (const e of this.enemies) {
+        if (!e.alive || !(e.boss || e.mini) || e.flying || e.i < 1) continue;
+        if (dist2(e.x, e.y, h.x, h.y) > (h.r + e.size) * (h.r + e.size)) continue;
+        const ni = Math.max(0, e.i - 2);
+        e.traveled = Math.max(0, e.traveled - (e.i - ni) * TS); e.i = ni; [e.x, e.y] = e.route[ni];
+        this.burst(e.x, e.y, '#ff3df2', 10);
+        this.hit(tw, e, s.dmg * 6, s);
+      }
+      for (const e of held) {
+        if (!e.alive || e.i < 1) continue;
+        const ni = Math.max(0, e.i - s.br.wormhole);
+        e.traveled = Math.max(0, e.traveled - (e.i - ni) * TS); e.i = ni; [e.x, e.y] = e.route[ni];
+        this.burst(e.x, e.y, '#ff3df2', 5);
+        this.hit(tw, e, s.dmg * 6, s);
+      }
+      if (held.length) { this.ring(h.x, h.y, h.r, '#ff3df2', 0.4); this.sfx('portal'); }
+    }
+    this.burst(h.x, h.y, h.color, 8);
   }
 
   updateField(f, dt) {
