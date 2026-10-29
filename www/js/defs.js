@@ -24,8 +24,8 @@ export const TOWERS = {
   cryo: {
     id: 'cryo', name: 'Cryo Emitter', color: '#8fe8ff', cost: 90, unlock: 3,
     desc: 'Chills enemies, slowing them down.',
-    dmg: 4, rate: 1.2, range: 40, dtype: 'cry', proj: 'bolt', projSpeed: 170, splash: 10,
-    slow: 0.45, slowDur: 2,
+    dmg: 6, rate: 1.2, range: 40, dtype: 'cry', proj: 'bolt', projSpeed: 170, splash: 10,
+    slow: 0.5, slowDur: 2,
     branches: {
       A: { name: 'Absolute Zero', desc: '20% chance to freeze solid for 1s.', freeze: 0.2 },
       B: { name: 'Blizzard', desc: 'Constant aura chills everything in range. Frost outlines cloaked enemies so it can see them.', aura: true, detect: true },
@@ -34,7 +34,7 @@ export const TOWERS = {
   tesla: {
     id: 'tesla', name: 'Tesla Coil', color: '#ffe84a', cost: 140, unlock: 6, rotates: false,
     desc: 'Lightning chains between enemies. Shocks targets. Sees cloaked enemies.',
-    dmg: 22, rate: 1, range: 40, dtype: 'eng', proj: 'chain', chains: 3, chainRange: 36, detect: true,
+    dmg: 25, rate: 1, range: 40, dtype: 'eng', proj: 'chain', chains: 3, chainRange: 36, detect: true,
     branches: {
       A: { name: 'Storm Lattice', desc: '+4 chain jumps.', chainBonus: 4 },
       B: { name: 'Overload', desc: '25% chance to stun for 0.7s.', stun: 0.25 },
@@ -89,7 +89,7 @@ export const TOWERS = {
   mortar: {
     id: 'mortar', name: 'Orbital Mortar', color: '#ff5533', cost: 170, unlock: 90,
     desc: 'Huge range artillery. Has a minimum range. Cannot hit flyers.',
-    dmg: 85, rate: 0.5, range: 132, minRange: 24, dtype: 'exp', proj: 'mortar', splash: 32, ground: true,
+    dmg: 100, rate: 0.5, range: 132, minRange: 24, dtype: 'exp', proj: 'mortar', splash: 32, ground: true,
     branches: {
       A: { name: 'Carpet Barrage', desc: 'Fires 3 shells per volley. Orbital spotting sees cloaked enemies.', volley: 3, detect: true },
       B: { name: 'Napalm', desc: 'Blasts leave burning fields.', napalm: true },
@@ -98,7 +98,7 @@ export const TOWERS = {
   laser: {
     id: 'laser', name: 'Beam Laser', color: '#ff2fa0', cost: 190, unlock: 120,
     desc: 'Continuous beam. Damage ramps up on the same target. Sees cloaked enemies.',
-    dmg: 17, rate: 1, range: 48, dtype: 'eng', proj: 'beam', ramp: 4, rampTime: 3, detect: true,
+    dmg: 19, rate: 1, range: 48, dtype: 'eng', proj: 'beam', ramp: 4, rampTime: 3, detect: true,
     branches: {
       A: { name: 'Prism Split', desc: 'Beam splits to 2 extra targets.', prism: 2 },
       B: { name: 'Melter', desc: 'Ramps to x8, twice as fast.', rampMult: 2, rampSpeed: 2 },

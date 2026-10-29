@@ -381,3 +381,33 @@ body::after {
 .mbox.tut { overflow: hidden; }
 .mbox.tut .tut-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding-right: 4px; }
 .mbox.tut .mrow, .mbox.tut .tut-dots { flex: none; }
+
+/* ---- synthwave beat meter + drop flash ---- */
+#beatbar { position: absolute; top: 32px; left: calc(4px + var(--sl)); display: flex; align-items: center; gap: 2px; padding: 3px 5px; background: var(--panel); border: 2px solid var(--line); pointer-events: none; }
+#beatbar .bt-lab { font-size: 7px; color: var(--dim); min-width: 62px; }
+#beatbar i { width: 7px; height: 9px; background: #1a1f44; display: block; }
+#beatbar i.on { background: #5a3a9a; }
+#beatbar i.cur { background: var(--cyan); }
+#beatbar i.last { outline: 1px solid var(--mag); }
+#beatbar.beat i.cur { background: #ffffff; box-shadow: 0 0 6px var(--cyan); }
+#beatbar.drop { border-color: var(--mag); box-shadow: 0 0 12px var(--mag); }
+#beatbar.drop .bt-lab { color: var(--mag); }
+#beatbar.drop i { background: var(--mag); }
+#beatbar.brk { border-color: var(--red); box-shadow: 0 0 12px var(--red); }
+#beatbar.brk .bt-lab { color: var(--red); }
+#dropfx { position: absolute; inset: 0; pointer-events: none; display: flex; align-items: center; justify-content: center; font-size: 22px; opacity: 0; z-index: 4; }
+#dropfx.drop { animation: dropflash 1.1s ease-out; color: var(--mag); text-shadow: 0 0 12px var(--mag), 0 0 24px var(--mag); box-shadow: inset 0 0 80px rgba(255, 61, 242, 0.45); }
+#dropfx.brk { animation: dropflash 1.6s ease-out; color: var(--red); font-size: 14px; text-shadow: 0 0 12px var(--red); box-shadow: inset 0 0 80px rgba(255, 47, 90, 0.45); }
+@keyframes dropflash { 0% { opacity: 1; transform: scale(1.15); } 60% { opacity: 0.8; transform: scale(1); } 100% { opacity: 0; } }
+
+/* ---- counter-raids ---- */
+#raidwin { position: absolute; right: calc(6px + var(--sr, 0px)); bottom: 52px; background: var(--panel); border: 2px solid var(--mag); box-shadow: 0 0 12px rgba(255, 61, 242, 0.35); padding: 3px; pointer-events: none; }
+#raidwin .rw-h { font-size: 6px; color: var(--mag); margin-bottom: 2px; }
+#raidwin canvas { width: 198px; height: 78px; image-rendering: pixelated; display: block; }
+.squad { display: flex; gap: 4px; justify-content: center; margin: 4px 0; min-height: 24px; }
+.squad img { width: 24px; height: 24px; image-rendering: pixelated; }
+
+/* ---- echoes ---- */
+.tbtn.echo img { opacity: 0.6; filter: drop-shadow(0 0 4px #2ef2ff); }
+.tbtn.echo .cost { color: var(--cyan); }
+.item.gold { border-color: #ffd23f; }

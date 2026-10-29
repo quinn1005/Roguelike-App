@@ -199,6 +199,7 @@ export class Renderer {
     this.drawCore(run, time);
     if (run.placing) this.drawSlots(run, time);
     if (view.relocate) this.drawRelocate(run, view, time);
+    this.drawRaid(run, view, time);
     if (view.rock) {
       const rx = view.rock.x * TS, ry = view.rock.y * TS, sel = Math.floor(time * 4) % 2;
       b.fillStyle = '#ff8a1f';
@@ -375,8 +376,10 @@ export class Renderer {
   drawCore(run, time) {
     const b = this.b;
     const x = 3 * TS + 8, y = 3 * TS + 8;
-    const pulse = 0.6 + 0.3 * Math.sin(time * 2.5);
-    this.glowAt(x, y, 22, '#2ef2ff', pulse);
+    // The core thumps on every beat of the music, and turns magenta on a drop.
+    const kick = run.beatPos != null ? Math.pow(1 - (run.beatPos % 1), 3) : 0;
+    const pulse = 0.5 + 0.25 * Math.sin(time * 2.5) + 0.5 * kick;
+    this.glowAt(x, y, 22 + Math.round(kick * 6), run.inDrop ? '#ff3df2' : run.breakdown ? '#ff2f5a' : '#2ef2ff', pulse);
     const bob = Math.round(Math.sin(time * 2) * 1);
     b.drawImage(coreArt(), x - 8, y - 9 + bob);
     // rotating segmented shield ring
@@ -399,6 +402,33 @@ export class Renderer {
   }
 
   // Outlines chunks that can be rotated or swapped; the picked one pulses magenta.
+  // Counter-raid markers: squad picks, the target portal, and the empty
+  // tiles the squad will return to (faint ghosts of the absent towers).
+  drawRaid(run, view, time) {
+    const b = this.b;
+    const blink = Math.floor(time * 6) % 2;
+    const sel = view.raidSel;
+    const target = sel ? sel.portal : run.raid;
+    if (target) {
+      const x = target.tx * TS + 8, y = target.ty * TS + 8;
+      this.glowAt(x, y, 18, '#ff3df2', 0.5 + 0.3 * Math.sin(time * 6));
+      this.dotCircle(x, y, 14, '#ff3df2', time * 3);
+    }
+    if (sel) for (const tw of sel.squad) {
+      const x = tw.tx * TS, y = tw.ty * TS;
+      b.fillStyle = blink ? '#ff3df2' : '#ffffff';
+      for (const [dx, dy] of [[0, 0], [12, 0], [0, 12], [12, 12]]) { b.fillRect(x + dx, y + dy + (dy ? 3 : 0), 4, 1); b.fillRect(x + dx + (dx ? 3 : 0), y + dy, 1, 4); }
+    }
+    if (run.raid) for (const tw of run.raid.squad) {
+      const sp = towerSprites(tw.def, tw.level, tw.branch);
+      b.globalAlpha = 0.18 + 0.08 * Math.sin(time * 3 + tw.id);
+      b.drawImage(sp.base, tw.tx * TS, tw.ty * TS);
+      b.drawImage(sp.head, tw.tx * TS + 2, tw.ty * TS + 2);
+      b.globalAlpha = 1;
+      this.dotCircle(tw.tx * TS + 8, tw.ty * TS + 8, 8, '#ff3df2', time);
+    }
+  }
+
   drawRelocate(run, view, time) {
     const b = this.b;
     for (const ch of run.world.chunks.values()) {
@@ -468,10 +498,14 @@ export class Renderer {
     const b = this.b;
     for (const tw of run.towers) {
       const sp = towerSprites(tw.def, tw.level, tw.branch, (run.skins && run.skins[tw.type]) || 'default');
-      if (tw.oc > 0) this.glowAt(tw.tx * TS + 8, tw.ty * TS + 8, 11, '#ff8a1f', 0.6 + 0.3 * Math.sin(time * 20));
       if (tw.level >= 3) this.glowAt(tw.tx * TS + 8, tw.ty * TS + 8, tw.level >= 4 ? 10 : 7, sp.color, tw.level >= 4 ? 0.45 + 0.15 * Math.sin(time * 3 + tw.id) : 0.25);
+      // Echoes are translucent ghosts with a scanline shimmer.
+      const ghost = tw.echo ? 0.55 + 0.15 * Math.sin(time * 4 + tw.id) : 1;
+      if (tw.echo) this.glowAt(tw.tx * TS + 8, tw.ty * TS + 8, 12, tw.echoGold ? '#ffd23f' : '#2ef2ff', 0.35);
+      if (run.inDrop && tw.def.dmg) this.glowAt(tw.tx * TS + 8, tw.ty * TS + 8, 11, '#ff3df2', 0.35 + 0.35 * Math.pow(1 - (run.beatPos % 1), 2));
       const x = tw.tx * TS, y = tw.ty * TS;
       const off = tw.disabled > 0 && Math.floor(time * 10) % 2;
+      b.globalAlpha = ghost;
       b.drawImage(sp.base, x, y);
       if (tw.def.rotates === false) {
         let bob = 0;
@@ -486,17 +520,18 @@ export class Renderer {
         b.drawImage(sp.head, -6 - Math.round(rec * 2), -6);
         b.restore();
       }
+      if (tw.echo) {
+        b.globalAlpha = 0.5;
+        b.fillStyle = tw.echoGold ? '#ffd23f' : '#2ef2ff';
+        b.fillRect(x + 1, y + 1 + Math.floor((time * 20 + tw.id * 5) % 14), 14, 1);
+      }
+      b.globalAlpha = 1;
       // level pips + branch mark
       if (!tw.branch) for (let l = 0; l < Math.min(3, tw.level); l++) { b.fillStyle = tw.level >= 3 ? '#ffffff' : tw.def.color; b.fillRect(x + 4 + l * 3, y + 14, 2, 1); }
       if (tw.branch) { b.fillStyle = sp.color; b.fillRect(x + 6, y + 14, 4, 1); b.fillStyle = '#ffffff'; b.fillRect(x + 7, y + 14, 2, 1); }
       if (tw.buffed) { b.fillStyle = '#a466ff'; b.fillRect(x + 1, y + 1, 1, 2); b.fillRect(x, y + 2, 3, 1); }
       if (off) { b.globalAlpha = 0.6; b.fillStyle = '#000'; b.fillRect(x + 1, y + 1, 14, 14); b.globalAlpha = 1; }
-      if (tw.disabled > 0 && !tw.overheat) { b.fillStyle = '#ffe84a'; b.fillRect(x + 7 + Math.round(Math.random() * 4 - 2), y + 2, 1, 3); }
-      if (tw.overheat > 0) {
-        b.globalAlpha = 0.35; b.fillStyle = '#ff2f5a'; b.fillRect(x + 2, y + 2, 12, 12); b.globalAlpha = 1;
-        if (Math.random() < 0.1) run.particle(x + 4 + Math.random() * 8, y + 4, '#9a9aa8', 0, -14, 0.7, 2);
-      }
-      if (tw.oc > 0 && Math.random() < 0.3) run.particle(x + 8, y + 8, '#ffe84a', (Math.random() - 0.5) * 40, (Math.random() - 0.5) * 40, 0.2);
+      if (tw.disabled > 0) { b.fillStyle = '#ffe84a'; b.fillRect(x + 7 + Math.round(Math.random() * 4 - 2), y + 2, 1, 3); }
       if (tw.vet) { // veterancy chevrons
         const v = VETERANCY[tw.vet - 1];
         b.fillStyle = '#000'; b.fillRect(x, y + 1, 4, tw.vet * 2 + 1);

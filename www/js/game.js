@@ -2,6 +2,7 @@
 
 import { TS, T, isBuildable, isPath } from './sprites.js';
 import { World, CS, rollChunkMods, genChunk } from './world.js';
+import { trackFor, CYCLE, DROP_AT } from './music.js';
 import { mulberry32, randInt, pick, shuffle, weightedPick, dist, dist2, clamp } from './util.js';
 import {
   TOWERS, TOWER_ORDER, LEVELS, ENEMIES, BOSSES, ELITE_MODS, AUGMENTS, AUG_BY_ID, RARITY, ARCHETYPES, EVENTS, SECTOR_INTROS,
@@ -33,10 +34,15 @@ export class Run {
     this.units = [];
     this.fields = [];
     this.holes = [];
+    this.raid = null; this.raidTiles = new Set(); this.portalInfo = {}; this.raidReady = 0;
     this.spawnQueue = [];
     this.towers = [];
     this.towerAt = new Map();
     this.speed = 1;
+    // Beat clock (beats into the current sector's track). beatSrc, when set,
+    // returns the music's own position so drops land on what you hear.
+    this.beatPos = 0; this.beatSrc = null; this.onTrack = null; this.trackSector = -1;
+    this.inDrop = false; this.breakdown = false;
     this.paused = false;
     this.time = 0;
     this.shake = 0;
@@ -107,12 +113,13 @@ export class Run {
   costFactor(type) { return Math.max(0.4, 1 + this.mods.cost + this.tmod(type).cost); }
   towerCost(type) { return Math.round(TOWERS[type].cost * this.costFactor(type)); }
   upgradeCost(tw) {
+    if (tw.echo) return null;
     if (tw.level >= 4) return null;
     return Math.round(tw.def.cost * LEVELS[tw.level + 1].cost * this.costFactor(tw.type));
   }
 
   canBuild(x, y) {
-    return isBuildable(this.world.tile(x, y)) && !this.towerAt.has(x + ',' + y);
+    return isBuildable(this.world.tile(x, y)) && !this.towerAt.has(x + ',' + y) && !this.raidTiles.has(x + ',' + y);
   }
 
   build(type, x, y) {
@@ -122,7 +129,7 @@ export class Run {
     const tw = {
       id: this.nextId++, type, def: TOWERS[type], tx: x, ty: y, x: center(x), y: center(y),
       level: 1, branch: null, cd: 0.2, angle: -Math.PI / 2, mode: 'first', invested: cost,
-      dmgDealt: 0, kills: 0, disabled: 0, drones: [], beam: [], rampT: 0, rampTarget: null, relic: null, oc: 0, vet: 0,
+      dmgDealt: 0, kills: 0, disabled: 0, drones: [], beam: [], rampT: 0, rampTarget: null, relic: null, vet: 0,
     };
     this.towers.push(tw);
     this.towerAt.set(x + ',' + y, tw);
@@ -150,13 +157,13 @@ export class Run {
     return true;
   }
 
-  sellValue(tw) { return Math.round(tw.invested * Math.min(1, this.mods.refund)); }
+  sellValue(tw) { return tw.echo ? 0 : Math.round(tw.invested * Math.min(1, this.mods.refund)); }
   get canSell() { return !this.mut.has('scorched'); }
 
   sell(tw, full = false) {
-    if (!this.canSell && !full) return false;
+    if (!this.canSell && !full && !tw.echo) return false;
     this.addGold(full ? tw.invested : this.sellValue(tw));
-    if (tw.relic) this.relics.push(tw.relic);
+    if (tw.relic && !tw.echo) this.relics.push(tw.relic);
     this.towers.splice(this.towers.indexOf(tw), 1);
     this.towerAt.delete(tw.tx + ',' + tw.ty);
     for (const d of tw.drones) d.alive = false;
@@ -184,7 +191,7 @@ export class Run {
   // ---------------- relics ----------------
   installRelic(tw, idx) {
     const id = this.relics[idx];
-    if (!id) return false;
+    if (!id || tw.echo) return false;
     this.relics.splice(idx, 1);
     if (tw.relic) this.relics.push(tw.relic);
     tw.relic = id;
@@ -196,11 +203,11 @@ export class Run {
 
   // ---------------- fusion ----------------
   fusionOptions(tw) {
-    if (tw.level < 4 || tw.def.fused) return [];
+    if (tw.level < 4 || tw.def.fused || tw.echo) return [];
     const out = [];
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
       const o = this.towerAt.get((tw.tx + dx) + ',' + (tw.ty + dy));
-      if (!o || o.level < 4 || o.def.fused) continue;
+      if (!o || o.level < 4 || o.def.fused || o.echo) continue;
       const f = FUSIONS.find((r) => (r.a === tw.type && r.b === o.type) || (r.b === tw.type && r.a === o.type));
       if (f) out.push({ other: o, recipe: f, cost: this.fusionCost(f.id) });
     }
@@ -231,20 +238,131 @@ export class Run {
     return true;
   }
 
-  // ---------------- overclock ----------------
-  // Overclock costs credits that scale with the wave. Afterwards the tower
-  // overheats and stays offline until the end of the following wave.
-  overclockCost() { return 25 + this.wave * 8; }
-  canOverclock(tw) {
-    return this.phase === 'wave' && tw.def.dmg && !(tw.oc > 0) && !tw.overheat && !(tw.disabled > 0) && this.gold >= this.overclockCost();
+  // ---------------- echoes ----------------
+  // Ghosts of the best tower from past runs. One can be deployed per run for
+  // free; it keeps its level, branch, relic and rank, then fades away.
+  echoLife(e) { return e.wave >= 50 ? 7 : e.wave >= 25 ? 5 : 4; }
+  canEcho() { return !this.echoUsed && (meta.echoes || []).length > 0 && this.phase !== 'over'; }
+  deployEcho(e, x, y) {
+    if (!this.canEcho() || !this.canBuild(x, y) || !TOWERS[e.type]) return null;
+    const def = TOWERS[e.type];
+    const tw = {
+      id: this.nextId++, type: e.type, def, tx: x, ty: y, x: center(x), y: center(y),
+      level: e.level, branch: e.branch || null, cd: 0.2, angle: -Math.PI / 2, mode: 'first', invested: 0,
+      dmgDealt: 0, kills: (VETERANCY[(e.vet || 0) - 1] || { kills: 0 }).kills, disabled: 0, drones: [], beam: [], rampT: 0, rampTarget: null,
+      relic: e.relic || null, vet: e.vet || 0, echo: this.echoLife(e), echoGold: e.wave >= 50,
+    };
+    this.towers.push(tw);
+    this.towerAt.set(x + ',' + y, tw);
+    this.echoUsed = true;
+    if (def.drones) this.computeRally(tw);
+    this.recomputeStats();
+    this.sfx('portal');
+    this.burst(tw.x, tw.y, '#2ef2ff', 18);
+    this.ring(tw.x, tw.y, 16, tw.echoGold ? '#ffd23f' : '#2ef2ff');
+    this.text(tw.x, tw.y - 10, 'ECHO FROM WAVE ' + e.wave, '#2ef2ff', 1);
+    return tw;
   }
-  overclock(tw) {
-    if (!this.canOverclock(tw)) return false;
-    this.gold -= this.overclockCost();
-    tw.oc = 10;
-    this.ring(tw.x, tw.y, 12, '#ff8a1f');
-    this.sfx('upgrade');
+  fadeEchoes() {
+    for (const tw of this.towers.slice()) {
+      if (!tw.echo) continue;
+      if (--tw.echo > 0) continue;
+      this.burst(tw.x, tw.y, '#2ef2ff', 14);
+      this.text(tw.x, tw.y - 8, 'ECHO FADED', '#2ef2ff', 0.9);
+      this.towers.splice(this.towers.indexOf(tw), 1);
+      this.towerAt.delete(tw.tx + ',' + tw.ty);
+      for (const d of tw.drones) d.alive = false;
+    }
+    this.recomputeStats();
+  }
+
+  // ---------------- counter-raids ----------------
+  // Between waves, up to 5 towers can raid a portal. They leave the map for the
+  // whole next wave and the result comes in when it ends.
+  portalKey(p) { return p.tx + ',' + p.ty; }
+  portalState(p) { return this.portalInfo[this.portalKey(p)] || (this.portalInfo[this.portalKey(p)] = { raids: 0, weak: 0, retaliate: 0 }); }
+  canRaid() { return this.phase === 'build' && !this.raid && this.wave >= 3 && this.wave >= this.raidReady && this.towers.length > 0 && !this.placing; }
+  // Roughly what a player has invested in towers by wave w (measured from play).
+  expectedInvest(w) { return Math.exp(w < 10 ? 5.7 + (Math.max(3, w) - 3) * 0.22 : 7.24 + (w - 10) * 0.134); }
+  raidStrength(p) { return 0.48 * this.expectedInvest(this.wave + 1) * (1 + 0.35 * this.portalState(p).raids) * this.heatMul.hp; }
+  towerPower(tw) { return tw.invested * (1 + 0.1 * (tw.vet || 0)) * (tw.relic ? 1.15 : 1) * (tw.def.dmg || tw.def.drones ? 1 : 0.5); }
+  raidOdds(p, squad) {
+    const r = squad.reduce((a, t) => a + this.towerPower(t), 0) / this.raidStrength(p);
+    return clamp((r * r) / (1 + r * r), 0.05, 0.95);
+  }
+  launchRaid(p, squad) {
+    if (!this.canRaid() || !squad.length || squad.length > 5) return false;
+    const odds = this.raidOdds(p, squad);
+    for (const tw of squad) {
+      this.towers.splice(this.towers.indexOf(tw), 1);
+      this.towerAt.delete(tw.tx + ',' + tw.ty);
+      this.raidTiles.add(tw.tx + ',' + tw.ty);
+      for (const d of tw.drones) d.alive = false;
+      tw.drones = [];
+    }
+    this.raid = { key: this.portalKey(p), side: p.side, tx: p.tx, ty: p.ty, squad, odds, win: this.rng() < odds, wave: this.wave + 1 };
+    this.recomputeStats();
+    this.ring(p.tx * TS + 8, p.ty * TS + 8, 20, '#ff3df2');
+    this.sfx('portal');
+    this.toast('STRIKE SQUAD DEPLOYED - BACK WHEN THE NEXT WAVE ENDS', '#ff3df2');
     return true;
+  }
+  // Called at the end of the raid's wave: towers come home and the result lands.
+  resolveRaid() {
+    const R = this.raid;
+    if (!R) return null;
+    this.raid = null;
+    for (const tw of R.squad) {
+      this.raidTiles.delete(tw.tx + ',' + tw.ty);
+      if (this.towerAt.has(tw.tx + ',' + tw.ty)) continue;
+      this.towers.push(tw);
+      this.towerAt.set(tw.tx + ',' + tw.ty, tw);
+      if (tw.def.drones) this.computeRally(tw);
+    }
+    this.recomputeStats();
+    const info = this.portalInfo[R.key] || (this.portalInfo[R.key] = { raids: 0, weak: 0, retaliate: 0 });
+    info.raids++;
+    this.raidReady = this.wave + 2;
+    const res = { win: R.win, odds: R.odds, squad: R.squad.map((t) => t.type) };
+    if (R.win) {
+      const w = this.wave;
+      res.gold = Math.round(40 + 0.06 * this.expectedInvest(w));
+      res.shards = 1 + Math.floor(w / 10);
+      res.relic = this.rng() < 0.35 ? pick(this.rng, RELICS).id : null;
+      this.addGold(res.gold);
+      this.shards += res.shards;
+      if (res.relic) this.relics.push(res.relic);
+      info.weak = 3;
+      for (const tw of R.squad) { tw.kills += 10; tw.vet = Math.max(tw.vet || 0, VETERANCY.filter((v) => tw.kills >= v.kills).length); }
+      this.recomputeStats();
+      this.stats.raidsWon = (this.stats.raidsWon || 0) + 1;
+    } else {
+      info.retaliate = 1;
+    }
+    this.stats.raids = (this.stats.raids || 0) + 1;
+    return res;
+  }
+  // Apply raid aftermath to a freshly planned wave's spawns.
+  applyPortalInfo(q) {
+    const out = [];
+    const counts = {};
+    this.world.portals.forEach((p, i) => {
+      const info = this.portalInfo[this.portalKey(p)];
+      if (!info) return;
+      if (info.weak > 0) {
+        for (const it of q) if (it.portal === i && it.boss == null && !it.mini) { counts[i] = (counts[i] || 0) + 1; it.skip = counts[i] % 2 === 0; }
+        info.weak--;
+      }
+      if (info.retaliate) {
+        info.retaliate = 0;
+        const pool = Object.values(ENEMIES).filter((e) => e.minWave <= this.wave && e.w > 0 && !e.flying);
+        const n = 3 + Math.floor(this.wave / 10);
+        const t0 = q.length ? q[q.length - 1].t * 0.5 : 2;
+        for (let k = 0; k < n; k++) out.push({ t: t0 + k * 0.6, type: pick(this.rng, pool).id, portal: i, elite: pick(this.rng, Object.keys(ELITE_MODS)), retaliation: true });
+        this.toast('RETALIATION INCOMING', '#ff2f5a');
+      }
+    });
+    return q.filter((it) => !it.skip).concat(out).sort((a, b) => a.t - b.t);
   }
 
   // ---------------- chunk relocation ----------------
@@ -253,7 +371,7 @@ export class Run {
     for (const c of this.world.chunks.values()) if (c.parent === k) return false;
     return true;
   }
-  canRelocate(ch) { return !!ch && ch.parent && ch.seed != null && this.isLeaf(ch) && this.relocations > 0 && this.phase === 'build'; }
+  canRelocate(ch) { return !!ch && !this.raid && ch.parent && ch.seed != null && this.isLeaf(ch) && this.relocations > 0 && this.phase === 'build'; }
   clearChunkTowers(ch) {
     for (const tw of this.towers.slice()) {
       if (Math.floor(tw.tx / CS) === ch.cx && Math.floor(tw.ty / CS) === ch.cy) this.sell(tw, true);
@@ -454,7 +572,8 @@ export class Run {
   }
 
   // ---------------- waves ----------------
-  hpScale(w) { return (1 + 0.12 * (w - 1)) * Math.pow(1.07, w - 1) * (w > 40 ? Math.pow(1.03, w - 40) : 1) * this.heatMul.hp * this.mods.hpMult; }
+  // The 1.1 offsets the DROP's double damage (one bar in every eight).
+  hpScale(w) { return 1.1 * (1 + 0.12 * (w - 1)) * Math.pow(1.07, w - 1) * (w > 40 ? Math.pow(1.03, w - 40) : 1) * this.heatMul.hp * this.mods.hpMult; }
 
   // Plans a wave in advance so the HUD can preview its composition.
   planWave(w) {
@@ -536,7 +655,8 @@ export class Run {
     } else if (plan.eliteMod) {
       this.toast('ELITE WAVE: ' + ELITE_MODS[plan.eliteMod].name, '#ffe84a');
     }
-    this.spawnQueue = q.map((it) => ({ ...it }));
+    this.spawnQueue = this.applyPortalInfo(q.map((it) => ({ ...it })));
+    this.waveTotal = this.spawnQueue.length;
     if ((w - 1) % BOSS_EVERY === 0 && w > 1) {
       this.toast('SECTOR ' + (this.sector + 1) + ': ' + SECTOR_INTROS[this.sector % SECTOR_INTROS.length].toUpperCase(), '#ff3df2');
     }
@@ -624,6 +744,8 @@ export class Run {
   endWave() {
     this.phase = 'reward';
     this.holes = [];
+    const raidRes = this.resolveRaid();
+    this.fadeEchoes();
     const w = this.wave;
     let income = Math.round((15 + w * 3) * this.mods.waveGold * (this.mut.has('famine') ? 0.5 : 1));
     const interest = this.mut.has('famine') ? 0 : Math.min(50 + w * 10, Math.floor(this.gold * this.mods.interest));
@@ -638,9 +760,6 @@ export class Run {
     if (this.mods.obelisk) this.shards += this.mods.obelisk;
     if (this.mods.regen) this.heal(this.mods.regen);
     for (const k in this.cooldowns) if (this.cooldowns[k] > 0) this.cooldowns[k]--;
-    for (const tw of this.towers) {
-      if (tw.overheat && w >= tw.heatUntil) { tw.overheat = 0; tw.heatUntil = 0; this.text(tw.x, tw.y - 8, 'COOLED DOWN', '#2ef2ff', 0.8); }
-    }
     this.toast(`WAVE ${w} CLEARED  +${income}c`, '#4dff8a');
     this.sfx('clear');
     this.haptic('light');
@@ -654,6 +773,7 @@ export class Run {
       const r = this.rng();
       q.push({ kind: r < 0.4 ? 'shop' : r < 0.75 ? 'event' : 'augment' });
     }
+    if (raidRes) q.unshift({ kind: 'raid', result: raidRes });
     this.choiceQueue = q;
     this.nextChoice();
   }
@@ -814,6 +934,10 @@ export class Run {
       bosses: bossKills, xp, shards, top: top ? top.def.name : null, cause: this.stats.lastLeak || 'Abandoned',
     });
     meta.history = meta.history.slice(0, 20);
+    const best = this.towers.concat(this.raid ? this.raid.squad : []).filter((t) => !t.echo && (t.def.dmg || t.def.drones)).sort((a, b) => b.dmgDealt - a.dmgDealt)[0];
+    if (best && w >= 5) {
+      meta.echoes = [{ t: Date.now(), type: best.type, level: best.level, branch: best.branch, relic: best.relic, vet: best.vet || 0, wave: w, dealt: Math.round(best.dmgDealt) }].concat(meta.echoes || []).slice(0, 8);
+    }
     this.haptic('over');
     meta.shards += shards;
     meta.runs++;
@@ -831,11 +955,41 @@ export class Run {
 
   // ---------------- update ----------------
   update(dt) {
+    this.syncBeat(dt);
     if (this.paused || this.phase === 'over') return;
     dt *= this.speed;
     const steps = Math.ceil(dt / (1 / 60));
     const h = dt / steps;
     for (let s = 0; s < steps; s++) this.step(h);
+  }
+
+  // ---- synthwave sync ----
+  get track() { return trackFor(this.sector); }
+  syncBeat(dt) {
+    const tr = this.track;
+    if (this.trackSector !== this.sector) {
+      this.trackSector = this.sector;
+      this.beatPos = 0;
+      if (this.onTrack) this.onTrack(tr);
+    } else {
+      const src = this.beatSrc ? this.beatSrc() : null;
+      this.beatPos = src != null ? src : this.beatPos + dt * tr.bpm / 60;
+    }
+    const cyc = ((this.beatPos % CYCLE) + CYCLE) % CYCLE;
+    const wasDrop = this.inDrop, wasBrk = this.breakdown;
+    const live = this.phase === 'wave' && !this.paused;
+    this.breakdown = live && this.beatMode(cyc) === 'breakdown';
+    this.inDrop = live && this.beatMode(cyc) === 'drop';
+    if (this.inDrop && !wasDrop) { this.emit('drop', 'drop'); this.haptic('boss'); }
+    if (this.breakdown && !wasBrk) { this.emit('drop', 'breakdown'); this.haptic('boss'); }
+  }
+  // What part of the song a cycle position is: boss waves swap every other
+  // drop for a two-bar breakdown where the bosses are exposed.
+  beatMode(cyc) {
+    if (this.phase !== 'wave') return 'normal';
+    const bossUp = this.enemies.some((e) => e.boss && e.alive);
+    if (bossUp && Math.floor(this.beatPos / CYCLE) % 2 === 1) return cyc >= DROP_AT - 4 ? 'breakdown' : 'normal';
+    return cyc >= DROP_AT ? 'drop' : 'normal';
   }
 
   addTimed(key, val, dur) { this.timed.push({ key, val, t: dur }); }
@@ -929,6 +1083,7 @@ export class Run {
     if (e.slow > 0) spd *= 1 - e.slow;
     if (e.spawnSlow > 0) spd *= 0.5;
     if (e.auraT > 0) spd *= 1.3;
+    if (e.boss && this.breakdown) spd *= 0.6;
     if (this.tb.slow) spd *= Math.max(0.2, 1 - this.tb.slow);
     if (!e.flying) {
       const t = this.world.tile(Math.floor(e.x / TS), Math.floor(e.y / TS));
@@ -1055,16 +1210,7 @@ export class Run {
       if (tw.disabled <= 0 && tw.def.buff) this.recomputeStats();
       return;
     }
-    if (tw.overheat) { tw.beam = []; return; }
-    if (tw.oc > 0) {
-      tw.oc -= dt;
-      if (tw.oc <= 0) {
-        tw.oc = 0; tw.overheat = 1; tw.heatUntil = this.wave + 1; tw.beam = [];
-        this.text(tw.x, tw.y - 8, 'OVERHEAT', '#ff5533', 0.8);
-        return;
-      }
-    }
-    tw.rateMul = (tw.oc > 0 ? 2 : 1) * (1 + (this.tb.rate || 0));
+    tw.rateMul = 1 + (this.tb.rate || 0);
     const s = tw.stats;
     const d = tw.def;
     if (d.drones) return this.updateDroneBay(tw, dt);
@@ -1580,6 +1726,8 @@ export class Run {
     if (!e.alive || (e.phased && !opts.dot)) return;
     let a = amt;
     if (e.boss) a *= 1 + this.mods.bossDmg;
+    if (tw && this.inDrop) a *= 2;
+    if (e.boss && this.breakdown) a *= 1.75;
     if (this.tb.dmgTaken) a *= 1 + this.tb.dmgTaken;
     if ((e.slowT > 0 || e.freeze > 0) && this.mods.brittle) a *= 1 + this.mods.brittle;
     if (e.corrode > 0) a *= 1.25;
@@ -1782,7 +1930,8 @@ export class Run {
       gold: this.gold, shards: this.shards, coreHp: this.coreHp, mods: this.mods, augments: this.augments,
       rerolls: this.rerolls, stats: this.stats, world: this.world.serialize(), baseMods: this.baseMods,
       mutators: this.mutators, relics: this.relics, relocations: this.relocations, cooldowns: this.cooldowns,
-      towers: this.towers.map((t) => ({ type: t.type, tx: t.tx, ty: t.ty, level: t.level, branch: t.branch, mode: t.mode, invested: t.invested, dmgDealt: t.dmgDealt, kills: t.kills, relic: t.relic, vet: t.vet, overheat: t.overheat || 0, heatUntil: t.heatUntil || 0 })),
+      portalInfo: this.portalInfo, raidReady: this.raidReady, echoUsed: !!this.echoUsed,
+      towers: this.towers.concat(this.raid ? this.raid.squad : []).map((t) => ({ type: t.type, tx: t.tx, ty: t.ty, level: t.level, branch: t.branch, mode: t.mode, invested: t.invested, dmgDealt: t.dmgDealt, kills: t.kills, relic: t.relic, vet: t.vet, echo: t.echo || 0, echoGold: !!t.echoGold })),
     });
   }
 
@@ -1796,6 +1945,9 @@ export class Run {
     this.baseMods = s.baseMods || buildRunMods(s.commander);
     this.cooldowns = s.cooldowns || {};
     this.relocations = s.relocations != null ? s.relocations : 1;
+    this.portalInfo = s.portalInfo || {};
+    this.raidReady = s.raidReady || 0;
+    this.echoUsed = !!s.echoUsed;
     this.world = World.deserialize(s.world);
     this.phase = 'build';
     for (const t of s.towers) {
@@ -1803,7 +1955,7 @@ export class Run {
         id: this.nextId++, type: t.type, def: TOWERS[t.type], tx: t.tx, ty: t.ty, x: center(t.tx), y: center(t.ty),
         level: t.level, branch: t.branch, cd: 0.2, angle: -Math.PI / 2, mode: t.mode, invested: t.invested,
         dmgDealt: t.dmgDealt || 0, kills: t.kills || 0, disabled: 0, drones: [], beam: [], rampT: 0, rampTarget: null,
-        relic: t.relic || null, vet: t.vet || 0, oc: 0, overheat: t.overheat || 0, heatUntil: t.heatUntil || 0,
+        relic: t.relic || null, vet: t.vet || 0, echo: t.echo || 0, echoGold: !!t.echoGold,
       };
       this.towers.push(tw);
       this.towerAt.set(t.tx + ',' + t.ty, tw);

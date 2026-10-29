@@ -1,5 +1,37 @@
 # Changelog
 
+## v2.0.0
+
+### New: Synthwave Sync
+- The game now has a soundtrack: procedural synthwave, with a different track and tempo for every neon sector, plus a calmer menu theme. Toggle it with **Music** in Settings.
+- The fight runs to the beat. The core and your towers pulse with the music, and a **beat meter** in the top-left counts down 8 bars.
+- On the 8th bar the song hits the **DROP**: for that whole bar every tower deals **double damage**.
+- During boss waves, every other drop becomes a **BREAKDOWN**: for two bars the bosses take +75% damage and move 40% slower.
+
+### New: Counter-Raids
+- From wave 3, press **RAID**, pick a portal and choose up to **5 towers** for a strike squad. The odds of success are shown before you launch. Stronger, pricier and higher-ranked towers raise them.
+- The squad **leaves the map for the whole next wave**, and a small window shows them fighting inside the rift.
+- **Win**: credits, Void Shards, a chance at a relic, +10 veterancy kills for each raider, and that portal sends half its enemies for 3 waves.
+- **Lose**: the portal sends a retaliation squad of elites next wave.
+- Each raid fortifies that portal, and the squad needs 2 waves to recover before the next raid.
+
+### New: Echoes
+- When a run ends (wave 5+), your best tower is saved as an **Echo**, a ghost that keeps its level, branch, relic and rank. Your last 8 are kept.
+- Once per run, summon one for **free** from the **ECHO** button on the tower bar. It lasts 4 waves, 5 if it came from a wave 25+ run, and 7 for a gold Echo from wave 50+.
+
+### Removed
+- **Overclock** has been removed from towers.
+
+### Balance
+- Enemies have 10% more HP to make up for the drops.
+- Cryo Emitter: damage 4 → 6, slow 45% → 50%.
+- Tesla Coil: damage 22 → 25.
+- Orbital Mortar: damage 85 → 100.
+- Beam Laser: damage 17 → 19.
+
+### Guide
+- The How to Play guide has new pages for Synthwave Sync, Counter-Raids and Echoes.
+
 ## v1.10.0
 
 ### Changed: Drone Bay

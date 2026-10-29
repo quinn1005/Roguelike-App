@@ -126,7 +126,7 @@ function fresh() {
     v: 1, xp: 0, level: 1, shards: 0, talents: {}, unlocked: ['blaster'],
     commanders: ['vanguard'], commander: 'vanguard', heatUnlocked: 0, heat: 0,
     bestWave: 0, totalKills: 0, runs: 0, bestiary: {}, bossKills: {}, achievements: {}, seen: {},
-    cmd: {}, prestige: 0, history: [], towerKills: {}, skins: {}, mutators: [], tutorialSeen: false,
+    cmd: {}, prestige: 0, history: [], towerKills: {}, skins: {}, mutators: [], tutorialSeen: false, echoes: [],
     settings: { sfx: true, shake: true, autoWave: false, haptics: true },
   };
 }

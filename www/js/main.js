@@ -4,7 +4,8 @@ import { Renderer } from './render.js';
 import { UI } from './ui.js';
 import { Run } from './game.js';
 import { meta, saveMeta, clearRun } from './meta.js';
-import { sfx, unlockAudio, setSfx } from './audio.js';
+import { sfx, unlockAudio, setSfx, audioCtx } from './audio.js';
+import { playTrack, musicBeats, setMusic, setMusicMode, MENU_TRACK } from './music.js';
 import { TS, T } from './sprites.js';
 import { CPX } from './world.js';
 import { SIDE_DIR } from './util.js';
@@ -29,6 +30,9 @@ const app = {
     run.on('wave', () => ui.updateWaveButton());
     run.on('intro', (ids) => ui.showIntro(ids));
     run.on('over', (d) => { this.deselect(); ui.showGameOver(d); });
+    run.on('drop', (kind) => ui.dropBanner(kind));
+    run.onTrack = (tr) => playTrack(tr, 0);
+    run.beatSrc = () => (this.run === run ? musicBeats() : null);
     this.deselect();
     ui.enterRun();
     $speed();
@@ -63,6 +67,7 @@ const app = {
 
   toMenu() {
     this.run = null;
+    playTrack(MENU_TRACK, 0);
     this.deselect();
     ui.closeModal();
     ui.showMenu();
@@ -113,6 +118,28 @@ const app = {
   rotateChunk(ch) { if (this.run.rotateChunk(ch)) { ui.toast('CHUNK ROTATED', '#2ef2ff'); } this.cancelRelocate(); },
   beginSwap(ch) { this.view.relocate = { first: ch, swapFrom: ch }; ui.hidePanel(); ui.toast('NOW TAP ANOTHER GLOWING CHUNK', '#ff3df2'); },
 
+  // ---- counter-raids ----
+  beginRaid(portal) {
+    this.deselect();
+    this.view.raidSel = { portal, squad: [] };
+    ui.showRaidPanel();
+    ui.toast('TAP UP TO 5 TOWERS FOR THE STRIKE SQUAD', '#ff3df2');
+  },
+  cancelRaid() { this.view.raidSel = null; ui.hidePanel(); },
+  launchRaid() {
+    const sel = this.view.raidSel;
+    if (sel && this.run.launchRaid(sel.portal, sel.squad)) { this.view.raidSel = null; ui.hidePanel(); }
+  },
+
+  selectEcho(e) {
+    const v = this.view;
+    v.selected = null; v.rock = null; v.relocate = null; v.raidSel = null;
+    ui.hidePanel();
+    v.buildType = 'echo'; v.echo = e; v.ghost = null;
+    ui.refreshTowerBar();
+    ui.toast('TAP A TILE, THEN TAP AGAIN TO SUMMON THE ECHO', '#2ef2ff');
+  },
+
   upgrade(tw, branch) {
     if (this.run.upgrade(tw, branch)) ui.refreshPanel(true);
   },
@@ -155,6 +182,16 @@ const app = {
       } else { v.relocate.first = ch; ui.showChunkPanel(ch); }
       return;
     }
+    if (v.raidSel) {
+      const t = r.towerAt.get(tx + ',' + ty);
+      if (!t) return;
+      if (t.echo) { ui.toast('ECHOES CAN\'T JOIN RAIDS', '#ff2f5a'); return; }
+      const sq = v.raidSel.squad, i = sq.indexOf(t);
+      if (i >= 0) sq.splice(i, 1); else if (sq.length < 5) sq.push(t); else ui.toast('SQUAD IS FULL (5)', '#ff2f5a');
+      sfx('click');
+      ui.showRaidPanel();
+      return;
+    }
     const tw = r.towerAt.get(tx + ',' + ty);
     if (tw) {
       v.buildType = null; v.ghost = null; v.rock = null;
@@ -166,6 +203,17 @@ const app = {
     }
     if (r.world.tile(tx, ty) === T.CACHE) { r.salvage(tx, ty); return; }
     if (!v.buildType && r.world.tile(tx, ty) === T.ROCK) { this.deselect(); v.rock = { x: tx, y: ty }; ui.showRockPanel(tx, ty); sfx('click'); return; }
+    if (v.buildType === 'echo') {
+      if (v.ghost && v.ghost.x === tx && v.ghost.y === ty) {
+        if (!r.deployEcho(v.echo, tx, ty)) { ui.toast("Can't place it there", '#ff2f5a'); return; }
+        v.buildType = null; v.ghost = null; v.echo = null;
+        ui.buildTowerBar();
+      } else if (r.canBuild(tx, ty)) {
+        v.ghost = { x: tx, y: ty, type: v.echo.type, def: TOWERS[v.echo.type] };
+        sfx('click');
+      } else v.ghost = null;
+      return;
+    }
     if (v.buildType) {
       if (v.ghost && v.ghost.x === tx && v.ghost.y === ty) {
         if (!r.canBuild(tx, ty)) { ui.toast("Can't build there", '#ff2f5a'); return; }
@@ -188,7 +236,10 @@ const app = {
 function $speed() { document.getElementById('btn-speed').textContent = (app.run ? app.run.speed : 1) + 'x'; }
 
 const ui = new UI(app);
+app.ui = ui;
 setSfx(meta.settings.sfx);
+setMusic(meta.settings.music !== false);
+setMusicMode((cyc) => (app.run ? app.run.beatMode(cyc) : 'normal'));
 
 // ---------- input ----------
 const pointers = new Map();
@@ -262,7 +313,13 @@ window.addEventListener('keydown', (e) => {
 window.addEventListener('resize', () => renderer.resize());
 // Inside the Android app, hide the status bar for a fullscreen game.
 try { const sb = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.StatusBar; if (sb) sb.hide().catch(() => {}); } catch (e) { /* not native */ }
-document.addEventListener('pointerdown', unlockAudio, { once: true });
+// Music starts on the first touch (browsers block audio until then).
+document.addEventListener('pointerdown', () => { unlockAudio(); startMusic(); }, { once: true });
+function startMusic() {
+  const ac = audioCtx();
+  if (!ac || ac.state !== 'running' || musicBeats() !== null) return;
+  if (app.run) playTrack(app.run.track, app.run.beatPos); else playTrack(MENU_TRACK, 0);
+}
 
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && app.run && app.run.phase === 'wave' && !app.run.paused) ui.showPause();
@@ -285,6 +342,7 @@ function frame(now) {
   const r = app.run;
   app.view.shakeOn = meta.settings.shake;
   app.view.glowOn = meta.settings.glow !== false;
+  startMusic();
   if (r) {
     r.update(dt);
     if (app.view.selected && !r.towers.includes(app.view.selected)) app.deselect();

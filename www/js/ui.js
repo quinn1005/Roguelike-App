@@ -14,6 +14,7 @@ import {
 import { towerSprites, enemySprite, makeCanvas, uiIcon } from './sprites.js';
 import { previewCanvas } from './world.js';
 import { sfx, setSfx } from './audio.js';
+import { setMusic, CYCLE, DROP_AT } from './music.js';
 import { quinnBadge } from './quinn.js';
 import { commanderCanvas } from './commanders.js';
 import { VERSION } from './version.js';
@@ -101,7 +102,7 @@ export class UI {
     for (const id of ['hud', 'towerbar', 'wavectl']) $(id).classList.toggle('hidden', !on);
     $('toasts').innerHTML = '';
     if (!on) {
-      for (const id of ['panel', 'towerinfo', 'bossbar', 'placebanner', 'wavepreview', 'abilities']) $(id).classList.add('hidden');
+      for (const id of ['panel', 'towerinfo', 'bossbar', 'placebanner', 'wavepreview', 'abilities', 'beatbar']) $(id).classList.add('hidden');
       this.closeModal();
     }
   }
@@ -508,6 +509,7 @@ export class UI {
       button('SOUND: ' + (meta.settings.sfx ? 'ON' : 'OFF'), '', () => { meta.settings.sfx = !meta.settings.sfx; setSfx(meta.settings.sfx); saveMeta(); this.showSettings(); }),
       button('SCREEN SHAKE: ' + (meta.settings.shake ? 'ON' : 'OFF'), '', () => { meta.settings.shake = !meta.settings.shake; saveMeta(); this.showSettings(); }),
       button('NEON GLOW: ' + (meta.settings.glow !== false ? 'ON' : 'OFF'), '', () => { meta.settings.glow = meta.settings.glow === false; saveMeta(); this.showSettings(); }),
+      button('MUSIC: ' + (meta.settings.music !== false ? 'ON' : 'OFF'), '', () => { meta.settings.music = meta.settings.music === false; setMusic(meta.settings.music); saveMeta(); this.showSettings(); }),
       button('VIBRATION: ' + (meta.settings.haptics ? 'ON' : 'OFF'), '', () => { meta.settings.haptics = !meta.settings.haptics; saveMeta(); this.showSettings(); }),
       button('FULLSCREEN', '', () => this.app.fullscreen()),
       button('EXPORT SAVE (BACKUP)', 'hot', () => this.showExport()),
@@ -529,6 +531,7 @@ export class UI {
     this.buildAbilities();
     this.updateWaveButton();
     $('btn-move').onclick = () => { sfx('click'); this.app.toggleRelocate(); };
+    $('btn-raid').onclick = () => { sfx('click'); if (this.app.view.raidSel) this.app.cancelRaid(); else this.startRaid(); };
   }
 
   buildAbilities() {
@@ -565,6 +568,14 @@ export class UI {
       bar.append(b);
       this.tbtns[tid] = b;
     }
+    if (this.run.canEcho()) {
+      const b = el('div', 'tbtn echo');
+      const e0 = meta.echoes[0];
+      b.innerHTML = `<img src="${towerSprites(TOWERS[e0.type], e0.level, e0.branch).iconUrl}"><div class="cost">ECHO</div>`;
+      b.onclick = () => { sfx('click'); this.showEchoes(); };
+      bar.append(b);
+      this.echoBtn = b;
+    } else this.echoBtn = null;
     this.refreshTowerBar();
   }
 
@@ -577,9 +588,14 @@ export class UI {
       b.classList.toggle('poor', r.gold < c);
       b.classList.toggle('sel', this.app.view.buildType === tid);
     }
+    if (this.echoBtn) this.echoBtn.classList.toggle('sel', this.app.view.buildType === 'echo');
     const info = $('towerinfo');
     const bt = this.app.view.buildType;
-    if (bt) {
+    if (bt === 'echo') {
+      const e = this.app.view.echo, d = TOWERS[e.type];
+      info.innerHTML = `<b class="c-cyan">ECHO: <span style="color:${d.color}">${d.name}</span></b> <span class="c-grn">FREE</span><br>From your wave ${e.wave} run. Fades after ${r.echoLife(e)} waves.<br><span class="c-dim">Tap a tile to preview, tap again to summon.</span>`;
+      info.classList.remove('hidden');
+    } else if (bt) {
       const d = TOWERS[bt];
       info.innerHTML = `<b style="color:${d.color}">${d.name}</b> <span class="c-yel">${r.towerCost(bt)}c</span><br>${d.desc}<br><span class="c-dim">Tap a tile to preview, tap again to build.</span>`;
       info.classList.remove('hidden');
@@ -611,6 +627,7 @@ export class UI {
   }
 
   updateHud() {
+    this.updateBeat();
     const r = this.run;
     if (!r) return;
     const hpf = Math.max(0, Math.min(1, r.coreHp / r.maxCore));
@@ -634,6 +651,14 @@ export class UI {
       b.querySelector('.cdbar').style.width = (cd > 0 ? (1 - cd / max) * 100 : 100) + '%';
       b.querySelector('.cdtxt').textContent = cd > 0 ? `${cd} WAVE${cd > 1 ? 'S' : ''}` : r.phase === 'wave' ? 'READY' : 'NEXT WAVE';
     }
+    // raid button + raid window
+    const rb = $('btn-raid');
+    const raiding = !!r.raid;
+    rb.classList.toggle('hidden', !(r.canRaid() || raiding || this.app.view.raidSel) || r.placing);
+    rb.textContent = this.app.view.raidSel ? 'CANCEL RAID' : raiding ? 'SQUAD ON RAID' : 'RAID';
+    rb.disabled = raiding;
+    rb.classList.toggle('mag', !raiding);
+    this.drawRaidWin();
     // relocation button
     const mv = $('btn-move');
     mv.classList.toggle('hidden', !(r.phase === 'build' && r.relocations > 0 && !r.placing));
@@ -669,6 +694,165 @@ export class UI {
     if (this.panelTower && this.run.time - (this.panelT || 0) > 0.5) { this.panelT = this.run.time; this.refreshPanel(); }
   }
 
+  // ---- synthwave beat meter: 8 bars per cycle, the last one is the DROP ----
+  updateBeat() {
+    const r = this.run, bb = $('beatbar');
+    if (!r) return;
+    bb.classList.remove('hidden');
+    if (!bb.firstChild) {
+      bb.innerHTML = '<span class="bt-lab"></span>' + Array.from({ length: 8 }, (_, i) => `<i class="${i === 7 ? 'last' : ''}"></i>`).join('');
+      this.beatEls = [...bb.querySelectorAll('i')];
+    }
+    const cyc = ((r.beatPos % CYCLE) + CYCLE) % CYCLE, bar = Math.floor(cyc / 4), frac = r.beatPos % 1;
+    const brkNext = r.phase === 'wave' && r.enemies.some((e) => e.boss) && Math.floor(r.beatPos / CYCLE) % 2 === 1;
+    const key = bar + '|' + brkNext + '|' + r.inDrop + '|' + r.breakdown + '|' + (frac < 0.25);
+    if (key === this.beatKey) return;
+    this.beatKey = key;
+    bb.querySelector('.bt-lab').textContent = r.breakdown ? 'BREAKDOWN' : r.inDrop ? 'DROP!' : brkNext ? 'BRK IN ' + Math.max(0, 6 - bar) : 'DROP IN ' + (7 - bar);
+    bb.className = (r.inDrop ? 'drop' : r.breakdown ? 'brk' : '') + (frac < 0.25 ? ' beat' : '');
+    this.beatEls.forEach((el, i) => {
+      el.className = (i === 7 || (brkNext && i === 6) ? 'last' : '') + (i < bar ? ' on' : i === bar ? ' cur' : '');
+    });
+  }
+
+  dropBanner(kind) {
+    const fx = $('dropfx');
+    fx.className = '';
+    void fx.offsetWidth;
+    fx.className = kind === 'breakdown' ? 'brk' : 'drop';
+    fx.textContent = kind === 'breakdown' ? 'BREAKDOWN - BOSS EXPOSED' : 'DROP!';
+  }
+
+  // ---------- echoes ----------
+  echoLabel(e) {
+    const d = TOWERS[e.type];
+    const br = e.branch && d.branches ? d.branches[e.branch].name : 'LV ' + e.level;
+    return { d, br, look: towerSprites(d, e.level, e.branch) };
+  }
+
+  showEchoes() {
+    const r = this.run;
+    this.openModal((box) => {
+      box.append(el('h2', '', 'SUMMON AN ECHO'), el('p', 'c-dim', 'Echoes are ghosts of the best tower from your past runs. Summon one per run for free. It keeps its upgrades, relic and rank, then fades after a few waves.'));
+      const list = el('div', 'grid');
+      for (const e of meta.echoes) {
+        const { d, br, look } = this.echoLabel(e);
+        const R = e.relic ? RELIC_BY_ID[e.relic] : null;
+        const it = el('div', 'item' + (e.wave >= 50 ? ' gold' : ''));
+        it.innerHTML = `<img src="${look.iconUrl}" style="opacity:.8"><div class="grow"><div class="nm" style="color:${look.color}">${d.name}</div><div class="ds">${br}${R ? ` - <span style="color:${R.color}">${R.name}</span>` : ''}${e.vet ? ` - ${VETERANCY[e.vet - 1].name}` : ''}</div><div class="ds c-dim">From a wave ${e.wave} run - lasts ${r.echoLife(e)} waves</div></div>`;
+        it.onclick = () => { sfx('click'); this.closeModal(); this.app.selectEcho(e); };
+        list.append(it);
+      }
+      const row = el('div', 'mrow');
+      row.append(button('CANCEL', '', () => this.closeModal()));
+      box.append(list, row);
+    });
+  }
+
+  // ---------- counter-raids ----------
+  portalName(p) {
+    const dx = p.tx - 3, dy = p.ty - 3;
+    const ns = dy < -Math.abs(dx) / 2 ? 'NORTH' : dy > Math.abs(dx) / 2 ? 'SOUTH' : '';
+    const ew = dx > Math.abs(dy) / 2 ? 'EAST' : dx < -Math.abs(dy) / 2 ? 'WEST' : '';
+    return ((ns + (ns && ew ? '-' : '') + ew) || 'CENTRAL') + ' PORTAL';
+  }
+
+  startRaid() {
+    const r = this.run;
+    if (!r.canRaid()) return;
+    const ps = r.world.portals;
+    const pickP = (p) => { this.closeModal(); this.app.beginRaid(p); };
+    if (ps.length === 1) return pickP(ps[0]);
+    this.openModal((box) => {
+      box.append(el('h2', '', 'COUNTER-RAID'), el('p', 'c-dim', 'Pick a portal to strike. Then choose up to 5 towers for the squad. They leave the map for the whole next wave and come back when it ends.'));
+      const list = el('div', 'col');
+      for (const p of ps) {
+        const info = r.portalInfo[r.portalKey(p)] || {};
+        const tag = info.weak > 0 ? ` <span class="c-grn">WEAKENED ${info.weak}</span>` : '';
+        list.append(button(`${this.portalName(p)}<small>Raided ${info.raids || 0}x${info.raids ? ' - fortified +' + info.raids * 35 + '%' : ''}${tag}</small>`, 'mag', () => pickP(p)));
+      }
+      const row = el('div', 'mrow');
+      row.append(button('CANCEL', '', () => this.closeModal()));
+      box.append(list, row);
+    });
+  }
+
+  showRaidPanel() {
+    const r = this.run, sel = this.app.view.raidSel, p = this.panel;
+    if (!sel) return;
+    this.panelTower = null;
+    p.classList.remove('hidden');
+    p.innerHTML = '';
+    p.append(button('X', 'sm x', () => this.app.cancelRaid()));
+    p.append(el('h3', 'c-mag', 'RAID: ' + this.portalName(sel.portal)));
+    p.append(el('div', 'pdesc', `Tap up to 5 towers to join the strike squad (${sel.squad.length}/5). They are gone for the whole next wave.`));
+    const icons = el('div', 'squad');
+    for (const tw of sel.squad) { const im = el('img', 'px'); im.src = towerSprites(tw.def, tw.level, tw.branch).iconUrl; icons.append(im); }
+    p.append(icons);
+    const odds = sel.squad.length ? r.raidOdds(sel.portal, sel.squad) : 0;
+    const col = odds >= 0.65 ? 'c-grn' : odds >= 0.4 ? 'c-yel' : 'c-red';
+    p.append(el('div', 'row', `<span>SUCCESS ODDS</span><span class="${col}">${Math.round(odds * 100)}%</span>`));
+    p.append(el('div', 'pdesc', '<span class="c-grn">WIN:</span> credits, shards, maybe a relic, +10 veterancy kills, and this portal sends half its enemies for 3 waves.<br><span class="c-red">LOSE:</span> the portal sends a retaliation squad of elites next wave.'));
+    const btns = el('div', 'btns');
+    const go = button('LAUNCH RAID', 'mag', () => this.app.launchRaid());
+    go.disabled = !sel.squad.length;
+    btns.append(go, button('CANCEL', '', () => this.app.cancelRaid()));
+    p.append(btns);
+  }
+
+  // Little side-view of the squad fighting inside the rift during the wave.
+  drawRaidWin() {
+    const r = this.run, win = $('raidwin');
+    const R = r && r.raid;
+    if (!R || r.phase !== 'wave') { win.classList.add('hidden'); return; }
+    win.classList.remove('hidden');
+    const cv = win.querySelector('canvas'), c = cv.getContext('2d');
+    c.imageSmoothingEnabled = false;
+    const done = 1 - (r.spawnQueue.length + r.enemies.length) / Math.max(1, r.waveTotal || 1);
+    const t = performance.now() / 1000;
+    win.querySelector('.rw-h').textContent = 'RAID: ' + this.portalName(R) + '  ' + Math.round(done * 100) + '%';
+    // background rift
+    c.fillStyle = '#0a0518'; c.fillRect(0, 0, 132, 52);
+    for (let i = 0; i < 18; i++) { c.fillStyle = i % 2 ? '#2a0a48' : '#3a0a5a'; c.fillRect((i * 37 + t * 20) % 132, (i * 13) % 40 + 4, 2, 1); }
+    // health trends toward the rolled outcome
+    const squadHp = R.win ? 1 - done * 0.55 : Math.max(0, 1 - done * 1.05);
+    const guardHp = R.win ? Math.max(0, 1 - done * 1.05) : 1 - done * 0.6;
+    R.squad.forEach((tw, i) => {
+      const y = 4 + i * 9;
+      // raiders drop out one by one as the squad's health falls
+      if (squadHp > (i / R.squad.length) * 0.9) c.drawImage(towerSprites(tw.def, tw.level, tw.branch).icon, 4, y, 9, 9);
+      if (Math.floor(t * 4 + i) % 3 === 0) { c.fillStyle = tw.def.color; c.fillRect(16 + ((t * 120 + i * 30) % 80), y + 4, 3, 1); }
+    });
+    const g = Math.max(1, Math.ceil(guardHp * 4));
+    for (let k = 0; k < g; k++) {
+      const spr = enemyIcon(['crawler', 'tank', 'shade', 'wasp'][k % 4]);
+      const im = this.raidImgs || (this.raidImgs = {});
+      if (!im[spr]) { im[spr] = new Image(); im[spr].src = spr; }
+      c.drawImage(im[spr], 104 + (k % 2) * 12, 4 + k * 11 + Math.sin(t * 5 + k) * 1, 12, 12);
+    }
+    c.fillStyle = '#3d7bff'; c.fillRect(2, 48, 60 * squadHp, 2);
+    c.fillStyle = '#ff2f5a'; c.fillRect(70 + 60 * (1 - guardHp), 48, 60 * guardHp, 2);
+  }
+
+  showRaidResult(res) {
+    const r = this.run;
+    this.openModal((box) => {
+      box.append(el('h2', res.win ? 'c-grn' : 'c-red', res.win ? 'RAID SUCCESSFUL' : 'RAID FAILED'));
+      const icons = el('div', 'squad');
+      for (const t of res.squad) { const im = el('img', 'px'); im.src = towerSprites(TOWERS[t]).iconUrl; icons.append(im); }
+      box.append(icons);
+      if (res.win) {
+        const relic = res.relic ? RELIC_BY_ID[res.relic] : null;
+        box.append(el('p', '', `The squad tore through the rift (${Math.round(res.odds * 100)}% odds).<br>+${res.gold} credits, +${res.shards} Void Shard${res.shards > 1 ? 's' : ''}${relic ? `, relic: <span style="color:${relic.color}">${relic.name}</span>` : ''}.<br>Each raider gained 10 veterancy kills. The portal is <span class="c-grn">weakened for 3 waves</span>.`));
+      } else {
+        box.append(el('p', '', `The squad was driven back (${Math.round(res.odds * 100)}% odds). Your towers made it home, but the portal is sending a <span class="c-red">retaliation squad of elites</span> next wave.`));
+      }
+      const row = el('div', 'mrow');
+      row.append(button('CONTINUE', 'go', () => { this.closeModal(); r.nextChoice(); }));
+      box.append(row);
+    });
+  }
+
   toast(msg, color = '#2ef2ff') {
     const t = el('div', 'toast', msg);
     t.style.color = color;
@@ -694,7 +878,7 @@ export class UI {
     if (!tw || !r || !r.towers.includes(tw)) { this.hidePanel(); return; }
     const cost = r.upgradeCost(tw);
     const fus = r.fusionOptions(tw);
-    const key = [tw.id, tw.type, tw.level, tw.branch, tw.mode, cost, cost != null && r.gold >= cost, r.sellValue(tw), tw.relic, r.relics.join(), tw.oc > 0, tw.overheat > 0, tw.vet, r.canOverclock(tw), r.overclockCost(), fus.map((f) => f.other.id + (r.gold >= f.cost)).join()].join('|');
+    const key = [tw.id, tw.type, tw.level, tw.branch, tw.mode, cost, cost != null && r.gold >= cost, r.sellValue(tw), tw.relic, r.relics.join(), tw.vet, fus.map((f) => f.other.id + (r.gold >= f.cost)).join()].join('|');
     if (force || key !== this.panelKey || !this.panelStats) {
       this.panelKey = key;
       this.buildPanel(tw);
@@ -720,6 +904,7 @@ export class UI {
         this.refreshPanel();
       }));
     }
+    if (tw.echo) btns.append(el('div', 'pdesc c-cyan', `ECHO - fades in ${tw.echo} wave${tw.echo > 1 ? 's' : ''}. Echoes can't be upgraded, fused or given relics.`));
     const cost = r.upgradeCost(tw);
     if (cost != null) {
       if (tw.level < 3) {
@@ -737,15 +922,6 @@ export class UI {
         }
       }
     }
-    if (d.dmg) {
-      const oc = r.overclockCost();
-      const label = tw.oc > 0 ? 'OVERCLOCKED!'
-        : tw.overheat ? `OVERHEATED<small>Offline until wave ${tw.heatUntil} ends</small>`
-        : `OVERCLOCK - ${oc}c<small>${r.phase === 'wave' ? '' : 'Only during a wave. '}2x fire rate for 10s, then the tower shuts down until the end of the next wave</small>`;
-      const ocb = button(label, 'yel', () => { if (r.overclock(tw)) this.refreshPanel(true); });
-      ocb.disabled = !r.canOverclock(tw);
-      btns.append(ocb);
-    }
     for (const f of r.fusionOptions(tw)) {
       const fd = TOWERS[f.recipe.id];
       const fb = button(`<img class="px" src="${towerSprites(fd).iconUrl}" style="width:24px;height:24px;float:left;margin-right:4px">FUSE: <span style="color:${fd.color}">${fd.name}</span> - ${f.cost}c<small>Merges with the adjacent ${f.other.def.name}. ${fd.desc}</small>`, 'mag', () => { if (r.fuse(tw, f)) this.refreshPanel(true); });
@@ -753,12 +929,12 @@ export class UI {
       btns.append(fb);
     }
     if (tw.relic) { const R = RELIC_BY_ID[tw.relic]; btns.append(el('div', 'relic-cur', `RELIC: <span style="color:${R.color}">${R.name}</span> - ${R.desc}`)); }
-    r.relics.forEach((rid, idx) => {
+    if (!tw.echo) r.relics.forEach((rid, idx) => {
       const R = RELIC_BY_ID[rid];
       btns.append(button(`INSTALL <span style="color:${R.color}">${R.name}</span><small>${R.desc}${tw.relic ? ' (swaps out the current relic)' : ''}</small>`, '', () => { if (r.installRelic(tw, idx)) this.refreshPanel(true); }));
     });
-    const sb = button(r.canSell ? `SELL +${r.sellValue(tw)}c` : 'SELL (SCORCHED EARTH)', 'red', () => this.app.sell(tw));
-    sb.disabled = !r.canSell;
+    const sb = button(tw.echo ? 'DISMISS ECHO' : r.canSell ? `SELL +${r.sellValue(tw)}c` : 'SELL (SCORCHED EARTH)', 'red', () => this.app.sell(tw));
+    sb.disabled = !r.canSell && !tw.echo;
     btns.append(sb);
     p.append(btns);
   }
@@ -800,9 +976,7 @@ export class UI {
   panelRows(tw) {
     const s = tw.stats, d = tw.def;
     const rows = [];
-    if (tw.overheat) rows.push(['STATUS', `<span class="c-red">OVERHEATED until wave ${tw.heatUntil} ends</span>`]);
-    else if (tw.disabled > 0) rows.push(['STATUS', '<span class="c-yel">EMP!</span>']);
-    if (tw.oc > 0) rows.push(['STATUS', '<span class="c-yel">OVERCLOCKED ' + tw.oc.toFixed(1) + 's</span>']);
+    if (tw.disabled > 0) rows.push(['STATUS', '<span class="c-yel">EMP!</span>']);
     const nv = VETERANCY[tw.vet || 0];
     const cv = VETERANCY[(tw.vet || 0) - 1];
     rows.push(['Rank', (cv ? `<span style="color:${cv.color}">${cv.name}</span>` : 'Recruit') + (nv ? ` <span class="c-dim">(${tw.kills}/${nv.kills})</span>` : '')]);
@@ -890,6 +1064,7 @@ export class UI {
   showChoice(c) {
     const r = this.run;
     this.app.deselect();
+    if (c.kind === 'raid') return this.showRaidResult(c.result);
     if (c.kind === 'augment') {
       const draw = () => this.openModal((box) => {
         box.append(el('h2', '', c.title || 'CHOOSE AN AUGMENT'));

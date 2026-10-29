@@ -97,8 +97,34 @@ export const PAGES = [
     body: () => `
       <p>${k('COMBOS', 'grn')}: some towers work together. Tesla on chilled enemies causes <b>Shatter</b>, explosions detonate poison, railguns always crit shocked enemies, and lasers burn chilled targets.</p>
       <p>${k('VETERANCY', 'yel')}: towers rank up to Bronze (25 kills), Silver (100) and Gold (300), with stat boosts and a badge on the sprite.</p>
-      <p>${k('FUSION', 'mag')}: two specific max-level towers side by side can fuse into one of 6 powerful fused towers.</p>
-      <p>${k('OVERCLOCK', 'red')}: during a wave, pay credits (more each wave) to double a tower's fire rate for 10 seconds. Afterward it <b>overheats</b> and shuts down until the end of the next wave, so time it carefully.</p>`,
+      <p>${k('FUSION', 'mag')}: two specific max-level towers side by side can fuse into one of 6 powerful fused towers.</p>`,
+  },
+  {
+    title: 'SYNTHWAVE SYNC',
+    art: () => tw('tesla', 3) + icon('wave') + tw('laser', 3),
+    body: () => `
+      <p>The battle runs to the music. Every neon sector has its own synthwave track and tempo, and the core and your towers pulse on the beat.</p>
+      <p>The ${k('beat meter', 'cyan')} in the top-left counts 8 bars. On the last bar the song hits the ${k('DROP', 'mag')}: for that whole bar <b>every tower deals double damage</b>. Learn the rhythm and save your big moments for it.</p>
+      <p>During ${k('boss', 'red')} waves, every other drop becomes a ${k('BREAKDOWN', 'red')}: for two bars the bosses are exposed, taking +75% damage and moving 40% slower.</p>
+      <p class="c-dim">Music can be turned off in Settings. The beat keeps going either way.</p>`,
+  },
+  {
+    title: 'COUNTER-RAIDS',
+    art: () => tw('cannon', 3) + foe('shade') + tw('railgun', 3),
+    body: () => `
+      <p>From wave 3, the ${k('RAID', 'mag')} button lets you strike back. Pick a portal, then tap <b>up to 5 towers</b> to form a strike squad.</p>
+      <p>The squad <b>leaves the map for the whole next wave</b>, so the rest of your defense has to hold without them. A little window shows the fight inside the rift. The success odds are shown before you launch: stronger, pricier, higher-ranked towers raise them.</p>
+      <p>${k('WIN', 'grn')}: credits, Void Shards, maybe a relic, +10 veterancy kills for each raider, and that portal sends half its enemies for 3 waves.<br>
+      ${k('LOSE', 'red')}: the portal sends a retaliation squad of elites next wave.</p>
+      <p class="c-dim">Every raid fortifies that portal, and the squad needs 2 waves to recover before the next raid.</p>`,
+  },
+  {
+    title: 'ECHOES',
+    art: () => `<span style="opacity:.55">${tw('cannon', 3)}</span>` + tw('blaster', 3) + `<span style="opacity:.55">${tw('laser', 3)}</span>`,
+    body: () => `
+      <p>When a run ends (wave 5 or later), your best tower is saved as an ${k('ECHO', 'cyan')}: a ghost that remembers its level, branch, relic and rank. Your last 8 echoes are kept.</p>
+      <p>Once per run, tap the ${k('ECHO', 'cyan')} button on the tower bar to summon one for <b>free</b>. It fights for 4 waves, 5 if it came from a wave 25+ run, and 7 for a gold echo from wave 50+. Then it fades.</p>
+      <p class="c-dim">Echoes can't be upgraded, fused, given relics or sent on raids. Every run, even a bad one, leaves something behind for the next.</p>`,
   },
   {
     title: 'COMMANDERS',

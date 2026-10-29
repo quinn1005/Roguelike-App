@@ -6,6 +6,7 @@ let enabled = true;
 const last = {};
 
 export function setSfx(on) { enabled = on; }
+export function audioCtx() { return ac; }
 
 export function unlockAudio() {
   if (ac) { if (ac.state === 'suspended') ac.resume(); return; }
