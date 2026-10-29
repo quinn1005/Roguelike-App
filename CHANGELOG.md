@@ -1,5 +1,27 @@
 # Changelog
 
+## v2.3.0
+
+### New controls
+- **Hold a tower** to open its info panel, any time. Between waves a quick tap still works too.
+- **During a wave, tapping a tower is purely a rhythm action**: on the beat it fires an accent shot; off the beat it just shows MISS. Missed taps no longer pop the panel open.
+- **Two fingers move the map** and pinch to zoom. One-finger drags no longer move the map, so a mistimed slash never sends the camera flying. On a computer, right-drag or the arrow keys move the map.
+- A one-time hint explains the new controls on your first wave.
+
+### Everything plays to the music
+- Tower shots and enemy spawns now land on the beat grid of the song (sixteenth notes) at 1x and 2x speed. Fire rates are unchanged.
+- Enemies march in step: they swap walking frames on the beat and hop on every beat. Bosses stomp on quarter notes.
+- The path's neon flow steps forward with the music, portals pulse on the kick, max-level towers flash on every bar, and buff towers bob on the beat.
+- The main menu's sun and grid pulse with the menu music.
+
+### Cleaner screen
+- Streamlined HUD: one slim top row, with the beat meter just under it and the enemies-left count in the wave chip. The redundant "Next" chip is gone.
+- Compact controls: RAID, MOVE and AUTO are small buttons stacked above a pulsing WAVE button, and the tower bar scrolls instead of running into them.
+- Smaller, quicker toasts. The raid window moved to the top-right.
+- The map starts zoomed in so towers and enemies are easier to see and tap.
+- Tidier New Run header.
+- The How to Play guide is updated for the new controls.
+
 ## v2.2.0
 
 ### Removed

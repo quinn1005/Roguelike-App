@@ -934,6 +934,11 @@ export class Run {
       const src = this.beatSrc ? this.beatSrc() : null;
       this.beatPos = src != null ? src : this.beatPos + dt * tr.bpm / 60;
     }
+    // Sixteenth-note grid: at normal speeds, tower shots and enemy spawns wait
+    // for the next sixteenth so the whole battle plays in time with the music.
+    const tick = Math.floor(this.beatPos * 4);
+    if (tick !== this.lastTick) { this.lastTick = tick; this.tickPending = true; }
+    this.quantize = this.speed <= 2;
     const cyc = ((this.beatPos % CYCLE) + CYCLE) % CYCLE;
     const wasDrop = this.inDrop, wasBrk = this.breakdown;
     const live = this.phase === 'wave' && !this.paused;
@@ -1040,6 +1045,8 @@ export class Run {
 
   step(dt) {
     this.time += dt;
+    this.onTick = !this.quantize || this.tickPending;
+    this.tickPending = false;
     this.tb = {};
     for (const b of this.timed) { b.t -= dt; this.tb[b.key] = (this.tb[b.key] || 0) + b.val; }
     this.timed = this.timed.filter((b) => b.t > 0);
@@ -1050,7 +1057,7 @@ export class Run {
         this.overtime = true;
         this.toast('OVERTIME: ENEMIES ENRAGED', '#ff2f5a');
       }
-      while (this.spawnQueue.length && this.spawnQueue[0].t <= this.waveTime) {
+      while (this.onTick && this.spawnQueue.length && this.spawnQueue[0].t <= this.waveTime) {
         const s = this.spawnQueue.shift();
         if (s.boss != null) this.spawnEnemy(null, s.portal, null, null, s.boss);
         else this.spawnEnemy(s.type, s.portal, s.elite, null, null, s.corrupt);
@@ -1276,11 +1283,13 @@ export class Run {
     }
     if (d.proj === 'beam') return this.updateLaser(tw, dt);
     tw.cd -= dt;
-    if (tw.cd > 0) return;
+    if (tw.cd > 0 || !this.onTick) return;
     const ts = this.targets(tw, s.multi);
     if (!ts.length) { tw.cd = 0.05; return; }
     tw.angle = Math.atan2(ts[0].y - tw.y, ts[0].x - tw.x);
-    tw.cd = 1 / (s.rate * tw.rateMul);
+    // Time spent waiting for the beat grid is carried over, so fire rate is unchanged.
+    const iv = 1 / (s.rate * tw.rateMul);
+    tw.cd = Math.max(tw.cd, -iv) + iv;
     if (tw.type === 'blaster' && this.mods.doubleTap && this.rng() < this.mods.doubleTap) tw.cd = 0.08;
     tw.recoil = 1;
     for (const tgt of ts) this.fire(tw, tgt);
@@ -1496,9 +1505,9 @@ export class Run {
       this.moveToward(u, tx, ty, 75 * (tw.stats.br.droneSpeed || 1), dt);
       if (u.engaged && dist2(u.x, u.y, u.engaged.x, u.engaged.y) < 100) {
         u.cd -= dt;
-        if (u.cd <= 0) {
+        if (u.cd <= 0 && this.onTick) {
           const target = u.engaged; // kill() may clear u.engaged
-          u.cd = 1 / u.rate;
+          u.cd = Math.max(u.cd, -1 / u.rate) + 1 / u.rate;
           this.damage(target, u.dmg, 'kin', tw);
           this.particle(target.x, target.y, '#3d7bff', 0, 0, 0.2);
         }

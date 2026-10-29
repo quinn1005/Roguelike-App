@@ -5,6 +5,7 @@ import { TS, T, SECTORS, makeCanvas, glow, towerSprites, enemySprite, coreArt, r
 import { CS, CPX, World } from './world.js';
 import { SIDE_DIR } from './util.js';
 import { DTYPE_COLOR, ELITE_MODS, VETERANCY, RELIC_BY_ID } from './defs.js';
+import { musicBeats } from './music.js';
 
 const FONT = '8px "PressStart", monospace';
 
@@ -65,6 +66,11 @@ export class Renderer {
   // Synthwave horizon behind the menus.
   drawMenuBg(time) {
     const b = this.b, W = this.bw, H = this.bh;
+    // The menu scene pulses with the menu track: the sun throbs and the grid
+    // rolls forward one line per beat.
+    const mb = musicBeats();
+    const beat = Math.max(0, mb != null ? mb : time * 1.5);
+    const kick = Math.pow(1 - (beat % 1), 4);
     const hz = Math.round(H * 0.64);
     // sun
     const cx = Math.round(W * 0.5), r = Math.round(H * 0.22);
@@ -73,7 +79,7 @@ export class Renderer {
       if (y > -r * 0.55 && Math.floor((y + time * 6) / 3) % 3 === 0) continue;
       const w = Math.round(Math.sqrt(r * r - y * y));
       b.fillStyle = t < 0.5 ? '#ffd23f' : t < 0.75 ? '#ff8a1f' : '#ff3df2';
-      b.globalAlpha = 0.55;
+      b.globalAlpha = 0.45 + 0.3 * kick;
       b.fillRect(cx - w, hz + y, w * 2, 1);
     }
     b.globalAlpha = 1;
@@ -84,9 +90,9 @@ export class Renderer {
     // receding horizontal lines
     const n = 10;
     for (let k = 0; k < n; k++) {
-      const f = ((k + (time * 0.6) % 1) / n);
+      const f = ((k + (Math.floor(beat) + Math.min(1, (beat % 1) * 2.5)) % 1) / n);
       const y = hz + Math.round((H - hz) * f * f);
-      b.globalAlpha = 0.15 + 0.6 * f;
+      b.globalAlpha = (0.15 + 0.6 * f) * (0.7 + 0.3 * kick);
       b.fillStyle = '#ff3df2';
       b.fillRect(0, y, W, 1);
     }
@@ -223,6 +229,13 @@ export class Renderer {
 
     this.drawTowers(run, view, time);
     this.drawUnits(run, time);
+    if (view.hold) {
+      // hold-to-inspect progress ring
+      const h = view.hold, k = Math.min(1, (performance.now() - h.t0) / h.ms);
+      const n = Math.floor(28 * k);
+      b.fillStyle = '#ffffff';
+      for (let i = 0; i < n; i++) { const a = -Math.PI / 2 + (i / 28) * Math.PI * 2; b.fillRect(Math.round(h.tw.x + Math.cos(a) * 11), Math.round(h.tw.y + Math.sin(a) * 11), 1, 1); }
+    }
     this.drawEnemies(run, time);
     this.drawProjectiles(run);
     this.drawFx(run, time);
@@ -329,6 +342,15 @@ export class Renderer {
   }
 
   // Animated energy pellets flowing from portals toward the core.
+  // Beat position for visuals: kick = 1 on each beat decaying to 0, bar = 1 on
+  // each bar downbeat. Falls back to a steady clock when there is no run.
+  beatInfo(run, time) {
+    const pos = Math.max(0, run && run.beatPos != null ? run.beatPos : time * 1.6);
+    const kick = Math.pow(1 - (pos % 1), 4);
+    const bar = Math.pow(1 - ((pos % 4) / 4), 6);
+    return { pos, kick, bar };
+  }
+
   drawFlow(run, time) {
     const w = run.world;
     if (!this.routeCache || this.routeCache.portals !== w.portals) {
@@ -336,10 +358,13 @@ export class Renderer {
       this.routeCache = { portals: w.portals, routes: w.portals.map((p) => w.route(p, rng)) };
     }
     const b = this.b;
+    // The path's flow steps forward on every eighth note and flashes on the beat.
+    const bt = this.beatInfo(run, time);
+    const step = Math.floor(bt.pos * 2), ease = Math.min(1, ((bt.pos * 2) % 1) * 3);
     for (const r of this.routeCache.routes) {
       const len = r.length;
       for (let k = 0; k < len; k += 3) {
-        const f = (time * 2.5 + k) % len;
+        const f = (((step + ease + k) % len) + len) % len;
         const i = Math.floor(f), t = f - i;
         if (i + 1 >= len) continue;
         const x = (r[i][0] + (r[i + 1][0] - r[i][0]) * t) * TS + 8;
@@ -347,7 +372,7 @@ export class Renderer {
         const ch = w.get(Math.floor(r[i][0] / CS), Math.floor(r[i][1] / CS));
         const col = ch ? SECTORS[ch.sector % SECTORS.length].path : '#ff3df2';
         b.fillStyle = col;
-        b.globalAlpha = 0.55;
+        b.globalAlpha = 0.4 + 0.5 * bt.kick;
         b.fillRect(Math.round(x) - 1, Math.round(y), 2, 1);
         b.fillRect(Math.round(x), Math.round(y) - 1, 1, 2);
       }
@@ -360,7 +385,8 @@ export class Renderer {
     for (const p of run.world.portals) {
       let x = p.tx * TS + 8, y = p.ty * TS + 8;
       if (p.side !== 'G') { x += SIDE_DIR[p.side][0] * 12; y += SIDE_DIR[p.side][1] * 12; }
-      this.glowAt(x, y, 14, '#ff2f5a', 0.6 + 0.3 * Math.sin(time * 4));
+      const pk = this.beatInfo(run, time).kick;
+      this.glowAt(x, y, 14 + Math.round(pk * 4), '#ff2f5a', 0.5 + 0.5 * pk);
       for (let k = 0; k < 10; k++) {
         const a = time * 3 + (k / 10) * Math.PI * 2;
         const r = 5 + Math.sin(time * 5 + k) * 1.5;
@@ -505,14 +531,15 @@ export class Renderer {
     const b = this.b;
     for (const tw of run.towers) {
       const sp = towerSprites(tw.def, tw.level, tw.branch, (run.skins && run.skins[tw.type]) || 'default');
-      if (tw.level >= 3) this.glowAt(tw.tx * TS + 8, tw.ty * TS + 8, tw.level >= 4 ? 10 : 7, sp.color, tw.level >= 4 ? 0.45 + 0.15 * Math.sin(time * 3 + tw.id) : 0.25);
+      const tb = this.beatInfo(run, time);
+      if (tw.level >= 3) this.glowAt(tw.tx * TS + 8, tw.ty * TS + 8, tw.level >= 4 ? 10 : 7, sp.color, (tw.level >= 4 ? 0.35 : 0.2) + 0.35 * tb.bar);
       if (run.inDrop && tw.def.dmg) this.glowAt(tw.tx * TS + 8, tw.ty * TS + 8, 11, '#ff3df2', 0.35 + 0.35 * Math.pow(1 - (run.beatPos % 1), 2));
       const x = tw.tx * TS, y = tw.ty * TS;
       const off = tw.disabled > 0 && Math.floor(time * 10) % 2;
       b.drawImage(sp.base, x, y);
       if (tw.def.rotates === false) {
         let bob = 0;
-        if (tw.def.buff || tw.def.revive) bob = Math.round(Math.sin(time * 3 + tw.id) * 1);
+        bob = -Math.round(this.beatInfo(run, time).kick);
         b.drawImage(sp.head, x + 2, y + 2 + bob);
       } else {
         const rec = (tw.recoil || 0);
@@ -602,25 +629,28 @@ export class Renderer {
   drawEnemies(run, time) {
     const b = this.b;
     const sorted = run.enemies.slice().sort((a, c) => (a.flying - c.flying) || (a.y - c.y));
+    const bt = this.beatInfo(run, time);
     for (const e of sorted) {
-      const frame = Math.floor(e.anim * (e.boss ? 3 : 5)) % 2;
+      // Enemies march in step: walk frames swap on eighth notes (bosses on
+      // quarters) and ground units hop on every beat.
+      const frame = Math.floor(bt.pos * (e.boss ? 1 : 2) + (e.id % 2)) % 2;
       // Enemies caught in a black hole shrink, tint violet and orbit the core.
       const held = e.held > 0;
       const spr = enemySprite(e.sprite || e.type, frame, held ? '#b36bff' : e.hitFlash > 0 ? '#ffffff' : (e.tint || null));
       const scale = (e.scale || (e.elite === 'giant' ? 1.5 : 1)) * (held ? 0.55 : 1);
       const w = spr.width * scale, h = spr.height * scale;
-      const lift = e.flying ? 6 + Math.sin(e.anim * 4) * 1.5 : 0;
+      const lift = e.flying ? 6 + Math.sin(bt.pos * Math.PI) * 1.5 : Math.round(bt.kick * (e.boss ? 2 : 1.5));
       const ox = held ? Math.cos(time * 9 + e.id) * 4 : 0, oy = held ? Math.sin(time * 9 + e.id) * 3 : 0;
       const x = Math.round(e.x + ox - w / 2), y = Math.round(e.y + oy - h / 2 - 2 - lift);
       b.fillStyle = 'rgba(0,0,0,0.4)';
       if (e.flying) b.fillRect(Math.round(e.x - w / 4), Math.round(e.y + 2), Math.round(w / 2), 2);
-      else { b.fillRect(Math.round(e.x - w / 3), Math.round(y + h - 2), Math.round((w * 2) / 3), 1); b.fillRect(Math.round(e.x - w / 4), Math.round(y + h - 1), Math.round(w / 2), 1); }
+      else { b.fillRect(Math.round(e.x - w / 3), Math.round(y + lift + h - 2), Math.round((w * 2) / 3), 1); b.fillRect(Math.round(e.x - w / 4), Math.round(y + lift + h - 1), Math.round(w / 2), 1); }
       let alpha = 1;
       if (e.cloaked) alpha = 0.3 + 0.1 * Math.sin(time * 8);
       if (e.phased) alpha = 0.25;
       if (held) alpha *= 0.8;
       b.globalAlpha = alpha;
-      if (e.boss) this.glowAt(e.x, e.y - lift, 18, e.def.shieldType ? DTYPE_COLOR[e.weak] : '#ff2f5a', 0.5);
+      if (e.boss) this.glowAt(e.x, e.y - lift, 18 + Math.round(bt.kick * 4), e.def.shieldType ? DTYPE_COLOR[e.weak] : '#ff2f5a', 0.35 + 0.4 * bt.kick);
       if (e.mini) this.glowAt(e.x, e.y - lift, 14, '#ffd23f', 0.45);
       if (e.corrupted) this.glowAt(e.x, e.y - lift, 7, '#ff0090', 0.35);
       b.drawImage(spr, x, y, w, h);

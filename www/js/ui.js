@@ -174,7 +174,7 @@ export class UI {
         button('-', 'sm', () => { meta.heat = Math.max(0, meta.heat - 1); saveMeta(); renderHeat(); }),
         el('span', h > 0 ? 'c-red' : 'c-dim', `HEAT ${h}/${meta.heatUnlocked}`),
         button('+', 'sm', () => { meta.heat = Math.min(meta.heatUnlocked, meta.heat + 1); saveMeta(); renderHeat(); }),
-        el('span', 'c-dim', h ? `ENEMY HP +${Math.round((hi.hp - 1) * 100)}% SPD +${Math.round((hi.speed - 1) * 100)}% REWARDS +${Math.round((hi.reward - 1) * 100)}%` : 'Reach wave 20 to unlock the next Heat level'),
+        el('span', 'c-dim', h ? `ENEMY HP +${Math.round((hi.hp - 1) * 100)}% SPD +${Math.round((hi.speed - 1) * 100)}% REWARDS +${Math.round((hi.reward - 1) * 100)}%` : (meta.heatUnlocked < 10 ? 'Wave 20 unlocks more' : '')),
       );
     };
     renderHeat();
@@ -622,7 +622,7 @@ export class UI {
     if (!r) return;
     const hpf = Math.max(0, Math.min(1, r.coreHp / r.maxCore));
     this.setHud('hud-core', `${img('heart')} ${Math.ceil(r.coreHp)}/${r.maxCore}<span class="hpbar${hpf > 0.3 ? ' ok' : ''}"><i style="width:${Math.round(hpf * 100)}%"></i></span>`, 'chip' + (r.coreHp <= r.maxCore * 0.3 ? ' low' : ''));
-    this.setHud('hud-wave', `${img('wave')} WAVE ${r.wave}`);
+    this.setHud('hud-wave', `${img('wave')} WAVE ${r.wave}` + (r.phase === 'wave' ? ` <span class="c-dim">- ${r.enemies.length + r.spawnQueue.length}</span>` : ''));
     const pk = r.peekWave();
     this.setHud('hud-next', r.phase === 'wave' ? `${r.enemies.length + r.spawnQueue.length} LEFT` : 'NEXT: ' + pk.text, 'chip ' + (pk.boss && r.phase !== 'wave' ? 'c-red' : 'dim'));
     this.setHud('hud-gold', `${img('coin')} ${fmt(r.gold)}`);
@@ -645,14 +645,14 @@ export class UI {
     const rb = $('btn-raid');
     const raiding = !!r.raid;
     rb.classList.toggle('hidden', !(r.canRaid() || raiding || this.app.view.raidSel) || r.placing);
-    rb.textContent = this.app.view.raidSel ? 'CANCEL RAID' : raiding ? 'SQUAD ON RAID' : 'RAID';
+    rb.textContent = this.app.view.raidSel ? 'CANCEL' : raiding ? 'RAIDING' : 'RAID';
     rb.disabled = raiding;
     rb.classList.toggle('mag', !raiding);
     this.drawRaidWin();
     // relocation button
     const mv = $('btn-move');
     mv.classList.toggle('hidden', !(r.phase === 'build' && r.relocations > 0 && !r.placing));
-    mv.textContent = (this.app.view.relocate ? 'CANCEL MOVE' : 'MOVE CHUNK') + ' (' + r.relocations + ')';
+    mv.textContent = (this.app.view.relocate ? 'CANCEL' : 'MOVE') + ' ' + r.relocations;
     mv.classList.toggle('on', !!this.app.view.relocate);
     // wave preview
     const wp = $('wavepreview');

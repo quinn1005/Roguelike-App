@@ -409,3 +409,45 @@ body::after {
 #dropfx small { display: block; font-size: 9px; margin-top: 6px; text-align: center; }
 #dropfx.drop { flex-direction: column; }
 .calpad { width: 100%; font-size: 16px; padding: 22px 0; margin: 6px 0; }
+
+/* ================= v2.3 streamlined in-game layout =================
+   Top:    [core][wave]        [beat meter]        [credits][shards][speed][pause]
+   Under:                  [wave preview / boss bar]                   [raid window]
+   Bottom: [abilities above][tower bar (scrolls)]            [raid move auto][WAVE]  */
+.chip { padding: 3px 6px; font-size: 8px; }
+#hud-next { display: none; }
+#beatbar { top: 4px; left: 50%; right: auto; transform: translateX(-50%); padding: 3px 6px; gap: 3px; }
+#beatbar .bt-lab { min-width: 70px; text-align: right; margin-right: 3px; font-size: 7px; }
+#beatbar i { width: 8px; height: 10px; }
+#wavepreview, #bossbar { top: 30px; }
+#wavepreview { padding: 2px 5px; font-size: 7px; }
+#wavepreview .wp img { width: 16px; height: 16px; }
+#toasts { top: 58px; gap: 3px; }
+.toast { font-size: 8px; padding: 4px 10px; animation: toastIn 0.2s steps(3), toastOut 0.3s steps(3) 1.9s forwards; box-shadow: 0 0 8px currentColor; }
+#raidwin { top: 30px; bottom: auto; right: calc(4px + var(--sr)); }
+
+#towerbar { bottom: 4px; right: calc(176px + var(--sr)); gap: 2px; padding: 4px 2px 1px; mask-image: linear-gradient(90deg, #000 92%, transparent); -webkit-mask-image: linear-gradient(90deg, #000 92%, transparent); }
+.tbtn { width: 42px; padding: 2px 0 1px; }
+.tbtn img { width: 26px; height: 26px; }
+.tbtn .cost { font-size: 7px; }
+#towerinfo, #abilities { bottom: 52px; }
+#placebanner { bottom: 56px; }
+
+#wavectl { bottom: 4px; right: calc(4px + var(--sr)); display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; width: 168px; }
+#wavectl .btn.sm { font-size: 6px; padding: 5px 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#btn-move { position: static; }
+#btn-wave { grid-column: 1 / -1; font-size: 10px; padding: 9px 6px; min-width: 0; }
+#btn-wave.go:not(:disabled) { animation: wavePulse 1s steps(2) infinite; }
+@keyframes wavePulse { 50% { box-shadow: 0 0 14px var(--grn); } }
+
+#abilities { gap: 3px; }
+#abilities .btn.abil { font-size: 6px; padding: 4px 5px 6px; min-width: 70px; }
+
+#panel { top: 30px; bottom: 74px; width: 224px; padding: 8px 8px 6px; }
+#panel .btn { padding: 5px 6px; }
+.scr-head h2 { white-space: nowrap; flex: 0 0 auto; }
+.scr-head .stepper { flex: 1; font-size: 8px; }
+/* the beat meter sits just under the HUD row so it never collides with the chips */
+#beatbar { top: 30px; }
+#wavepreview, #bossbar { top: 52px; }
+#toasts { top: 80px; }

@@ -27,7 +27,14 @@ const app = {
     run.on('toast', ({ msg, color }) => ui.toast(msg, color));
     run.on('choice', (c) => ui.showChoice(c));
     run.on('build', () => { this.autoTimer = 2.5; ui.updateWaveButton(); });
-    run.on('wave', () => ui.updateWaveButton());
+    run.on('wave', () => {
+      ui.updateWaveButton();
+      if (run.phase === 'wave' && !meta.settings.seenControls) {
+        meta.settings.seenControls = true; saveMeta();
+        ui.toast('TAP TOWERS ON THE BEAT - HOLD A TOWER FOR INFO', '#2ef2ff');
+        ui.toast('TWO FINGERS TO MOVE AND ZOOM THE MAP', '#2ef2ff');
+      }
+    });
     run.on('intro', (ids) => ui.showIntro(ids));
     run.on('over', (d) => { this.deselect(); ui.showGameOver(d); });
     run.on('drop', (kind) => ui.dropBanner(kind));
@@ -36,6 +43,7 @@ const app = {
     this.deselect();
     ui.enterRun();
     $speed();
+    renderer.cam.zoom = 2;
     this.centerCamera();
     this.autoTimer = 2.5;
   },
@@ -118,6 +126,15 @@ const app = {
   rotateChunk(ch) { if (this.run.rotateChunk(ch)) { ui.toast('CHUNK ROTATED', '#2ef2ff'); } this.cancelRelocate(); },
   beginSwap(ch) { this.view.relocate = { first: ch, swapFrom: ch }; ui.hidePanel(); ui.toast('NOW TAP ANOTHER GLOWING CHUNK', '#ff3df2'); },
 
+  inspect(tw) {
+    const v = this.view;
+    v.buildType = null; v.ghost = null; v.rock = null; v.raidSel = null;
+    v.selected = tw;
+    ui.showPanel(tw);
+    ui.refreshTowerBar();
+    sfx('click');
+  },
+
   // ---- counter-raids ----
   beginRaid(portal) {
     this.deselect();
@@ -183,16 +200,18 @@ const app = {
       return;
     }
     const tw = r.towerAt.get(tx + ',' + ty);
-    // Tower Accent: an on-beat tap on a tower during a wave fires a charged shot.
-    if (tw && judge && meta.settings.accents !== false && !v.buildType && r.canAccent(tw) && judge.grade !== 'miss') {
-      if (r.accent(tw, judge.grade)) return;
-    }
     if (tw) {
-      v.buildType = null; v.ghost = null; v.rock = null;
-      v.selected = tw;
-      ui.showPanel(tw);
-      ui.refreshTowerBar();
-      sfx('click');
+      // During a wave, tapping an attacking tower is purely a rhythm action:
+      // on the beat it fires an accent shot, off the beat nothing opens.
+      if (r.phase === 'wave' && !v.buildType && meta.settings.accents !== false && (tw.def.dmg || tw.def.drones)) {
+        const g = judge ? judge.grade : 'miss';
+        const say = (t) => r.text(tw.x, tw.y - 10, t, '#7380b8', 0.5);
+        if (g === 'miss') say('MISS');
+        else if (!r.canAccent(tw)) say('1 PER BAR');
+        else if (!r.accent(tw, g)) say('NO TARGET');
+        return;
+      }
+      this.inspect(tw);
       return;
     }
     if (r.world.tile(tx, ty) === T.CACHE) { r.salvage(tx, ty); return; }
@@ -229,7 +248,6 @@ const pointers = new Map();
 let moved = false;
 let pinchBase = 0;
 let lastMid = null;
-let slashing = false;
 const view = () => app.view;
 
 function mid() {
@@ -237,15 +255,59 @@ function mid() {
   return [(ps[0].x + ps[1].x) / 2, (ps[0].y + ps[1].y) / 2, Math.hypot(ps[0].x - ps[1].x, ps[0].y - ps[1].y)];
 }
 
+// Touch controls:
+//  - tap: build / select things; during a wave, tap a tower ON THE BEAT to accent it
+//  - hold (0.38s) on a tower: open its info panel, any time
+//  - one-finger drag during a DROP: Neon Slash
+//  - two fingers: pan the map and pinch to zoom (right/middle mouse drag on desktop)
+const HOLD_MS = 380;
+let mode = null; // 'tap' | 'slash' | 'pinch' | 'pan'
+let held = false, holdTimer = null;
+
+function cancelHold() { clearTimeout(holdTimer); holdTimer = null; view().hold = null; }
+function startHold(cx, cy) {
+  const r = app.run;
+  if (!r || r.placing) return;
+  const [wx, wy] = renderer.screenToWorld(cx, cy);
+  const tw = r.towerAt.get(Math.floor(wx / TS) + ',' + Math.floor(wy / TS));
+  if (!tw) return;
+  view().hold = { tw, t0: performance.now(), ms: HOLD_MS };
+  holdTimer = setTimeout(() => {
+    view().hold = null;
+    if (pointers.size !== 1 || moved || !app.run || !app.run.towers.includes(tw)) return;
+    held = true;
+    view().slashTrail = null;
+    app.inspect(tw);
+    haptic('tap');
+  }, HOLD_MS);
+}
+
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
 canvas.addEventListener('pointerdown', (e) => {
   unlockAudio();
   canvas.setPointerCapture(e.pointerId);
   const r = app.run;
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, judge: r ? r.judgeBeat() : null });
-  if (pointers.size === 1) { moved = false; slashing = !!(r && r.inDrop && r.slashesLeft > 0); }
-  if (pointers.size > 1) slashing = false;
-  if (pointers.size === 2) { const m = mid(); pinchBase = m[2]; lastMid = m; moved = true; }
+  if (e.pointerType === 'mouse' && e.button !== 0) { mode = 'pan'; moved = true; return; }
+  if (pointers.size === 1) {
+    moved = false; held = false;
+    mode = r && r.inDrop && r.slashesLeft > 0 ? 'slash' : 'tap';
+    startHold(e.clientX, e.clientY);
+  } else {
+    mode = 'pinch'; moved = true;
+    cancelHold();
+    view().slashTrail = null;
+    const m = mid(); pinchBase = m[2]; lastMid = m;
+  }
 });
+
+function panBy(dx, dy) {
+  if (!app.run) return;
+  renderer.cam.x -= dx / renderer.cssScale;
+  renderer.cam.y -= dy / renderer.cssScale;
+  renderer.clampCam(app.run.world);
+}
 
 canvas.addEventListener('pointermove', (e) => {
   const p = pointers.get(e.pointerId);
@@ -253,18 +315,13 @@ canvas.addEventListener('pointermove', (e) => {
   const dx = e.clientX - p.x, dy = e.clientY - p.y;
   p.x = e.clientX; p.y = e.clientY;
   if (!app.run) return;
+  if (mode === 'pan') { panBy(dx, dy); return; }
   if (pointers.size === 1) {
-    if (!moved && Math.hypot(p.x - p.sx, p.y - p.sy) > 10) moved = true;
-    if (moved && slashing) { view().slashTrail = [p.sx, p.sy, p.x, p.y]; return; }
-    if (moved) {
-      renderer.cam.x -= dx / renderer.cssScale;
-      renderer.cam.y -= dy / renderer.cssScale;
-      renderer.clampCam(app.run.world);
-    }
+    if (!moved && Math.hypot(p.x - p.sx, p.y - p.sy) > 10) { moved = true; cancelHold(); }
+    if (moved && mode === 'slash') view().slashTrail = [p.sx, p.sy, p.x, p.y];
   } else if (pointers.size === 2) {
     const m = mid();
-    renderer.cam.x -= (m[0] - lastMid[0]) / renderer.cssScale;
-    renderer.cam.y -= (m[1] - lastMid[1]) / renderer.cssScale;
+    panBy(m[0] - lastMid[0], m[1] - lastMid[1]);
     lastMid = m;
     const ratio = m[2] / pinchBase;
     if (ratio > 1.45 && renderer.cam.zoom < 3) { renderer.cam.zoom++; pinchBase = m[2]; }
@@ -277,14 +334,15 @@ function endPointer(e) {
   const p = pointers.get(e.pointerId);
   if (!p) return;
   pointers.delete(e.pointerId);
-  if (slashing && moved && pointers.size === 0 && e.type === 'pointerup' && app.run) {
+  const last = pointers.size === 0, up = e.type === 'pointerup';
+  if (last) cancelHold();
+  if (mode === 'slash' && moved && last && up && app.run && !held) {
     const [x1, y1] = renderer.screenToWorld(p.sx, p.sy), [x2, y2] = renderer.screenToWorld(e.clientX, e.clientY);
     app.run.slash(x1, y1, x2, y2, app.run.judgeBeat().grade);
   }
   view().slashTrail = null;
-  if (!moved && pointers.size === 0 && e.type === 'pointerup') app.tap(e.clientX, e.clientY, p.judge);
-  if (pointers.size === 0) slashing = false;
-  if (pointers.size === 1) { const q = [...pointers.values()][0]; q.sx = q.x; q.sy = q.y; }
+  if ((mode === 'tap' || mode === 'slash') && !moved && !held && last && up) app.tap(e.clientX, e.clientY, p.judge);
+  if (last) mode = null;
 }
 canvas.addEventListener('pointerup', endPointer);
 canvas.addEventListener('pointercancel', endPointer);
@@ -300,6 +358,8 @@ window.addEventListener('keydown', (e) => {
   if (!r) return;
   if (e.code === 'Space') { e.preventDefault(); app.startWave(); }
   if (e.key === 'Escape') app.deselect();
+  const pan = { ArrowLeft: [40, 0], ArrowRight: [-40, 0], ArrowUp: [0, 40], ArrowDown: [0, -40] }[e.key];
+  if (pan) panBy(pan[0], pan[1]);
   const n = parseInt(e.key, 10);
   if (n >= 1 && n <= 9) { const t = r.availableTowers()[n - 1]; if (t) app.selectBuild(t); }
 });
