@@ -1,5 +1,24 @@
 # Changelog
 
+## v2.5.0
+
+### No more infinite stalling
+- **New anti-stall fail-safe**: every enemy keeps track of how long it has been completely stopped (held in a black hole, frozen, stunned, blocked by husks) or knocked back along the path. Past 8 seconds (4 for bosses and mini-bosses) it turns **UNSTOPPABLE**, shown with a red glow and marker.
+  - An UNSTOPPABLE enemy can still be slowed (up to 50%) and damaged, but can't be stopped or pushed back again.
+  - This works for every tower, ability and combination, so no setup can hold a wave forever.
+- **Wormhole (Black Hole Cannon, path B) reworked**: it was able to stall bosses forever on its own.
+  - It now flings held enemies back 4 tiles (was 6) and shoves bosses back 1 tile (was 2), both limited by the fail-safe.
+  - To keep it strong, everything a Wormhole touches is now **Rift-Torn**: +35% damage taken from all towers for 4 seconds. The rift hit always lands, even on UNSTOPPABLE enemies.
+- The Warden's Shield Wall shove and the Cryo and Tesla freeze and stun effects also count toward the fail-safe.
+
+### Fixed
+- Selecting a tower for a Counter-Raid squad and then selling or fusing it before launching could remove a different tower from the map.
+- Commander cards now show the level on its own line instead of wrapping awkwardly.
+
+### Tested
+- Long automated runs (waves 1 to 72) using every tower, branch, fusion, relic, raid, ability, accent, slash, mutator, chunk move, shop and event, with save and reload every few waves. No errors, no stuck waves, no broken values.
+- Every menu and in-run screen clicked through, plus game over, Run Again, Continue, and loading older saves.
+
 ## v2.4.1
 
 ### Changed

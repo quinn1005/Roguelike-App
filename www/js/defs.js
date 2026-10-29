@@ -120,7 +120,7 @@ export const TOWERS = {
     credit: 'Designed by Levi',
     branches: {
       A: { name: 'Supermassive Collapse', desc: 'Holes implode when they close, blasting everything nearby. Bigger blast for every enemy held.', collapse: true },
-      B: { name: 'Wormhole', desc: '+25% hole size. When a hole closes, everything it held is flung back up the path toward its portal and torn for heavy damage. Bosses inside are shoved back too.', wormhole: 6, holeMult: 1.25 },
+      B: { name: 'Wormhole', desc: '+25% hole size. When a hole closes, everything inside is flung back toward its portal, hit hard, and Rift-Torn: +35% damage taken from all towers for 4s.', wormhole: 4, holeMult: 1.25, riftHit: 8 },
     },
   },
 };

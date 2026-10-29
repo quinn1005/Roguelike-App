@@ -656,6 +656,7 @@ export class Renderer {
       if (e.boss) this.glowAt(e.x, e.y - lift, 18 + Math.round(bt.kick * 4), e.def.shieldType ? DTYPE_COLOR[e.weak] : '#ff2f5a', 0.35 + 0.4 * bt.kick);
       if (e.mini) this.glowAt(e.x, e.y - lift, 14, '#ffd23f', 0.45);
       if (e.corrupted) this.glowAt(e.x, e.y - lift, 7, '#ff0090', 0.35);
+      if (e.unstoppable) { this.glowAt(e.x, e.y - lift, 9, '#ff2f5a', 0.3 + 0.3 * bt.kick); b.globalAlpha = alpha; }
       b.drawImage(spr, x, y, w, h);
       if (e.elite && !e.cloaked) {
         b.globalAlpha = 0.5 + 0.3 * Math.sin(time * 6);
@@ -672,6 +673,8 @@ export class Renderer {
       }
       if (e.poisonT > 0 && Math.random() < 0.15) run.particle(e.x + (Math.random() - 0.5) * 6, e.y, '#4dff8a', 0, -15, 0.5);
       if (e.shock > 0 && Math.random() < 0.2) run.particle(e.x + (Math.random() - 0.5) * 8, e.y - 4 + (Math.random() - 0.5) * 6, '#ffe84a', 0, 0, 0.1);
+      if (e.torn > 0) { b.fillStyle = '#ff3df2'; b.fillRect(x + 1, y + 2, 1, 2); b.fillRect(x + w - 2, y + h - 4, 1, 2); b.fillRect(Math.round(e.x), y + Math.round(h / 2), 1, 1); }
+      if (e.unstoppable) { b.fillStyle = Math.floor(time * 6) % 2 ? '#ff2f5a' : '#ffffff'; b.fillRect(Math.round(e.x) - 1, y - 6, 3, 1); b.fillRect(Math.round(e.x), y - 7, 1, 3); }
       if (e.stun > 0) { b.fillStyle = '#ffe84a'; b.fillRect(Math.round(e.x + Math.cos(time * 10) * 4), y - 2, 1, 1); }
       if (e.shield > 0) {
         const col = e.def.shieldType ? DTYPE_COLOR[e.weak] : '#2ef2ff';

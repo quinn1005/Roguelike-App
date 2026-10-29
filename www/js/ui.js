@@ -339,7 +339,7 @@ export class UI {
       const it = el('div', 'item' + (meta.commander === c.id ? ' selc' : '') + (has ? '' : ' off'));
       const st = cmdState(c.id);
       const pts = cmdPointsFree(c.id);
-      it.innerHTML = `<div class="grow"><div class="nm" style="color:${c.color}">${c.name} <span class="c-dim">LV ${st.level}</span>${has && pts > 0 ? ` <span class="pts">${pts} PT${pts > 1 ? 'S' : ''}</span>` : ''}</div><div class="ds">${c.desc}</div></div>`;
+      it.innerHTML = `<div class="grow"><div class="nm" style="color:${c.color}">${c.name}</div><div class="ds lvl">LV ${st.level}${has && pts > 0 ? ` <span class="pts">${pts} PT${pts > 1 ? 'S' : ''}</span>` : ''}</div><div class="ds">${c.desc}</div></div>`;
       it.prepend(commanderCanvas(c.id));
       if (has) {
         const btns = el('div', 'vbtns');

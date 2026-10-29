@@ -255,6 +255,8 @@ export class Run {
     return clamp((r * r) / (1 + r * r), 0.05, 0.95);
   }
   launchRaid(p, squad) {
+    // only towers still on the map (one picked for the squad may have been sold or fused since)
+    squad = squad.filter((tw, i) => this.towers.includes(tw) && squad.indexOf(tw) === i);
     if (!this.canRaid() || !squad.length || squad.length > 5) return false;
     const odds = this.raidOdds(p, squad);
     for (const tw of squad) {
@@ -1102,7 +1104,7 @@ export class Run {
     e.anim += dt;
     if (e.hitFlash > 0) e.hitFlash -= dt;
     e.slowT -= dt; if (e.slowT <= 0) e.slow = 0;
-    e.freeze -= dt; e.stun -= dt; e.held -= dt; e.holeImmune -= dt; e.ccImmune -= dt; e.shock -= dt; e.corrode -= dt; e.spawnSlow -= dt;
+    e.freeze -= dt; e.stun -= dt; e.torn -= dt; e.held -= dt; e.holeImmune -= dt; e.ccImmune -= dt; e.shock -= dt; e.corrode -= dt; e.spawnSlow -= dt;
     // poison
     if (e.poisonT > 0) {
       e.poisonT -= dt;
@@ -1150,6 +1152,7 @@ export class Run {
     // movement
     let spd = e.speed * Math.max(0.2, 1 + this.mods.enemySpeed);
     if (this.overtime) { e.freeze = 0; e.stun = 0; e.slow = 0; e.held = 0; spd *= 1.5; }
+    if (e.unstoppable) { e.freeze = 0; e.stun = 0; e.held = 0; e.blocker = null; e.slow = Math.min(e.slow, 0.5); }
     if (e.freeze > 0 || (e.stun > 0) || e.held > 0) spd = 0;
     if (e.slow > 0) spd *= 1 - e.slow;
     if (e.spawnSlow > 0) spd *= 0.5;
@@ -1190,6 +1193,8 @@ export class Run {
         if (e.blocker.hp <= 0) this.killUnit(e.blocker);
       }
     }
+    // Time spent completely stopped counts against the anti-stall budget.
+    if (spd === 0) this.addStall(e, dt);
     let move = spd * dt;
     while (move > 0 && e.i < e.route.length - 1) {
       const [tx, ty] = e.route[e.i + 1];
@@ -1539,7 +1544,7 @@ export class Run {
       if (!u.engaged) {
         for (const e of this.enemies) {
           if (!e.alive || e.flying || e.phased) continue;
-          if (dist2(e.x, e.y, u.x, u.y) < 81) { u.engaged = e; if (!e.boss && !e.blocker) e.blocker = u; break; }
+          if (dist2(e.x, e.y, u.x, u.y) < 81) { u.engaged = e; if (!e.boss && !e.blocker && !e.unstoppable) e.blocker = u; break; }
         }
       }
       if (u.engaged) {
@@ -1634,6 +1639,30 @@ export class Run {
     if (p.kind === 'mortar') this.shake = Math.min(5, this.shake + 1);
   }
 
+  // ---- anti-stall fail-safe ----
+  // No mix of towers can hold an enemy forever. Every second an enemy spends
+  // fully stopped (held, frozen, stunned, blocked) or loses to knockback is
+  // added up; past the limit it becomes UNSTOPPABLE for the rest of its life:
+  // it can still be slowed (up to 50%) and damaged, but not stopped or pushed.
+  stallLimit(e) { return e.boss || e.mini ? 4 : 8; }
+  addStall(e, secs) {
+    if (e.unstoppable || !e.alive) return;
+    e.stall = (e.stall || 0) + secs;
+    if (e.stall < this.stallLimit(e)) return;
+    e.unstoppable = true;
+    e.freeze = 0; e.stun = 0; e.held = 0; e.blocker = null;
+    this.text(e.x, e.y - 10, 'UNSTOPPABLE', '#ff2f5a', 0.9);
+    this.ring(e.x, e.y, 10, '#ff2f5a');
+  }
+  // Knock an enemy back along its path. Returns false if it can't be moved.
+  pushBack(e, tiles) {
+    if (e.unstoppable || e.i < 1) return false;
+    const ni = Math.max(0, e.i - tiles), moved = e.i - ni;
+    e.traveled = Math.max(0, e.traveled - moved * TS); e.i = ni; [e.x, e.y] = e.route[ni];
+    this.addStall(e, (moved * TS) / Math.max(8, e.speed));
+    return true;
+  }
+
   // ---- black holes ----
   openHole(p) {
     const tw = p.tw, s = tw.stats;
@@ -1652,7 +1681,7 @@ export class Run {
       if (!e.alive) continue;
       const d2 = dist2(e.x, e.y, h.x, h.y);
       if (d2 > (h.r + e.size) * (h.r + e.size)) continue;
-      if (e.boss || e.mini || e.def.nullify || this.overtime) { e.slow = Math.max(e.slow, 0.5); e.slowT = Math.max(e.slowT, 0.2); continue; }
+      if (e.boss || e.mini || e.def.nullify || e.unstoppable || this.overtime) { e.slow = Math.max(e.slow, 0.5); e.slowT = Math.max(e.slowT, 0.2); continue; }
       if (!h.held.has(e) && e.holeImmune > 0) { e.slow = Math.max(e.slow, 0.5); e.slowT = Math.max(e.slowT, 0.2); continue; }
       h.held.add(e);
       e.held = 0.1;
@@ -1702,17 +1731,16 @@ export class Run {
       for (const e of this.enemies) {
         if (!e.alive || !(e.boss || e.mini) || e.flying || e.i < 1) continue;
         if (dist2(e.x, e.y, h.x, h.y) > (h.r + e.size) * (h.r + e.size)) continue;
-        const ni = Math.max(0, e.i - 2);
-        e.traveled = Math.max(0, e.traveled - (e.i - ni) * TS); e.i = ni; [e.x, e.y] = e.route[ni];
-        this.burst(e.x, e.y, '#ff3df2', 10);
-        this.hit(tw, e, s.dmg * 6, s);
+        // the rift always tears at them; the shove is skipped once they're unstoppable
+        if (this.pushBack(e, 1)) this.burst(e.x, e.y, '#ff3df2', 10);
+        e.torn = 4;
+        this.hit(tw, e, s.dmg * (s.br.riftHit || 6), s);
       }
       for (const e of held) {
-        if (!e.alive || e.i < 1) continue;
-        const ni = Math.max(0, e.i - s.br.wormhole);
-        e.traveled = Math.max(0, e.traveled - (e.i - ni) * TS); e.i = ni; [e.x, e.y] = e.route[ni];
-        this.burst(e.x, e.y, '#ff3df2', 5);
-        this.hit(tw, e, s.dmg * 6, s);
+        if (!e.alive) continue;
+        if (this.pushBack(e, s.br.wormhole)) this.burst(e.x, e.y, '#ff3df2', 5);
+        e.torn = 4;
+        this.hit(tw, e, s.dmg * (s.br.riftHit || 6), s);
       }
       if (held.length) { this.ring(h.x, h.y, h.r, '#ff3df2', 0.4); this.sfx('portal'); }
     }
@@ -1736,11 +1764,11 @@ export class Run {
     if (s.slow) {
       e.slow = Math.max(e.slow, e.boss ? s.slow * 0.6 : s.slow);
       e.slowT = Math.max(e.slowT, s.slowDur);
-      if (br.freeze && e.ccImmune <= 0 && this.rng() < br.freeze) { e.freeze = e.boss ? 0.3 : 1; e.ccImmune = e.freeze + 1.5; }
+      if (br.freeze && !e.unstoppable && e.ccImmune <= 0 && this.rng() < br.freeze) { e.freeze = e.boss ? 0.3 : 1; e.ccImmune = e.freeze + 1.5; }
     }
     if (tw.type === 'tesla' || br.shockBeam || br.chainOnHit) {
       e.shock = 1.5;
-      if (br.stun && e.ccImmune <= 0 && this.rng() < br.stun) { e.stun = e.boss ? 0.2 : 0.7; e.ccImmune = e.stun + 1.5; }
+      if (br.stun && !e.unstoppable && e.ccImmune <= 0 && this.rng() < br.stun) { e.stun = e.boss ? 0.2 : 0.7; e.ccImmune = e.stun + 1.5; }
     }
     if (s.poison) {
       e.poison = Math.max(e.poison, s.poison);
@@ -1804,6 +1832,7 @@ export class Run {
     if (this.tb.dmgTaken) a *= 1 + this.tb.dmgTaken;
     if ((e.slowT > 0 || e.freeze > 0) && this.mods.brittle) a *= 1 + this.mods.brittle;
     if (e.corrode > 0) a *= 1.25;
+    if (e.torn > 0) a *= 1.35; // Rift-Torn by a Wormhole
     if (e.shield > 0) {
       let sm = 1 + this.mods.shieldDmg;
       if (e.def.shieldType && dtype !== e.weak) sm *= 0.1;
@@ -1922,7 +1951,7 @@ export class Run {
       case 'repair': this.heal(3); break;
       case 'overdrive': this.addTimed('dmg', 0.5, 6); break;
       case 'refund': this.addGold(Math.round(this.towers.reduce((a, t) => a + t.invested, 0) * 0.08)); this.sfx('coin'); break;
-      case 'freeze': for (const e of alive) if (!e.def.nullify) { e.freeze = e.boss ? 0.8 : 2.5; e.ccImmune = e.freeze + 0.5; } break;
+      case 'freeze': for (const e of alive) if (!e.def.nullify && !e.unstoppable) { e.freeze = e.boss ? 0.8 : 2.5; e.ccImmune = e.freeze + 0.5; } break;
       case 'blizzard': this.addTimed('slow', 0.5, 6); break;
       case 'shatter': for (const e of alive) if (e.slowT > 0 || e.freeze > 0) pctHit(e, 0.2, 0.06); break;
       case 'toxic':
@@ -1939,9 +1968,8 @@ export class Run {
       case 'fortify': this.heal(2); this.addTimed('empImmune', 1, 15); break;
       case 'shove':
         for (const e of alive) {
-          if (e.boss || e.flying || e.i < 1) continue;
-          const ni = Math.max(0, e.i - 3);
-          e.traveled = Math.max(0, e.traveled - (e.i - ni) * TS); e.i = ni; [e.x, e.y] = e.route[ni];
+          if (e.boss || e.flying) continue;
+          this.pushBack(e, 3);
         }
         this.ring(cx, cy, 80, '#3d7bff'); break;
       case 'quickdraw': this.addTimed('crit', 0.5, 6); break;

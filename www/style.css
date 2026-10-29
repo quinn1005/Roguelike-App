@@ -451,3 +451,4 @@ body::after {
 #beatbar { top: 30px; }
 #wavepreview, #bossbar { top: 52px; }
 #toasts { top: 80px; }
+.item .ds.lvl { color: var(--cyan); margin-bottom: 2px; }
