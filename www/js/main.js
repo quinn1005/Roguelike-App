@@ -38,6 +38,7 @@ const app = {
     run.on('intro', (ids) => ui.showIntro(ids));
     run.on('over', (d) => { this.deselect(); ui.showGameOver(d); });
     run.on('drop', (kind) => ui.dropBanner(kind));
+    run.on('raidres', (res) => ui.raidToast(res));
     run.onTrack = (tr) => playTrack(tr, 0);
     run.beatSrc = () => (this.run === run ? musicBeats() : null);
     this.deselect();

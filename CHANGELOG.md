@@ -1,5 +1,14 @@
 # Changelog
 
+## v2.4.0
+
+### Fewer interruptions
+- Rewards are now bundled into **one stop every third wave**, when the map expands. The waves in between flow straight into each other with no popups (before, every single wave ended in one).
+- At each stop you pick an augment. Every other stop is a **pick-2 draft** from 4 cards, so you still get about as many augments as before.
+- Shops and random events are rarer: about once every 12 waves, at the same stop.
+- Boss spoils and new-enemy intel screens are unchanged.
+- Counter-Raids unlock at wave 5 (was 3) and the squad needs 4 waves to recover (was 2). Raid results now show as on-screen messages instead of a popup.
+
 ## v2.3.1
 
 ### Changed

@@ -839,6 +839,18 @@ export class UI {
     c.fillStyle = '#ff2f5a'; c.fillRect(70 + 60 * (1 - guardHp), 48, 60 * guardHp, 2);
   }
 
+  // Raid results arrive as messages instead of a popup, so play keeps flowing.
+  raidToast(res) {
+    if (res.win) {
+      const relic = res.relic ? RELIC_BY_ID[res.relic] : null;
+      this.toast(`RAID SUCCESS! +${res.gold}c +${res.shards} SHARD${res.shards > 1 ? 'S' : ''}${relic ? ' + ' + relic.name.toUpperCase() : ''}`, '#4dff8a');
+      this.toast('PORTAL WEAKENED FOR 3 WAVES', '#4dff8a');
+    } else {
+      this.toast('RAID FAILED - SQUAD RETURNED', '#ff2f5a');
+      this.toast('RETALIATION INCOMING NEXT WAVE', '#ff2f5a');
+    }
+  }
+
   showRaidResult(res) {
     const r = this.run;
     this.openModal((box) => {
@@ -1071,9 +1083,14 @@ export class UI {
     if (c.kind === 'raid') return this.showRaidResult(c.result);
     if (c.kind === 'augment') {
       const draw = () => this.openModal((box) => {
-        box.append(el('h2', '', c.title || 'CHOOSE AN AUGMENT'));
+        const left = c.picks || 1;
+        box.append(el('h2', '', c.title || (left > 1 ? `CHOOSE ${left} AUGMENTS` : c.picked ? 'CHOOSE 1 MORE' : 'CHOOSE AN AUGMENT')));
         const cards = el('div', 'cards');
-        for (const a of c.options) cards.append(this.augCard(a, () => { sfx('pick'); r.addAugment(a.id); this.toast(a.name, RARITY[a.rarity].color); this.closeModal(); r.nextChoice(); }));
+        for (const a of c.options) cards.append(this.augCard(a, () => {
+          sfx('pick'); r.addAugment(a.id); this.toast(a.name, RARITY[a.rarity].color);
+          if (left > 1) { c.picks = left - 1; c.picked = true; c.options = c.options.filter((o) => o !== a); draw(); return; }
+          this.closeModal(); r.nextChoice();
+        }));
         box.append(cards);
         const row = el('div', 'mrow');
         row.append(this.rerollBtn(c, draw));

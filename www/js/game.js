@@ -245,7 +245,7 @@ export class Run {
   // whole next wave and the result comes in when it ends.
   portalKey(p) { return p.tx + ',' + p.ty; }
   portalState(p) { return this.portalInfo[this.portalKey(p)] || (this.portalInfo[this.portalKey(p)] = { raids: 0, weak: 0, retaliate: 0 }); }
-  canRaid() { return this.phase === 'build' && !this.raid && this.wave >= 3 && this.wave >= this.raidReady && this.towers.length > 0 && !this.placing; }
+  canRaid() { return this.phase === 'build' && !this.raid && this.wave >= 5 && this.wave >= this.raidReady && this.towers.length > 0 && !this.placing; }
   // Roughly what a player has invested in towers by wave w (measured from play).
   expectedInvest(w) { return Math.exp(w < 10 ? 5.7 + (Math.max(3, w) - 3) * 0.22 : 7.24 + (w - 10) * 0.134); }
   raidStrength(p) { return 0.48 * this.expectedInvest(this.wave + 1) * (1 + 0.35 * this.portalState(p).raids) * this.heatMul.hp; }
@@ -286,7 +286,7 @@ export class Run {
     this.recomputeStats();
     const info = this.portalInfo[R.key] || (this.portalInfo[R.key] = { raids: 0, weak: 0, retaliate: 0 });
     info.raids++;
-    this.raidReady = this.wave + 2;
+    this.raidReady = this.wave + 4;
     const res = { win: R.win, odds: R.odds, squad: R.squad.map((t) => t.type) };
     if (R.win) {
       const w = this.wave;
@@ -730,13 +730,16 @@ export class Run {
 
     const q = [];
     if (w % EXPAND_EVERY === 0 || w % BOSS_EVERY === 0) q.push({ kind: 'expand' });
+    // Fewer interruptions: everything is bundled into one stop every third
+    // wave (the map expansion), so the waves in between flow straight on.
+    const expandWave = w % EXPAND_EVERY === 0;
     if (w % BOSS_EVERY === 0) q.push({ kind: 'augment', minRarity: 2, title: 'BOSS SPOILS', relic: true });
-    else if (w % 2 === 1) q.push({ kind: 'augment' });
-    else {
-      const r = this.rng();
-      q.push({ kind: r < 0.4 ? 'shop' : r < 0.75 ? 'event' : 'augment' });
+    else if (w === 1) q.push({ kind: 'augment' });
+    else if (expandWave) {
+      q.push({ kind: 'augment', picks: w % 6 === 3 ? 2 : 1 });
+      if (w % 6 === 0 && this.rng() < 0.5) q.push({ kind: this.rng() < 0.55 ? 'shop' : 'event' });
     }
-    if (raidRes) q.unshift({ kind: 'raid', result: raidRes });
+    if (raidRes) this.emit('raidres', raidRes);
     this.choiceQueue = q;
     this.nextChoice();
   }
@@ -753,7 +756,7 @@ export class Run {
       return;
     }
     this.phase = 'choice';
-    if (c.kind === 'augment') c.options = this.rollAugments(this.mods.choices, c.minRarity || 1, c.relic);
+    if (c.kind === 'augment') c.options = this.rollAugments(this.mods.choices + (c.picks > 1 ? 1 : 0), c.minRarity || 1, c.relic);
     if (c.kind === 'shop') c.items = this.makeShop();
     if (c.kind === 'event') c.event = this.makeEvent();
     if (c.kind === 'expand') {
@@ -769,7 +772,7 @@ export class Run {
     if (this.rerolls > 0) this.rerolls--;
     else { const cost = this.rerollCost(c); if (this.gold < cost) return false; this.gold -= cost; }
     c.rerollCount = (c.rerollCount || 0) + 1;
-    if (c.kind === 'augment') c.options = this.rollAugments(this.mods.choices, c.minRarity || 1);
+    if (c.kind === 'augment') c.options = this.rollAugments(this.mods.choices + (c.picks > 1 ? 1 : 0), c.minRarity || 1);
     if (c.kind === 'shop') c.items = this.makeShop();
     return true;
   }

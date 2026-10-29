@@ -85,8 +85,8 @@ export const PAGES = [
     title: 'AUGMENTS, SHOP & EVENTS',
     art: () => icon('coin') + tw('blaster', 3) + icon('shard'),
     body: () => `
-      <p>Between waves you'll often get a choice:</p>
-      <p>${k('AUGMENTS', 'mag')}: pick one of several run-long upgrades, rated common to legendary. Boss waves give rarer <b>Boss Spoils</b>.<br>
+      <p>Every third wave, when the map expands, you also get your rewards in one stop:</p>
+      <p>${k('AUGMENTS', 'mag')}: pick run-long upgrades, rated common to legendary (every other stop you get to take 2). Boss waves give rarer <b>Boss Spoils</b>.<br>
       ${k('BLACK MARKET', 'yel')}: buy augments and relics with credits. Augments cost more for every copy you own, and <b>rerolls double in price</b> every time in the same shop.<br>
       ${k('EVENTS')}: random encounters with a trade-off to accept or refuse.</p>
       <p>${k('RELICS', 'mag')} are installed on a single tower (Ricochet Core, Frost Shell, Toxic Rounds, Bounty Chip...). They come from augment picks, the shop, and boss spoils.</p>`,
@@ -120,11 +120,11 @@ export const PAGES = [
     title: 'COUNTER-RAIDS',
     art: () => tw('cannon', 3) + foe('shade') + tw('railgun', 3),
     body: () => `
-      <p>From wave 3, the ${k('RAID', 'mag')} button lets you strike back. Pick a portal, then tap <b>up to 5 towers</b> to form a strike squad.</p>
+      <p>From wave 5, the ${k('RAID', 'mag')} button lets you strike back. Pick a portal, then tap <b>up to 5 towers</b> to form a strike squad.</p>
       <p>The squad <b>leaves the map for the whole next wave</b>, so the rest of your defense has to hold without them. A little window shows the fight inside the rift. The success odds are shown before you launch: stronger, pricier, higher-ranked towers raise them.</p>
       <p>${k('WIN', 'grn')}: credits, Void Shards, maybe a relic, +10 veterancy kills for each raider, and that portal sends half its enemies for 3 waves.<br>
       ${k('LOSE', 'red')}: the portal sends a retaliation squad of elites next wave.</p>
-      <p class="c-dim">Every raid fortifies that portal, and the squad needs 2 waves to recover before the next raid.</p>`,
+      <p class="c-dim">Every raid fortifies that portal, and the squad needs 4 waves to recover before the next raid. Results show up as messages, so play never stops.</p>`,
   },
   {
     title: 'CONTROLS & TIPS',
