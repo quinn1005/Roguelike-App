@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.3.1
+
+### Changed
+- **Neon Slash follows your finger.** The slash now traces the exact path you draw, curves and all, instead of a straight line from start to finish. Each enemy along the stroke is hit once, and strokes can be up to about 14 tiles long. The live preview follows your finger too.
+
 ## v2.3.0
 
 ### New controls

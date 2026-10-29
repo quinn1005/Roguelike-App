@@ -318,7 +318,12 @@ canvas.addEventListener('pointermove', (e) => {
   if (mode === 'pan') { panBy(dx, dy); return; }
   if (pointers.size === 1) {
     if (!moved && Math.hypot(p.x - p.sx, p.y - p.sy) > 10) { moved = true; cancelHold(); }
-    if (moved && mode === 'slash') view().slashTrail = [p.sx, p.sy, p.x, p.y];
+    if (mode === 'slash' && moved) {
+      // record the finger's path (a point every few pixels) so the slash can curve
+      const tr = view().slashTrail || (view().slashTrail = [[p.sx, p.sy]]);
+      const [lx, ly] = tr[tr.length - 1];
+      if (Math.hypot(p.x - lx, p.y - ly) >= 4) tr.push([p.x, p.y]);
+    }
   } else if (pointers.size === 2) {
     const m = mid();
     panBy(m[0] - lastMid[0], m[1] - lastMid[1]);
@@ -337,8 +342,8 @@ function endPointer(e) {
   const last = pointers.size === 0, up = e.type === 'pointerup';
   if (last) cancelHold();
   if (mode === 'slash' && moved && last && up && app.run && !held) {
-    const [x1, y1] = renderer.screenToWorld(p.sx, p.sy), [x2, y2] = renderer.screenToWorld(e.clientX, e.clientY);
-    app.run.slash(x1, y1, x2, y2, app.run.judgeBeat().grade);
+    const tr = (view().slashTrail || [[p.sx, p.sy]]).concat([[e.clientX, e.clientY]]);
+    app.run.slash(tr.map(([x, y]) => renderer.screenToWorld(x, y)), app.run.judgeBeat().grade);
   }
   view().slashTrail = null;
   if ((mode === 'tap' || mode === 'slash') && !moved && !held && last && up) app.tap(e.clientX, e.clientY, p.judge);

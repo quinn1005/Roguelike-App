@@ -239,12 +239,15 @@ export class Renderer {
     this.drawEnemies(run, time);
     this.drawProjectiles(run);
     this.drawFx(run, time);
-    if (view.slashTrail) {
-      const [ax, ay] = this.screenToWorld(view.slashTrail[0], view.slashTrail[1]);
-      const [bx, by] = this.screenToWorld(view.slashTrail[2], view.slashTrail[3]);
-      const n = Math.max(2, Math.floor(Math.hypot(bx - ax, by - ay) / 3));
+    if (view.slashTrail && view.slashTrail.length > 1) {
+      // live preview of the stroke, following the finger
       b.fillStyle = Math.floor(time * 12) % 2 ? '#ff3df2' : '#ffffff';
-      for (let i = 0; i <= n; i++) b.fillRect(Math.round(ax + (bx - ax) * i / n), Math.round(ay + (by - ay) * i / n), 1, 1);
+      const w = view.slashTrail.map(([x, y]) => this.screenToWorld(x, y));
+      for (let i = 1; i < w.length; i++) {
+        const [ax, ay] = w[i - 1], [bx, by] = w[i];
+        const n = Math.max(1, Math.floor(Math.hypot(bx - ax, by - ay) / 3));
+        for (let j = 0; j < n; j++) b.fillRect(Math.round(ax + (bx - ax) * j / n), Math.round(ay + (by - ay) * j / n), 1, 1);
+      }
     }
 
     if (view.glowOn) this.bloom();
@@ -762,11 +765,15 @@ export class Renderer {
         this.glowAt(l.x2, l.y2, 5, l.color, 0.7);
       } else if (l.kind === 'slash') {
         const k = l.life / 0.45;
-        b.strokeStyle = l.color; b.lineWidth = 2 + 4 * k;
-        b.beginPath(); b.moveTo(l.x1, l.y1); b.lineTo(l.x2, l.y2); b.stroke();
-        b.strokeStyle = '#ffffff'; b.lineWidth = 1 + k;
-        b.beginPath(); b.moveTo(l.x1, l.y1); b.lineTo(l.x2, l.y2); b.stroke();
-        this.glowAt((l.x1 + l.x2) / 2, (l.y1 + l.y2) / 2, 16, l.color, 0.6 * k);
+        const stroke = (col, w) => {
+          b.strokeStyle = col; b.lineWidth = w; b.lineJoin = 'round'; b.lineCap = 'round';
+          b.beginPath(); b.moveTo(l.pts[0][0], l.pts[0][1]);
+          for (let i = 1; i < l.pts.length; i++) b.lineTo(l.pts[i][0], l.pts[i][1]);
+          b.stroke();
+        };
+        stroke(l.color, 2 + 4 * k);
+        stroke('#ffffff', 1 + k);
+        for (let i = 0; i < l.pts.length; i += Math.max(1, Math.floor(l.pts.length / 4))) this.glowAt(l.pts[i][0], l.pts[i][1], 12, l.color, 0.45 * k);
       } else {
         b.strokeStyle = l.color; b.lineWidth = 3 * l.life * 4;
         b.beginPath(); b.moveTo(l.x1, l.y1); b.lineTo(l.x2, l.y2); b.stroke();

@@ -1003,29 +1003,45 @@ export class Run {
     return true;
   }
 
-  // Neon Slash: during a DROP, a swipe cuts every enemy along the line.
-  slash(x1, y1, x2, y2, grade) {
-    if (!this.inDrop || this.slashesLeft <= 0) return false;
-    const len = Math.hypot(x2 - x1, y2 - y1);
+  // Neon Slash: during a DROP, a swipe cuts every enemy along the exact path
+  // the finger drew (a polyline of world points), each enemy at most once.
+  slash(pts, grade) {
+    if (!this.inDrop || this.slashesLeft <= 0 || pts.length < 2) return false;
+    // keep the first 220 px of the stroke
+    const path = [pts[0]];
+    let len = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const [ax, ay] = path[path.length - 1], [bx, by] = pts[i];
+      const d = Math.hypot(bx - ax, by - ay);
+      if (len + d > 220) { const k = (220 - len) / d; path.push([ax + (bx - ax) * k, ay + (by - ay) * k]); len = 220; break; }
+      path.push(pts[i]); len += d;
+    }
     if (len < 12) return false;
-    if (len > 160) { x2 = x1 + (x2 - x1) * 160 / len; y2 = y1 + (y2 - y1) * 160 / len; }
     this.slashesLeft--;
     const mult = grade === 'perfect' ? 1 : grade === 'good' ? 0.6 : 0.25;
     const dmg = 40 * this.hpScale(this.wave) * mult;
-    const vx = x2 - x1, vy = y2 - y1, L2 = vx * vx + vy * vy;
+    const near = (e) => {
+      const r2 = (e.size + 6) * (e.size + 6);
+      for (let i = 1; i < path.length; i++) {
+        const [x1, y1] = path[i - 1], [x2, y2] = path[i];
+        const vx = x2 - x1, vy = y2 - y1, L2 = vx * vx + vy * vy || 1;
+        const t = clamp(((e.x - x1) * vx + (e.y - y1) * vy) / L2, 0, 1);
+        if (dist2(x1 + vx * t, y1 + vy * t, e.x, e.y) <= r2) return true;
+      }
+      return false;
+    };
     let n = 0;
     for (const e of this.enemies) {
-      if (!e.alive || e.phased) continue;
-      const t = clamp(((e.x - x1) * vx + (e.y - y1) * vy) / L2, 0, 1);
-      if (dist2(x1 + vx * t, y1 + vy * t, e.x, e.y) > (e.size + 6) * (e.size + 6)) continue;
+      if (!e.alive || e.phased || !near(e)) continue;
       this.damage(e, e.boss ? dmg * 0.5 : dmg, 'eng', null);
       this.burst(e.x, e.y, '#ff3df2', 4);
       n++;
     }
-    this.fx.lines.push({ x1, y1, x2, y2, color: grade === 'miss' ? '#7380b8' : '#ff3df2', kind: 'slash', life: 0.45, seed: Math.random() });
-    for (let k = 0; k < 10; k++) { const t = k / 9; this.particle(x1 + vx * t, y1 + vy * t, '#ff3df2', (this.rng() - 0.5) * 30, (this.rng() - 0.5) * 30, 0.4); }
+    this.fx.lines.push({ pts: path, color: grade === 'miss' ? '#7380b8' : '#ff3df2', kind: 'slash', life: 0.45, seed: Math.random() });
+    for (let k = 0; k < path.length; k += Math.max(1, Math.floor(path.length / 12))) this.particle(path[k][0], path[k][1], '#ff3df2', (this.rng() - 0.5) * 30, (this.rng() - 0.5) * 30, 0.4);
+    const mid = path[Math.floor(path.length / 2)];
     const label = grade === 'perfect' ? 'PERFECT SLASH' : grade === 'good' ? 'GOOD SLASH' : 'OFF BEAT';
-    this.text((x1 + x2) / 2, (y1 + y2) / 2 - 8, label + (n > 1 ? ' x' + n : ''), grade === 'miss' ? '#7380b8' : '#ff3df2', 0.8);
+    this.text(mid[0], mid[1] - 8, label + (n > 1 ? ' x' + n : ''), grade === 'miss' ? '#7380b8' : '#ff3df2', 0.8);
     this.sfx('slash');
     this.haptic(grade === 'perfect' ? 'heavy' : 'tap');
     this.shake = Math.min(4, this.shake + (grade === 'perfect' ? 1.5 : 0.5));
