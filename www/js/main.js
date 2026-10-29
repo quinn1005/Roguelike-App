@@ -44,7 +44,7 @@ const app = {
     this.deselect();
     ui.enterRun();
     $speed();
-    renderer.cam.zoom = 2;
+    renderer.setZoom(2);
     this.centerCamera();
     this.autoTimer = 2.5;
   },
@@ -89,7 +89,7 @@ const app = {
   },
 
   focusSlots() {
-    renderer.cam.zoom = 1;
+    renderer.setZoom(1);
     this.centerCamera();
   },
 
@@ -330,8 +330,8 @@ canvas.addEventListener('pointermove', (e) => {
     panBy(m[0] - lastMid[0], m[1] - lastMid[1]);
     lastMid = m;
     const ratio = m[2] / pinchBase;
-    if (ratio > 1.45 && renderer.cam.zoom < 3) { renderer.cam.zoom++; pinchBase = m[2]; }
-    if (ratio < 0.69 && renderer.cam.zoom > 1) { renderer.cam.zoom--; pinchBase = m[2]; }
+    if (ratio > 1.45) { renderer.zoomStep(1); pinchBase = m[2]; }
+    if (ratio < 0.69) { renderer.zoomStep(-1); pinchBase = m[2]; }
     renderer.clampCam(app.run.world);
   }
 });
@@ -356,7 +356,7 @@ canvas.addEventListener('pointercancel', endPointer);
 canvas.addEventListener('wheel', (e) => {
   e.preventDefault();
   if (!app.run) return;
-  renderer.cam.zoom = Math.max(1, Math.min(3, renderer.cam.zoom + (e.deltaY < 0 ? 1 : -1)));
+  renderer.zoomStep(e.deltaY < 0 ? 1 : -1);
 }, { passive: false });
 
 window.addEventListener('keydown', (e) => {

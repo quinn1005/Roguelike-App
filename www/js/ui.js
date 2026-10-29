@@ -520,7 +520,7 @@ export class UI {
       button('RESET ALL PROGRESS', 'red', () => this.confirm('Erase ALL progress, unlocks and talents? This cannot be undone.', () => { resetMeta(); this.showMenu(); })),
     );
     wrap.append(col);
-    wrap.append(el('p', 'c-dim', '<br>Pinch or scroll to zoom. Drag to pan. Tap a tower in the bar, then tap a tile twice to build.'));
+    wrap.append(el('p', 'c-dim', '<br>Two fingers to pan and pinch-zoom (or right-drag and scroll). Tap a tower in the bar, then tap a tile twice to build.'));
     this.screen.append(wrap);
   }
 

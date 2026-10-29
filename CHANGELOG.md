@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.5.1
+
+### New
+- **One more level of zoom out.** Pinch out (or scroll down) past the old widest view to see much more of the map at once. The wide view draws at a finer resolution, so the pixel art stays crisp.
+
 ## v2.5.0
 
 ### No more infinite stalling

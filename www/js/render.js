@@ -127,24 +127,45 @@ export class Renderer {
     const dpr = window.devicePixelRatio || 1;
     const w = Math.floor(window.innerWidth * dpr), h = Math.floor(window.innerHeight * dpr);
     this.canvas.width = w; this.canvas.height = h;
-    this.ps = Math.max(1, Math.round(h / 250));
+    this.basePs = Math.max(1, Math.round(h / 250));
+    this.dpr = dpr;
+    this.applyScale();
+  }
+
+  // Zoom levels: 0.5 (wide), 1, 2, 3. The wide level renders into a finer
+  // buffer (half the pixel scale) instead of shrinking the art, so pixels stay crisp.
+  applyScale() {
+    const w = this.canvas.width, h = this.canvas.height;
+    this.ps = this.cam.zoom < 1 ? Math.max(1, Math.round(this.basePs / 2)) : this.basePs;
     this.bw = Math.ceil(w / this.ps); this.bh = Math.ceil(h / this.ps);
     this.buf.width = this.bw; this.buf.height = this.bh;
     this.b.imageSmoothingEnabled = false;
     this.ctx.imageSmoothingEnabled = false;
-    this.dpr = dpr;
     this.gcv.width = Math.ceil(this.bw / 2); this.gcv.height = Math.ceil(this.bh / 2);
     this.gctx.imageSmoothingEnabled = true;
     this.makeNebula();
   }
+  // world-to-buffer scale actually used for drawing
+  get zf() { return this.cam.zoom >= 1 ? this.cam.zoom : this.ps < this.basePs ? 1 : 0.5; }
+  setZoom(z) {
+    const was = this.cam.zoom;
+    this.cam.zoom = z;
+    if ((was < 1) !== (z < 1) && this.basePs) this.applyScale();
+  }
+  zoomStep(dir) {
+    const L = [0.5, 1, 2, 3];
+    const i = L.indexOf(this.cam.zoom);
+    const n = Math.max(0, Math.min(L.length - 1, (i < 0 ? 1 : i) + dir));
+    if (L[n] !== this.cam.zoom) this.setZoom(L[n]);
+  }
 
   screenToWorld(cx, cy) {
     const bx = (cx * this.dpr) / this.ps, by = (cy * this.dpr) / this.ps;
-    return [(bx - this.bw / 2) / this.cam.zoom + this.cam.x, (by - this.bh / 2) / this.cam.zoom + this.cam.y];
+    return [(bx - this.bw / 2) / this.zf + this.cam.x, (by - this.bh / 2) / this.zf + this.cam.y];
   }
 
   // CSS pixels per world pixel (for input thresholds)
-  get cssScale() { return (this.ps * this.cam.zoom) / this.dpr; }
+  get cssScale() { return (this.ps * this.zf) / this.dpr; }
 
   clampCam(world) {
     const m = 48;
@@ -155,7 +176,7 @@ export class Renderer {
   }
 
   draw(run, view) {
-    const b = this.b, cam = this.cam, z = cam.zoom;
+    const b = this.b, cam = this.cam, z = this.zf;
     const time = performance.now() / 1000;
     b.setTransform(1, 0, 0, 1, 0, 0);
     b.globalAlpha = 1;
@@ -268,7 +289,7 @@ export class Renderer {
     this.blit();
   }
 
-  toBuf(wx, wy) { return [wx * this.cam.zoom + this.ox, wy * this.cam.zoom + this.oy]; }
+  toBuf(wx, wy) { return [wx * this.zf + this.ox, wy * this.zf + this.oy]; }
 
   blit() {
     this.ctx.drawImage(this.buf, 0, 0, this.bw * this.ps, this.bh * this.ps);
