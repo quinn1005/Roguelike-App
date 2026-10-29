@@ -127,33 +127,6 @@ export const PAGES = [
       <p class="c-dim">Every raid fortifies that portal, and the squad needs 2 waves to recover before the next raid.</p>`,
   },
   {
-    title: 'ECHOES',
-    art: () => `<span style="opacity:.55">${tw('cannon', 3)}</span>` + tw('blaster', 3) + `<span style="opacity:.55">${tw('laser', 3)}</span>`,
-    body: () => `
-      <p>When a run ends (wave 5 or later), your best tower is saved as an ${k('ECHO', 'cyan')}: a ghost that remembers its level, branch, relic and rank. Your last 8 echoes are kept.</p>
-      <p>Once per run, tap the ${k('ECHO', 'cyan')} button on the tower bar to summon one for <b>free</b>. It fights for 4 waves, 5 if it came from a wave 25+ run, and 7 for a gold echo from wave 50+. Then it fades.</p>
-      <p class="c-dim">Echoes can't be upgraded, fused, given relics or sent on raids. Every run, even a bad one, leaves something behind for the next.</p>`,
-  },
-  {
-    title: 'COMMANDERS',
-    art: () => tw('drone', 2) + tw('miner', 2) + tw('nanite', 2),
-    body: () => `
-      <p>Before each run, choose a ${k('COMMANDER')}. Each one has a passive bonus and often brings a signature tower. New commanders are bought with shards.</p>
-      <p>Commanders level up from the runs you play with them (max 15). Spend their points in their own ${k('skill tree')} on small buffs, and unlock up to <b>3 active abilities</b> each.</p>
-      <p>Abilities appear as buttons during waves. They recharge over <b>waves, not seconds</b> (2-5 waves each), so save them for the waves you really need them.</p>`,
-  },
-  {
-    title: 'META PROGRESSION',
-    art: () => icon('shard') + tw('reclaimer', 3) + icon('shard'),
-    body: () => `
-      <p>Every run pays out, even a short one:</p>
-      <p>${k('XP')} levels you up. Each level gives a ${k('TALENT point', 'yel')} for the themed talent trees and the per-tower trees in TALENTS.<br>
-      ${k('VOID SHARDS', 'mag')} ${icon('shard')} unlock towers in the ARMORY and buy commanders.<br>
-      ${k('SKINS')}: towers unlock Neon (3,000 kills) and Gold (12,000 kills) looks, chosen in the Armory.<br>
-      ${k('PRESTIGE', 'yel')}: at level 30, reset your level and talents for a permanent damage and shard bonus.</p>
-      <p>${k('HEAT', 'red')} levels make enemies tougher for bigger rewards. ${k('MUTATORS', 'red')} on the New Run screen add twists (Glass Core, Swarm Surge, Famine...) for bonus XP and shards. ${k('HISTORY')} logs your last 20 runs. Achievements pay out shards.</p>`,
-  },
-  {
     title: 'CONTROLS & TIPS',
     art: () => tw('blaster', 1) + tw('amplifier', 2) + tw('laser', 3),
     body: () => `

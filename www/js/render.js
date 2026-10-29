@@ -506,13 +506,9 @@ export class Renderer {
     for (const tw of run.towers) {
       const sp = towerSprites(tw.def, tw.level, tw.branch, (run.skins && run.skins[tw.type]) || 'default');
       if (tw.level >= 3) this.glowAt(tw.tx * TS + 8, tw.ty * TS + 8, tw.level >= 4 ? 10 : 7, sp.color, tw.level >= 4 ? 0.45 + 0.15 * Math.sin(time * 3 + tw.id) : 0.25);
-      // Echoes are translucent ghosts with a scanline shimmer.
-      const ghost = tw.echo ? 0.55 + 0.15 * Math.sin(time * 4 + tw.id) : 1;
-      if (tw.echo) this.glowAt(tw.tx * TS + 8, tw.ty * TS + 8, 12, tw.echoGold ? '#ffd23f' : '#2ef2ff', 0.35);
       if (run.inDrop && tw.def.dmg) this.glowAt(tw.tx * TS + 8, tw.ty * TS + 8, 11, '#ff3df2', 0.35 + 0.35 * Math.pow(1 - (run.beatPos % 1), 2));
       const x = tw.tx * TS, y = tw.ty * TS;
       const off = tw.disabled > 0 && Math.floor(time * 10) % 2;
-      b.globalAlpha = ghost;
       b.drawImage(sp.base, x, y);
       if (tw.def.rotates === false) {
         let bob = 0;
@@ -527,12 +523,6 @@ export class Renderer {
         b.drawImage(sp.head, -6 - Math.round(rec * 2), -6);
         b.restore();
       }
-      if (tw.echo) {
-        b.globalAlpha = 0.5;
-        b.fillStyle = tw.echoGold ? '#ffd23f' : '#2ef2ff';
-        b.fillRect(x + 1, y + 1 + Math.floor((time * 20 + tw.id * 5) % 14), 14, 1);
-      }
-      b.globalAlpha = 1;
       // level pips + branch mark
       if (!tw.branch) for (let l = 0; l < Math.min(3, tw.level); l++) { b.fillStyle = tw.level >= 3 ? '#ffffff' : tw.def.color; b.fillRect(x + 4 + l * 3, y + 14, 2, 1); }
       if (tw.branch) { b.fillStyle = sp.color; b.fillRect(x + 6, y + 14, 4, 1); b.fillStyle = '#ffffff'; b.fillRect(x + 7, y + 14, 2, 1); }

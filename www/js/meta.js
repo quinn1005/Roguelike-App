@@ -126,7 +126,7 @@ function fresh() {
     v: 1, xp: 0, level: 1, shards: 0, talents: {}, unlocked: ['blaster'],
     commanders: ['vanguard'], commander: 'vanguard', heatUnlocked: 0, heat: 0,
     bestWave: 0, totalKills: 0, runs: 0, bestiary: {}, bossKills: {}, achievements: {}, seen: {},
-    cmd: {}, prestige: 0, history: [], towerKills: {}, skins: {}, mutators: [], tutorialSeen: false, echoes: [],
+    cmd: {}, prestige: 0, history: [], towerKills: {}, skins: {}, mutators: [], tutorialSeen: false,
     settings: { sfx: true, shake: true, autoWave: false, haptics: true },
   };
 }
@@ -136,7 +136,7 @@ export const meta = load();
 function load() {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) { const f = fresh(); const d = JSON.parse(raw); return { ...f, ...d, settings: { ...f.settings, ...(d.settings || {}) } }; }
+    if (raw) { const f = fresh(); const d = JSON.parse(raw); delete d.echoes; return { ...f, ...d, settings: { ...f.settings, ...(d.settings || {}) } }; }
   } catch (e) { /* storage unavailable */ }
   return fresh();
 }

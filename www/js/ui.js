@@ -571,14 +571,6 @@ export class UI {
       bar.append(b);
       this.tbtns[tid] = b;
     }
-    if (this.run.canEcho()) {
-      const b = el('div', 'tbtn echo');
-      const e0 = meta.echoes[0];
-      b.innerHTML = `<img src="${towerSprites(TOWERS[e0.type], e0.level, e0.branch).iconUrl}"><div class="cost">ECHO</div>`;
-      b.onclick = () => { sfx('click'); this.showEchoes(); };
-      bar.append(b);
-      this.echoBtn = b;
-    } else this.echoBtn = null;
     this.refreshTowerBar();
   }
 
@@ -591,14 +583,9 @@ export class UI {
       b.classList.toggle('poor', r.gold < c);
       b.classList.toggle('sel', this.app.view.buildType === tid);
     }
-    if (this.echoBtn) this.echoBtn.classList.toggle('sel', this.app.view.buildType === 'echo');
     const info = $('towerinfo');
     const bt = this.app.view.buildType;
-    if (bt === 'echo') {
-      const e = this.app.view.echo, d = TOWERS[e.type];
-      info.innerHTML = `<b class="c-cyan">ECHO: <span style="color:${d.color}">${d.name}</span></b> <span class="c-grn">FREE</span><br>From your wave ${e.wave} run. Fades after ${r.echoLife(e)} waves.<br><span class="c-dim">Tap a tile to preview, tap again to summon.</span>`;
-      info.classList.remove('hidden');
-    } else if (bt) {
+    if (bt) {
       const d = TOWERS[bt];
       info.innerHTML = `<b style="color:${d.color}">${d.name}</b> <span class="c-yel">${r.towerCost(bt)}c</span><br>${d.desc}<br><span class="c-dim">Tap a tile to preview, tap again to build.</span>`;
       info.classList.remove('hidden');
@@ -767,32 +754,6 @@ export class UI {
     fx.innerHTML = kind === 'breakdown' ? 'BREAKDOWN - BOSS EXPOSED' : 'DROP!<small>SWIPE TO SLASH</small>';
   }
 
-  // ---------- echoes ----------
-  echoLabel(e) {
-    const d = TOWERS[e.type];
-    const br = e.branch && d.branches ? d.branches[e.branch].name : 'LV ' + e.level;
-    return { d, br, look: towerSprites(d, e.level, e.branch) };
-  }
-
-  showEchoes() {
-    const r = this.run;
-    this.openModal((box) => {
-      box.append(el('h2', '', 'SUMMON AN ECHO'), el('p', 'c-dim', 'Echoes are ghosts of the best tower from your past runs. Summon one per run for free. It keeps its upgrades, relic and rank, then fades after a few waves.'));
-      const list = el('div', 'grid');
-      for (const e of meta.echoes) {
-        const { d, br, look } = this.echoLabel(e);
-        const R = e.relic ? RELIC_BY_ID[e.relic] : null;
-        const it = el('div', 'item' + (e.wave >= 50 ? ' gold' : ''));
-        it.innerHTML = `<img src="${look.iconUrl}" style="opacity:.8"><div class="grow"><div class="nm" style="color:${look.color}">${d.name}</div><div class="ds">${br}${R ? ` - <span style="color:${R.color}">${R.name}</span>` : ''}${e.vet ? ` - ${VETERANCY[e.vet - 1].name}` : ''}</div><div class="ds c-dim">From a wave ${e.wave} run - lasts ${r.echoLife(e)} waves</div></div>`;
-        it.onclick = () => { sfx('click'); this.closeModal(); this.app.selectEcho(e); };
-        list.append(it);
-      }
-      const row = el('div', 'mrow');
-      row.append(button('CANCEL', '', () => this.closeModal()));
-      box.append(list, row);
-    });
-  }
-
   // ---------- counter-raids ----------
   portalName(p) {
     const dx = p.tx - 3, dy = p.ty - 3;
@@ -948,7 +909,6 @@ export class UI {
         this.refreshPanel();
       }));
     }
-    if (tw.echo) btns.append(el('div', 'pdesc c-cyan', `ECHO - fades in ${tw.echo} wave${tw.echo > 1 ? 's' : ''}. Echoes can't be upgraded, fused or given relics.`));
     const cost = r.upgradeCost(tw);
     if (cost != null) {
       if (tw.level < 3) {
@@ -973,12 +933,12 @@ export class UI {
       btns.append(fb);
     }
     if (tw.relic) { const R = RELIC_BY_ID[tw.relic]; btns.append(el('div', 'relic-cur', `RELIC: <span style="color:${R.color}">${R.name}</span> - ${R.desc}`)); }
-    if (!tw.echo) r.relics.forEach((rid, idx) => {
+    r.relics.forEach((rid, idx) => {
       const R = RELIC_BY_ID[rid];
       btns.append(button(`INSTALL <span style="color:${R.color}">${R.name}</span><small>${R.desc}${tw.relic ? ' (swaps out the current relic)' : ''}</small>`, '', () => { if (r.installRelic(tw, idx)) this.refreshPanel(true); }));
     });
-    const sb = button(tw.echo ? 'DISMISS ECHO' : r.canSell ? `SELL +${r.sellValue(tw)}c` : 'SELL (SCORCHED EARTH)', 'red', () => this.app.sell(tw));
-    sb.disabled = !r.canSell && !tw.echo;
+    const sb = button(r.canSell ? `SELL +${r.sellValue(tw)}c` : 'SELL (SCORCHED EARTH)', 'red', () => this.app.sell(tw));
+    sb.disabled = !r.canSell;
     btns.append(sb);
     p.append(btns);
   }

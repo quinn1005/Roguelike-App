@@ -1,2 +1,2 @@
 // Bump this for every release; the APK build reads it for its version name.
-export const VERSION = '2.1.0';
+export const VERSION = '2.2.0';

@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.2.0
+
+### Removed
+- **Echoes** have been removed: no more saved ghost towers, ECHO button or Echo page in the guide. Saved Echo data is cleared automatically.
+
 ## v2.1.0
 
 ### New: play to the beat

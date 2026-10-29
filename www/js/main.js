@@ -131,15 +131,6 @@ const app = {
     if (sel && this.run.launchRaid(sel.portal, sel.squad)) { this.view.raidSel = null; ui.hidePanel(); }
   },
 
-  selectEcho(e) {
-    const v = this.view;
-    v.selected = null; v.rock = null; v.relocate = null; v.raidSel = null;
-    ui.hidePanel();
-    v.buildType = 'echo'; v.echo = e; v.ghost = null;
-    ui.refreshTowerBar();
-    ui.toast('TAP A TILE, THEN TAP AGAIN TO SUMMON THE ECHO', '#2ef2ff');
-  },
-
   upgrade(tw, branch) {
     if (this.run.upgrade(tw, branch)) ui.refreshPanel(true);
   },
@@ -185,7 +176,6 @@ const app = {
     if (v.raidSel) {
       const t = r.towerAt.get(tx + ',' + ty);
       if (!t) return;
-      if (t.echo) { ui.toast('ECHOES CAN\'T JOIN RAIDS', '#ff2f5a'); return; }
       const sq = v.raidSel.squad, i = sq.indexOf(t);
       if (i >= 0) sq.splice(i, 1); else if (sq.length < 5) sq.push(t); else ui.toast('SQUAD IS FULL (5)', '#ff2f5a');
       sfx('click');
@@ -207,17 +197,6 @@ const app = {
     }
     if (r.world.tile(tx, ty) === T.CACHE) { r.salvage(tx, ty); return; }
     if (!v.buildType && r.world.tile(tx, ty) === T.ROCK) { this.deselect(); v.rock = { x: tx, y: ty }; ui.showRockPanel(tx, ty); sfx('click'); return; }
-    if (v.buildType === 'echo') {
-      if (v.ghost && v.ghost.x === tx && v.ghost.y === ty) {
-        if (!r.deployEcho(v.echo, tx, ty)) { ui.toast("Can't place it there", '#ff2f5a'); return; }
-        v.buildType = null; v.ghost = null; v.echo = null;
-        ui.buildTowerBar();
-      } else if (r.canBuild(tx, ty)) {
-        v.ghost = { x: tx, y: ty, type: v.echo.type, def: TOWERS[v.echo.type] };
-        sfx('click');
-      } else v.ghost = null;
-      return;
-    }
     if (v.buildType) {
       if (v.ghost && v.ghost.x === tx && v.ghost.y === ty) {
         if (!r.canBuild(tx, ty)) { ui.toast("Can't build there", '#ff2f5a'); return; }

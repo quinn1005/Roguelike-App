@@ -116,7 +116,6 @@ export class Run {
   costFactor(type) { return Math.max(0.4, 1 + this.mods.cost + this.tmod(type).cost); }
   towerCost(type) { return Math.round(TOWERS[type].cost * this.costFactor(type)); }
   upgradeCost(tw) {
-    if (tw.echo) return null;
     if (tw.level >= 4) return null;
     return Math.round(tw.def.cost * LEVELS[tw.level + 1].cost * this.costFactor(tw.type));
   }
@@ -160,13 +159,13 @@ export class Run {
     return true;
   }
 
-  sellValue(tw) { return tw.echo ? 0 : Math.round(tw.invested * Math.min(1, this.mods.refund)); }
+  sellValue(tw) { return Math.round(tw.invested * Math.min(1, this.mods.refund)); }
   get canSell() { return !this.mut.has('scorched'); }
 
   sell(tw, full = false) {
-    if (!this.canSell && !full && !tw.echo) return false;
+    if (!this.canSell && !full) return false;
     this.addGold(full ? tw.invested : this.sellValue(tw));
-    if (tw.relic && !tw.echo) this.relics.push(tw.relic);
+    if (tw.relic) this.relics.push(tw.relic);
     this.towers.splice(this.towers.indexOf(tw), 1);
     this.towerAt.delete(tw.tx + ',' + tw.ty);
     for (const d of tw.drones) d.alive = false;
@@ -194,7 +193,7 @@ export class Run {
   // ---------------- relics ----------------
   installRelic(tw, idx) {
     const id = this.relics[idx];
-    if (!id || tw.echo) return false;
+    if (!id) return false;
     this.relics.splice(idx, 1);
     if (tw.relic) this.relics.push(tw.relic);
     tw.relic = id;
@@ -206,11 +205,11 @@ export class Run {
 
   // ---------------- fusion ----------------
   fusionOptions(tw) {
-    if (tw.level < 4 || tw.def.fused || tw.echo) return [];
+    if (tw.level < 4 || tw.def.fused) return [];
     const out = [];
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
       const o = this.towerAt.get((tw.tx + dx) + ',' + (tw.ty + dy));
-      if (!o || o.level < 4 || o.def.fused || o.echo) continue;
+      if (!o || o.level < 4 || o.def.fused) continue;
       const f = FUSIONS.find((r) => (r.a === tw.type && r.b === o.type) || (r.b === tw.type && r.a === o.type));
       if (f) out.push({ other: o, recipe: f, cost: this.fusionCost(f.id) });
     }
@@ -239,44 +238,6 @@ export class Run {
     this.sfx('upgrade');
     this.haptic('heavy');
     return true;
-  }
-
-  // ---------------- echoes ----------------
-  // Ghosts of the best tower from past runs. One can be deployed per run for
-  // free; it keeps its level, branch, relic and rank, then fades away.
-  echoLife(e) { return e.wave >= 50 ? 7 : e.wave >= 25 ? 5 : 4; }
-  canEcho() { return !this.echoUsed && (meta.echoes || []).length > 0 && this.phase !== 'over'; }
-  deployEcho(e, x, y) {
-    if (!this.canEcho() || !this.canBuild(x, y) || !TOWERS[e.type]) return null;
-    const def = TOWERS[e.type];
-    const tw = {
-      id: this.nextId++, type: e.type, def, tx: x, ty: y, x: center(x), y: center(y),
-      level: e.level, branch: e.branch || null, cd: 0.2, angle: -Math.PI / 2, mode: 'first', invested: 0,
-      dmgDealt: 0, kills: (VETERANCY[(e.vet || 0) - 1] || { kills: 0 }).kills, disabled: 0, drones: [], beam: [], rampT: 0, rampTarget: null,
-      relic: e.relic || null, vet: e.vet || 0, echo: this.echoLife(e), echoGold: e.wave >= 50,
-    };
-    this.towers.push(tw);
-    this.towerAt.set(x + ',' + y, tw);
-    this.echoUsed = true;
-    if (def.drones) this.computeRally(tw);
-    this.recomputeStats();
-    this.sfx('portal');
-    this.burst(tw.x, tw.y, '#2ef2ff', 18);
-    this.ring(tw.x, tw.y, 16, tw.echoGold ? '#ffd23f' : '#2ef2ff');
-    this.text(tw.x, tw.y - 10, 'ECHO FROM WAVE ' + e.wave, '#2ef2ff', 1);
-    return tw;
-  }
-  fadeEchoes() {
-    for (const tw of this.towers.slice()) {
-      if (!tw.echo) continue;
-      if (--tw.echo > 0) continue;
-      this.burst(tw.x, tw.y, '#2ef2ff', 14);
-      this.text(tw.x, tw.y - 8, 'ECHO FADED', '#2ef2ff', 0.9);
-      this.towers.splice(this.towers.indexOf(tw), 1);
-      this.towerAt.delete(tw.tx + ',' + tw.ty);
-      for (const d of tw.drones) d.alive = false;
-    }
-    this.recomputeStats();
   }
 
   // ---------------- counter-raids ----------------
@@ -748,7 +709,6 @@ export class Run {
     this.phase = 'reward';
     this.holes = [];
     const raidRes = this.resolveRaid();
-    this.fadeEchoes();
     const w = this.wave;
     let income = Math.round((15 + w * 3) * this.mods.waveGold * (this.mut.has('famine') ? 0.5 : 1));
     const interest = this.mut.has('famine') ? 0 : Math.min(50 + w * 10, Math.floor(this.gold * this.mods.interest));
@@ -937,10 +897,6 @@ export class Run {
       bosses: bossKills, xp, shards, top: top ? top.def.name : null, cause: this.stats.lastLeak || 'Abandoned',
     });
     meta.history = meta.history.slice(0, 20);
-    const best = this.towers.concat(this.raid ? this.raid.squad : []).filter((t) => !t.echo && (t.def.dmg || t.def.drones)).sort((a, b) => b.dmgDealt - a.dmgDealt)[0];
-    if (best && w >= 5) {
-      meta.echoes = [{ t: Date.now(), type: best.type, level: best.level, branch: best.branch, relic: best.relic, vet: best.vet || 0, wave: w, dealt: Math.round(best.dmgDealt) }].concat(meta.echoes || []).slice(0, 8);
-    }
     this.haptic('over');
     meta.shards += shards;
     meta.runs++;
@@ -2018,8 +1974,8 @@ export class Run {
       gold: this.gold, shards: this.shards, coreHp: this.coreHp, mods: this.mods, augments: this.augments,
       rerolls: this.rerolls, stats: this.stats, world: this.world.serialize(), baseMods: this.baseMods,
       mutators: this.mutators, relics: this.relics, relocations: this.relocations, cooldowns: this.cooldowns,
-      portalInfo: this.portalInfo, raidReady: this.raidReady, echoUsed: !!this.echoUsed,
-      towers: this.towers.concat(this.raid ? this.raid.squad : []).map((t) => ({ type: t.type, tx: t.tx, ty: t.ty, level: t.level, branch: t.branch, mode: t.mode, invested: t.invested, dmgDealt: t.dmgDealt, kills: t.kills, relic: t.relic, vet: t.vet, echo: t.echo || 0, echoGold: !!t.echoGold })),
+      portalInfo: this.portalInfo, raidReady: this.raidReady,
+      towers: this.towers.concat(this.raid ? this.raid.squad : []).map((t) => ({ type: t.type, tx: t.tx, ty: t.ty, level: t.level, branch: t.branch, mode: t.mode, invested: t.invested, dmgDealt: t.dmgDealt, kills: t.kills, relic: t.relic, vet: t.vet })),
     });
   }
 
@@ -2035,7 +1991,6 @@ export class Run {
     this.relocations = s.relocations != null ? s.relocations : 1;
     this.portalInfo = s.portalInfo || {};
     this.raidReady = s.raidReady || 0;
-    this.echoUsed = !!s.echoUsed;
     this.world = World.deserialize(s.world);
     this.phase = 'build';
     for (const t of s.towers) {
@@ -2043,7 +1998,7 @@ export class Run {
         id: this.nextId++, type: t.type, def: TOWERS[t.type], tx: t.tx, ty: t.ty, x: center(t.tx), y: center(t.ty),
         level: t.level, branch: t.branch, cd: 0.2, angle: -Math.PI / 2, mode: t.mode, invested: t.invested,
         dmgDealt: t.dmgDealt || 0, kills: t.kills || 0, disabled: 0, drones: [], beam: [], rampT: 0, rampTarget: null,
-        relic: t.relic || null, vet: t.vet || 0, echo: t.echo || 0, echoGold: !!t.echoGold,
+        relic: t.relic || null, vet: t.vet || 0,
       };
       this.towers.push(tw);
       this.towerAt.set(t.tx + ',' + t.ty, tw);

@@ -406,11 +406,6 @@ body::after {
 #raidwin canvas { width: 198px; height: 78px; image-rendering: pixelated; display: block; }
 .squad { display: flex; gap: 4px; justify-content: center; margin: 4px 0; min-height: 24px; }
 .squad img { width: 24px; height: 24px; image-rendering: pixelated; }
-
-/* ---- echoes ---- */
-.tbtn.echo img { opacity: 0.6; filter: drop-shadow(0 0 4px #2ef2ff); }
-.tbtn.echo .cost { color: var(--cyan); }
-.item.gold { border-color: #ffd23f; }
 #dropfx small { display: block; font-size: 9px; margin-top: 6px; text-align: center; }
 #dropfx.drop { flex-direction: column; }
 .calpad { width: 100%; font-size: 16px; padding: 22px 0; margin: 6px 0; }
