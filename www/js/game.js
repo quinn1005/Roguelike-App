@@ -43,6 +43,9 @@ export class Run {
     // returns the music's own position so drops land on what you hear.
     this.beatPos = 0; this.beatSrc = null; this.onTrack = null; this.trackSector = -1;
     this.inDrop = false; this.breakdown = false;
+    // Milliseconds between the music clock and what the player hears (output
+    // latency + their calibration). Set by main every frame.
+    this.beatLatency = 0; this.slashesLeft = 0;
     this.paused = false;
     this.time = 0;
     this.shake = 0;
@@ -980,9 +983,94 @@ export class Run {
     const live = this.phase === 'wave' && !this.paused;
     this.breakdown = live && this.beatMode(cyc) === 'breakdown';
     this.inDrop = live && this.beatMode(cyc) === 'drop';
-    if (this.inDrop && !wasDrop) { this.emit('drop', 'drop'); this.haptic('boss'); }
+    if (this.inDrop && !wasDrop) { this.slashesLeft = 2; this.emit('drop', 'drop'); this.haptic('boss'); }
+    if (!this.inDrop) this.slashesLeft = 0;
     if (this.breakdown && !wasBrk) { this.emit('drop', 'breakdown'); this.haptic('boss'); }
   }
+  // ---- beat actions ----
+  // How close to the nearest beat the player acted, as heard.
+  judgeBeat() {
+    const src = this.beatSrc ? this.beatSrc() : null;
+    const beats = (src != null ? src : this.beatPos) - (this.beatLatency / 1000) * this.track.bpm / 60;
+    const f = ((beats % 1) + 1) % 1;
+    const ms = Math.min(f, 1 - f) * 60000 / this.track.bpm;
+    return { ms: Math.round(ms), grade: ms <= 60 ? 'perfect' : ms <= 110 ? 'good' : 'miss', beats };
+  }
+
+  // Tower Accent: an on-beat tap during a wave makes the tower fire a charged
+  // shot right away. Once per bar per tower.
+  canAccent(tw) { return this.phase === 'wave' && !this.paused && (tw.def.dmg || tw.def.drones) && !(tw.disabled > 0) && tw.accentBar !== Math.floor(this.beatPos / 4); }
+  accent(tw, grade) {
+    if (!this.canAccent(tw) || grade === 'miss') return false;
+    const s = tw.stats, d = tw.def;
+    const mult = grade === 'perfect' ? 2 : 1.25;
+    // Worth about one second of the tower's normal damage, times the grade.
+    const shots = Math.max(1, s.rate);
+    if (d.drones) {
+      let any = false;
+      for (const u of tw.drones) if (u && u.alive && u.engaged && u.engaged.alive) { any = true; this.line(u.x, u.y, u.engaged.x, u.engaged.y, '#3d7bff', 'rail'); this.damage(u.engaged, u.dmg * tw.def.droneRate * mult, 'kin', tw); }
+      if (!any) return false;
+    } else {
+      const tgt = this.targets(tw, 1)[0];
+      if (!tgt) return false;
+      tw.angle = Math.atan2(tgt.y - tw.y, tgt.x - tw.x);
+      if (d.proj === 'chain' || d.proj === 'rail') {
+        const keep = s.dmg;
+        s.dmg = keep * shots * mult;
+        if (d.proj === 'chain') this.fireChain(tw, tgt); else this.fireRail(tw, tgt);
+        s.dmg = keep;
+      } else if (d.proj === 'hole') {
+        this.hit(tw, tgt, s.dmg * mult, s);
+        if (grade === 'perfect') this.openHole({ tw, x: tgt.x, y: tgt.y });
+      } else {
+        const dmg = s.dmg * (d.proj === 'beam' ? s.rate * Math.max(1, s.ramp * 0.5) : shots) * mult;
+        this.line(tw.x, tw.y, tgt.x, tgt.y, d.color, 'rail');
+        if (s.splash && d.id !== 'cryo') {
+          this.ring(tgt.x, tgt.y, s.splash, d.color);
+          for (const e of this.enemies) if (e.alive && !(d.ground && e.flying) && dist2(e.x, e.y, tgt.x, tgt.y) <= (s.splash + e.size) * (s.splash + e.size)) this.hit(tw, e, dmg, s, { splash: true });
+        } else this.hit(tw, tgt, dmg, s);
+      }
+      this.burst(tgt.x, tgt.y, d.color, 10);
+    }
+    tw.accentBar = Math.floor(this.beatPos / 4);
+    tw.recoil = 1;
+    this.ring(tw.x, tw.y, 11, grade === 'perfect' ? '#ffffff' : d.color, 0.3);
+    this.text(tw.x, tw.y - 10, grade === 'perfect' ? 'PERFECT!' : 'GOOD', grade === 'perfect' ? '#2ef2ff' : '#4dff8a', 0.6);
+    this.sfx('accent');
+    this.haptic('tap');
+    this.stats.accents = (this.stats.accents || 0) + 1;
+    return true;
+  }
+
+  // Neon Slash: during a DROP, a swipe cuts every enemy along the line.
+  slash(x1, y1, x2, y2, grade) {
+    if (!this.inDrop || this.slashesLeft <= 0) return false;
+    const len = Math.hypot(x2 - x1, y2 - y1);
+    if (len < 12) return false;
+    if (len > 160) { x2 = x1 + (x2 - x1) * 160 / len; y2 = y1 + (y2 - y1) * 160 / len; }
+    this.slashesLeft--;
+    const mult = grade === 'perfect' ? 1 : grade === 'good' ? 0.6 : 0.25;
+    const dmg = 40 * this.hpScale(this.wave) * mult;
+    const vx = x2 - x1, vy = y2 - y1, L2 = vx * vx + vy * vy;
+    let n = 0;
+    for (const e of this.enemies) {
+      if (!e.alive || e.phased) continue;
+      const t = clamp(((e.x - x1) * vx + (e.y - y1) * vy) / L2, 0, 1);
+      if (dist2(x1 + vx * t, y1 + vy * t, e.x, e.y) > (e.size + 6) * (e.size + 6)) continue;
+      this.damage(e, e.boss ? dmg * 0.5 : dmg, 'eng', null);
+      this.burst(e.x, e.y, '#ff3df2', 4);
+      n++;
+    }
+    this.fx.lines.push({ x1, y1, x2, y2, color: grade === 'miss' ? '#7380b8' : '#ff3df2', kind: 'slash', life: 0.45, seed: Math.random() });
+    for (let k = 0; k < 10; k++) { const t = k / 9; this.particle(x1 + vx * t, y1 + vy * t, '#ff3df2', (this.rng() - 0.5) * 30, (this.rng() - 0.5) * 30, 0.4); }
+    const label = grade === 'perfect' ? 'PERFECT SLASH' : grade === 'good' ? 'GOOD SLASH' : 'OFF BEAT';
+    this.text((x1 + x2) / 2, (y1 + y2) / 2 - 8, label + (n > 1 ? ' x' + n : ''), grade === 'miss' ? '#7380b8' : '#ff3df2', 0.8);
+    this.sfx('slash');
+    this.haptic(grade === 'perfect' ? 'heavy' : 'tap');
+    this.shake = Math.min(4, this.shake + (grade === 'perfect' ? 1.5 : 0.5));
+    return true;
+  }
+
   // What part of the song a cycle position is: boss waves swap every other
   // drop for a two-bar breakdown where the bosses are exposed.
   beatMode(cyc) {

@@ -53,6 +53,8 @@ function noise({ dur = 0.2, vol = 0.5, f = 1200, delay = 0 }) {
 }
 
 const SFX = {
+  accent: () => { tone({ type: 'square', f0: 1320, f1: 1980, dur: 0.06, vol: 0.18 }); tone({ type: 'sine', f0: 660, f1: 330, dur: 0.12, vol: 0.2, delay: 0.02 }); },
+  slash: () => { noise({ dur: 0.18, vol: 0.3, f: 5000 }); tone({ type: 'sawtooth', f0: 1800, f1: 300, dur: 0.16, vol: 0.14 }); },
   shoot: () => tone({ f0: 880, f1: 440, dur: 0.05, vol: 0.15 }),
   cryo: () => tone({ type: 'triangle', f0: 1400, f1: 900, dur: 0.07, vol: 0.15 }),
   cannon: () => { noise({ dur: 0.15, vol: 0.3, f: 900 }); tone({ f0: 160, f1: 60, dur: 0.12, vol: 0.2 }); },

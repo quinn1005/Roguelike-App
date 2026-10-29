@@ -155,7 +155,7 @@ const app = {
     if (p && p.then) p.then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {})).catch(() => {});
   },
 
-  tap(cx, cy) {
+  tap(cx, cy, judge = null) {
     const r = this.run;
     if (!r || r.phase === 'over') return;
     const [wx, wy] = renderer.screenToWorld(cx, cy);
@@ -193,6 +193,10 @@ const app = {
       return;
     }
     const tw = r.towerAt.get(tx + ',' + ty);
+    // Tower Accent: an on-beat tap on a tower during a wave fires a charged shot.
+    if (tw && judge && meta.settings.accents !== false && !v.buildType && r.canAccent(tw) && judge.grade !== 'miss') {
+      if (r.accent(tw, judge.grade)) return;
+    }
     if (tw) {
       v.buildType = null; v.ghost = null; v.rock = null;
       v.selected = tw;
@@ -246,6 +250,8 @@ const pointers = new Map();
 let moved = false;
 let pinchBase = 0;
 let lastMid = null;
+let slashing = false;
+const view = () => app.view;
 
 function mid() {
   const ps = [...pointers.values()];
@@ -255,8 +261,10 @@ function mid() {
 canvas.addEventListener('pointerdown', (e) => {
   unlockAudio();
   canvas.setPointerCapture(e.pointerId);
-  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY });
-  if (pointers.size === 1) moved = false;
+  const r = app.run;
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, judge: r ? r.judgeBeat() : null });
+  if (pointers.size === 1) { moved = false; slashing = !!(r && r.inDrop && r.slashesLeft > 0); }
+  if (pointers.size > 1) slashing = false;
   if (pointers.size === 2) { const m = mid(); pinchBase = m[2]; lastMid = m; moved = true; }
 });
 
@@ -268,6 +276,7 @@ canvas.addEventListener('pointermove', (e) => {
   if (!app.run) return;
   if (pointers.size === 1) {
     if (!moved && Math.hypot(p.x - p.sx, p.y - p.sy) > 10) moved = true;
+    if (moved && slashing) { view().slashTrail = [p.sx, p.sy, p.x, p.y]; return; }
     if (moved) {
       renderer.cam.x -= dx / renderer.cssScale;
       renderer.cam.y -= dy / renderer.cssScale;
@@ -289,7 +298,13 @@ function endPointer(e) {
   const p = pointers.get(e.pointerId);
   if (!p) return;
   pointers.delete(e.pointerId);
-  if (!moved && pointers.size === 0 && e.type === 'pointerup') app.tap(e.clientX, e.clientY);
+  if (slashing && moved && pointers.size === 0 && e.type === 'pointerup' && app.run) {
+    const [x1, y1] = renderer.screenToWorld(p.sx, p.sy), [x2, y2] = renderer.screenToWorld(e.clientX, e.clientY);
+    app.run.slash(x1, y1, x2, y2, app.run.judgeBeat().grade);
+  }
+  view().slashTrail = null;
+  if (!moved && pointers.size === 0 && e.type === 'pointerup') app.tap(e.clientX, e.clientY, p.judge);
+  if (pointers.size === 0) slashing = false;
   if (pointers.size === 1) { const q = [...pointers.values()][0]; q.sx = q.x; q.sy = q.y; }
 }
 canvas.addEventListener('pointerup', endPointer);
@@ -344,6 +359,8 @@ function frame(now) {
   app.view.glowOn = meta.settings.glow !== false;
   startMusic();
   if (r) {
+    const ac = audioCtx();
+    r.beatLatency = (ac ? (ac.outputLatency || ac.baseLatency || 0) * 1000 : 0) + (meta.settings.beatOffset || 0);
     r.update(dt);
     if (app.view.selected && !r.towers.includes(app.view.selected)) app.deselect();
     if (r.phase === 'build' && meta.settings.autoWave && !r.paused) {

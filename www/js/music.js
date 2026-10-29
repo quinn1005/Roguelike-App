@@ -13,6 +13,8 @@ export const TRACKS = [
   { name: 'Solar Forge', bpm: 124, prog: [[48, 'm'], [56, 'M'], [51, 'M'], [58, 'M']] },
   { name: 'Void Reach', bpm: 132, prog: [[54, 'm'], [50, 'M'], [57, 'M'], [52, 'M']] },
 ];
+// A bare metronome used by the timing calibration screen.
+export const CLICK_TRACK = { name: 'Calibrate', bpm: 100, prog: [[57, 'm']], click: true };
 export const MENU_TRACK = { name: 'Bastion', bpm: 92, prog: [[57, 'm'], [53, 'M'], [48, 'M'], [52, 'm']], calm: true };
 
 // Sector N (0-based) plays track N, cycling, getting a little faster each lap.
@@ -112,6 +114,7 @@ function playStep(b, t, spb) {
   const notes = chordNotes(chord);
   const m = mode(cyc);
   const drop = m === 'drop', brk = m === 'breakdown', calm = cur.calm;
+  if (cur.click) { if (s16 === 0) { osc('sine', inBar === 0 ? 1760 : 1320, t, 0.05, 0.35); osc('sine', 150, t, 0.15, 0.6, out, 40); } return; }
   const build = !calm && cyc >= DROP_AT - 4 && cyc < DROP_AT;
   // drums
   if (!calm && !brk) {

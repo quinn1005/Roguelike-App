@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.1.0
+
+### New: play to the beat
+- **Tower Accents**: during a wave, tap a tower right on the beat and it instantly fires a charged accent shot. **Perfect** timing (within 60 ms) hits hardest, **Good** (within 110 ms) a little less. Each tower can accent once per bar. Off-beat taps still open the tower panel as before.
+  - Every tower has its own accent. Tesla fires a charged chain, Railgun a charged slug, splash towers a charged blast, Drone Bays make all their drones strike at once. A Perfect accent on a Black Hole Cannon opens a black hole right on its target.
+- **Neon Slash**: during a DROP, drag across the path to slash every enemy the line crosses. Release on the beat for full damage. Up to 2 slashes per drop, shown on the beat meter.
+- **Beat Timing** in Settings: tap along with a click track to calibrate for your phone's audio delay, or adjust it by hand in 10 ms steps. Beat taps and slashes are judged by what you actually hear.
+- **Beat Accents** can be turned off in Settings.
+- New How to Play page: Play to the Beat.
+
 ## v2.0.0
 
 ### New: Synthwave Sync

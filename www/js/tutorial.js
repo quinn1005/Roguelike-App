@@ -109,6 +109,14 @@ export const PAGES = [
       <p class="c-dim">Music can be turned off in Settings. The beat keeps going either way.</p>`,
   },
   {
+    title: 'PLAY TO THE BEAT',
+    art: () => tw('railgun', 3) + tw('blackhole', 3) + tw('cannon', 3),
+    body: () => `
+      <p>${k('TOWER ACCENTS', 'cyan')}: during a wave, tap a tower <b>right on the beat</b> and it instantly fires a charged accent shot. ${k('PERFECT', 'cyan')} (within 60 ms) hits for double, ${k('GOOD', 'grn')} (within 110 ms) a bit less. Each tower can accent <b>once per bar</b>. Off-beat taps just open the tower panel like normal.</p>
+      <p>${k('NEON SLASH', 'mag')}: during a ${k('DROP', 'mag')}, drag across the path to slash every enemy the line crosses. Let go on the beat for full damage. You get <b>2 slashes per drop</b> (shown as / marks on the beat meter).</p>
+      <p class="c-dim">Phones play sound slightly late. Use BEAT TIMING in Settings and tap along to calibrate, so your taps are judged by what you actually hear. Accents can be turned off there too.</p>`,
+  },
+  {
     title: 'COUNTER-RAIDS',
     art: () => tw('cannon', 3) + foe('shade') + tw('railgun', 3),
     body: () => `

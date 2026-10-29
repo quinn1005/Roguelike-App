@@ -411,3 +411,6 @@ body::after {
 .tbtn.echo img { opacity: 0.6; filter: drop-shadow(0 0 4px #2ef2ff); }
 .tbtn.echo .cost { color: var(--cyan); }
 .item.gold { border-color: #ffd23f; }
+#dropfx small { display: block; font-size: 9px; margin-top: 6px; text-align: center; }
+#dropfx.drop { flex-direction: column; }
+.calpad { width: 100%; font-size: 16px; padding: 22px 0; margin: 6px 0; }

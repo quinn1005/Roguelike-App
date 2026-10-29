@@ -226,6 +226,13 @@ export class Renderer {
     this.drawEnemies(run, time);
     this.drawProjectiles(run);
     this.drawFx(run, time);
+    if (view.slashTrail) {
+      const [ax, ay] = this.screenToWorld(view.slashTrail[0], view.slashTrail[1]);
+      const [bx, by] = this.screenToWorld(view.slashTrail[2], view.slashTrail[3]);
+      const n = Math.max(2, Math.floor(Math.hypot(bx - ax, by - ay) / 3));
+      b.fillStyle = Math.floor(time * 12) % 2 ? '#ff3df2' : '#ffffff';
+      for (let i = 0; i <= n; i++) b.fillRect(Math.round(ax + (bx - ax) * i / n), Math.round(ay + (by - ay) * i / n), 1, 1);
+    }
 
     if (view.glowOn) this.bloom();
     // world-anchored text at buffer resolution
@@ -733,6 +740,13 @@ export class Renderer {
           px = nx; py = ny;
         }
         this.glowAt(l.x2, l.y2, 5, l.color, 0.7);
+      } else if (l.kind === 'slash') {
+        const k = l.life / 0.45;
+        b.strokeStyle = l.color; b.lineWidth = 2 + 4 * k;
+        b.beginPath(); b.moveTo(l.x1, l.y1); b.lineTo(l.x2, l.y2); b.stroke();
+        b.strokeStyle = '#ffffff'; b.lineWidth = 1 + k;
+        b.beginPath(); b.moveTo(l.x1, l.y1); b.lineTo(l.x2, l.y2); b.stroke();
+        this.glowAt((l.x1 + l.x2) / 2, (l.y1 + l.y2) / 2, 16, l.color, 0.6 * k);
       } else {
         b.strokeStyle = l.color; b.lineWidth = 3 * l.life * 4;
         b.beginPath(); b.moveTo(l.x1, l.y1); b.lineTo(l.x2, l.y2); b.stroke();

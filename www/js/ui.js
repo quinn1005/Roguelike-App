@@ -14,7 +14,8 @@ import {
 import { towerSprites, enemySprite, makeCanvas, uiIcon } from './sprites.js';
 import { previewCanvas } from './world.js';
 import { sfx, setSfx } from './audio.js';
-import { setMusic, CYCLE, DROP_AT } from './music.js';
+import { setMusic, CYCLE, DROP_AT, playTrack, musicBeats, CLICK_TRACK, MENU_TRACK } from './music.js';
+import { audioCtx } from './audio.js';
 import { quinnBadge } from './quinn.js';
 import { commanderCanvas } from './commanders.js';
 import { VERSION } from './version.js';
@@ -510,6 +511,8 @@ export class UI {
       button('SCREEN SHAKE: ' + (meta.settings.shake ? 'ON' : 'OFF'), '', () => { meta.settings.shake = !meta.settings.shake; saveMeta(); this.showSettings(); }),
       button('NEON GLOW: ' + (meta.settings.glow !== false ? 'ON' : 'OFF'), '', () => { meta.settings.glow = meta.settings.glow === false; saveMeta(); this.showSettings(); }),
       button('MUSIC: ' + (meta.settings.music !== false ? 'ON' : 'OFF'), '', () => { meta.settings.music = meta.settings.music === false; setMusic(meta.settings.music); saveMeta(); this.showSettings(); }),
+      button('BEAT ACCENTS: ' + (meta.settings.accents !== false ? 'ON' : 'OFF'), '', () => { meta.settings.accents = meta.settings.accents === false; saveMeta(); this.showSettings(); }),
+      button('BEAT TIMING: ' + (meta.settings.beatOffset > 0 ? '+' : '') + (meta.settings.beatOffset || 0) + 'MS', '', () => this.showCalibrate()),
       button('VIBRATION: ' + (meta.settings.haptics ? 'ON' : 'OFF'), '', () => { meta.settings.haptics = !meta.settings.haptics; saveMeta(); this.showSettings(); }),
       button('FULLSCREEN', '', () => this.app.fullscreen()),
       button('EXPORT SAVE (BACKUP)', 'hot', () => this.showExport()),
@@ -705,13 +708,54 @@ export class UI {
     }
     const cyc = ((r.beatPos % CYCLE) + CYCLE) % CYCLE, bar = Math.floor(cyc / 4), frac = r.beatPos % 1;
     const brkNext = r.phase === 'wave' && r.enemies.some((e) => e.boss) && Math.floor(r.beatPos / CYCLE) % 2 === 1;
-    const key = bar + '|' + brkNext + '|' + r.inDrop + '|' + r.breakdown + '|' + (frac < 0.25);
+    const key = bar + '|' + brkNext + '|' + r.inDrop + '|' + r.breakdown + '|' + (frac < 0.25) + '|' + r.slashesLeft;
     if (key === this.beatKey) return;
     this.beatKey = key;
-    bb.querySelector('.bt-lab').textContent = r.breakdown ? 'BREAKDOWN' : r.inDrop ? 'DROP!' : brkNext ? 'BRK IN ' + Math.max(0, 6 - bar) : 'DROP IN ' + (7 - bar);
+    bb.querySelector('.bt-lab').textContent = r.breakdown ? 'BREAKDOWN' : r.inDrop ? 'DROP! ' + '/'.repeat(r.slashesLeft) : brkNext ? 'BRK IN ' + Math.max(0, 6 - bar) : 'DROP IN ' + (7 - bar);
     bb.className = (r.inDrop ? 'drop' : r.breakdown ? 'brk' : '') + (frac < 0.25 ? ' beat' : '');
     this.beatEls.forEach((el, i) => {
       el.className = (i === 7 || (brkNext && i === 6) ? 'last' : '') + (i < bar ? ' on' : i === bar ? ' cur' : '');
+    });
+  }
+
+  // Tap along with a click track to measure how late this device plays audio.
+  showCalibrate() {
+    const ac = audioCtx();
+    const taps = [];
+    playTrack(CLICK_TRACK, 0);
+    const done = () => { this.closeModal(); playTrack(MENU_TRACK, 0); this.showSettings(); };
+    this.openModal((box) => {
+      box.append(el('h2', '', 'BEAT TIMING'), el('p', '', 'Tap the pad in time with the clicks (at least 8 taps). This measures your device\'s audio delay so beat taps and slashes are judged fairly.'));
+      const cur = el('p', 'c-cyan', ''), last = el('p', 'c-dim', 'Waiting for taps...');
+      const show = () => { cur.textContent = 'OFFSET: ' + ((meta.settings.beatOffset || 0) > 0 ? '+' : '') + (meta.settings.beatOffset || 0) + ' ms'; };
+      show();
+      const pad = el('button', 'btn go calpad', 'TAP');
+      pad.onpointerdown = (ev) => {
+        ev.preventDefault();
+        const b = musicBeats();
+        if (b == null) { last.textContent = 'Turn your sound on and try again.'; return; }
+        const lat = ac ? (ac.outputLatency || ac.baseLatency || 0) * 1000 : 0;
+        const f = ((b % 1) + 1) % 1;
+        const signed = (f < 0.5 ? f : f - 1) * 60000 / CLICK_TRACK.bpm - lat;
+        taps.push(signed);
+        const good = taps.slice(-12).filter((x) => Math.abs(x) < 250);
+        last.textContent = `Tap ${taps.length}: ${Math.round(signed)} ms`;
+        if (good.length >= 8) {
+          const avg = Math.round(good.reduce((a, x) => a + x, 0) / good.length);
+          meta.settings.beatOffset = Math.max(-200, Math.min(300, avg));
+          saveMeta(); show();
+          last.textContent = `Calibrated from ${good.length} taps. Keep tapping to refine.`;
+        }
+      };
+      const adj = el('div', 'mrow');
+      adj.append(
+        button('-10 MS', 'sm', () => { meta.settings.beatOffset = (meta.settings.beatOffset || 0) - 10; saveMeta(); show(); }),
+        button('+10 MS', 'sm', () => { meta.settings.beatOffset = (meta.settings.beatOffset || 0) + 10; saveMeta(); show(); }),
+        button('RESET', 'sm', () => { meta.settings.beatOffset = 0; taps.length = 0; saveMeta(); show(); }),
+      );
+      const row = el('div', 'mrow');
+      row.append(button('DONE', 'go', done));
+      box.append(pad, cur, last, adj, row);
     });
   }
 
@@ -720,7 +764,7 @@ export class UI {
     fx.className = '';
     void fx.offsetWidth;
     fx.className = kind === 'breakdown' ? 'brk' : 'drop';
-    fx.textContent = kind === 'breakdown' ? 'BREAKDOWN - BOSS EXPOSED' : 'DROP!';
+    fx.innerHTML = kind === 'breakdown' ? 'BREAKDOWN - BOSS EXPOSED' : 'DROP!<small>SWIPE TO SLASH</small>';
   }
 
   // ---------- echoes ----------
