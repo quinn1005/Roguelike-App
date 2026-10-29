@@ -86,7 +86,7 @@ export const PAGES = [
     art: () => icon('coin') + tw('blaster', 3) + icon('shard'),
     body: () => `
       <p>Every third wave, when the map expands, you also get your rewards in one stop:</p>
-      <p>${k('AUGMENTS', 'mag')}: pick run-long upgrades, rated common to legendary (every other stop you get to take 2). Boss waves give rarer <b>Boss Spoils</b>.<br>
+      <p>${k('AUGMENTS', 'mag')}: pick run-long upgrades, rated common to legendary. Boss waves give rarer <b>Boss Spoils</b>.<br>
       ${k('BLACK MARKET', 'yel')}: buy augments and relics with credits. Augments cost more for every copy you own, and <b>rerolls double in price</b> every time in the same shop.<br>
       ${k('EVENTS')}: random encounters with a trade-off to accept or refuse.</p>
       <p>${k('RELICS', 'mag')} are installed on a single tower (Ricochet Core, Frost Shell, Toxic Rounds, Bounty Chip...). They come from augment picks, the shop, and boss spoils.</p>`,

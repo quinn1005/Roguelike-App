@@ -736,7 +736,8 @@ export class Run {
     if (w % BOSS_EVERY === 0) q.push({ kind: 'augment', minRarity: 2, title: 'BOSS SPOILS', relic: true });
     else if (w === 1) q.push({ kind: 'augment' });
     else if (expandWave) {
-      q.push({ kind: 'augment', picks: w % 6 === 3 ? 2 : 1 });
+      // every other stop offers Rare-or-better picks
+      q.push({ kind: 'augment', minRarity: w % 6 === 3 ? 2 : 1, title: w % 6 === 3 ? 'RARE AUGMENT' : null });
       if (w % 6 === 0 && this.rng() < 0.5) q.push({ kind: this.rng() < 0.55 ? 'shop' : 'event' });
     }
     if (raidRes) this.emit('raidres', raidRes);

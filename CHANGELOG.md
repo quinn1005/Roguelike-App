@@ -1,5 +1,11 @@
 # Changelog
 
+## v2.4.1
+
+### Changed
+- Augment stops are back to **pick 1** (no more pick-2 drafts).
+- To keep runs as strong as before, **every other stop is a Rare augment pick**: all choices are Rare or better.
+
 ## v2.4.0
 
 ### Fewer interruptions
