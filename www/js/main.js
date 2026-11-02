@@ -371,10 +371,15 @@ window.addEventListener('keydown', (e) => {
 });
 
 window.addEventListener('resize', () => renderer.resize());
+// iOS reports the new size a moment after rotating
+window.addEventListener('orientationchange', () => setTimeout(() => renderer.resize(), 300));
 // Inside the Android app, hide the status bar for a fullscreen game.
 try { const sb = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.StatusBar; if (sb) sb.hide().catch(() => {}); } catch (e) { /* not native */ }
 // Music starts on the first touch (browsers block audio until then).
-document.addEventListener('pointerdown', () => { unlockAudio(); startMusic(); }, { once: true });
+for (const ev of ['pointerdown', 'touchend', 'click']) document.addEventListener(ev, () => { unlockAudio(); startMusic(); });
+// Safari (iPhone) has its own pinch-zoom and double-tap zoom; the game handles pinch itself.
+for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(ev, (e) => e.preventDefault());
+document.addEventListener('dblclick', (e) => e.preventDefault());
 function startMusic() {
   const ac = audioCtx();
   if (!ac || ac.state !== 'running' || musicBeats() !== null) return;

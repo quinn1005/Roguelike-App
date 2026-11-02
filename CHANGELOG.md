@@ -1,5 +1,13 @@
 # Changelog
 
+## v2.5.2
+
+### New: play in the browser
+- Neon Bastion can now be played in a web browser, including on iPhone and iPad: https://quinn1005.github.io/Roguelike-App/
+- On iPhone, open the link in Safari, tap Share > **Add to Home Screen**, and launch it from the new icon to play fullscreen like an app.
+- iPhone fixes: sound unlocks on the first touch, Safari's own pinch and double-tap zoom no longer get in the way, the screen fits correctly after rotating, and settings that iPhones don't support (Fullscreen, Vibration) are hidden there.
+- New app icon for the home screen.
+
 ## v2.5.1
 
 ### New

@@ -15,6 +15,9 @@ export function unlockAudio() {
     master = ac.createGain();
     master.gain.value = 0.18;
     master.connect(ac.destination);
+    // iPhone/iPad: playing a silent sample inside the first touch unlocks audio
+    const b = ac.createBuffer(1, 1, 22050), src = ac.createBufferSource();
+    src.buffer = b; src.connect(ac.destination); src.start(0);
   } catch (e) { ac = null; }
 }
 
