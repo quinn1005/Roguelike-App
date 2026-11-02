@@ -1,5 +1,18 @@
 # Changelog
 
+## v2.6.0
+
+### New: the BEAT pad
+- During a wave, the big WAVE button turns into the **BEAT pad**. Press it **on the beat** and **every tower fires a pulse shot at once**. Perfect timing (within 60 ms) hits hardest, Good (within 110 ms) a little less. On a computer, Space works too.
+- **Groove**: every on-beat press in a row adds Groove (up to 16), making pulses stronger, up to double. At 8+ Groove, DROPs hit for **x2.5** instead of x2. Missing the beat, pressing twice on one beat, or skipping beats resets it.
+- The pad flashes on every beat, shows your Groove, and pops PERFECT / GOOD / MISS.
+- Tower Accents (tapping single towers on the beat) are gone. Tapping a tower now always opens its info panel, during waves too.
+
+### Rebalance around the BEAT pad
+- Enemy HP raised (x1.1 to x1.25) so a player who keeps the groove going most of the time faces the same challenge as before. Ignoring the pad now makes runs noticeably harder.
+- Pulses are worth the same share of each tower's damage at any song tempo. Nanite pulses include their poison, and Railgun pulses are scaled for their piercing slugs.
+- Drone Bay: drone damage 18 to 21.
+
 ## v2.5.2
 
 ### New: play in the browser

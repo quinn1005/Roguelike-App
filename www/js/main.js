@@ -29,9 +29,9 @@ const app = {
     run.on('build', () => { this.autoTimer = 2.5; ui.updateWaveButton(); });
     run.on('wave', () => {
       ui.updateWaveButton();
-      if (run.phase === 'wave' && !meta.settings.seenControls) {
-        meta.settings.seenControls = true; saveMeta();
-        ui.toast('TAP TOWERS ON THE BEAT - HOLD A TOWER FOR INFO', '#2ef2ff');
+      if (run.phase === 'wave' && !meta.settings.seenPad) {
+        meta.settings.seenPad = true; saveMeta();
+        ui.toast('PRESS THE BEAT PAD ON THE BEAT - ALL TOWERS PULSE', '#ff3df2');
         ui.toast('TWO FINGERS TO MOVE AND ZOOM THE MAP', '#2ef2ff');
       }
     });
@@ -127,6 +127,13 @@ const app = {
   rotateChunk(ch) { if (this.run.rotateChunk(ch)) { ui.toast('CHUNK ROTATED', '#2ef2ff'); } this.cancelRelocate(); },
   beginSwap(ch) { this.view.relocate = { first: ch, swapFrom: ch }; ui.hidePanel(); ui.toast('NOW TAP ANOTHER GLOWING CHUNK', '#ff3df2'); },
 
+  // BEAT pad press: judged against the music at the moment of the press.
+  pulse() {
+    const r = this.run;
+    if (!r || r.phase !== 'wave') return;
+    ui.pulseFx(r.pulse(r.judgeBeat()));
+  },
+
   inspect(tw) {
     const v = this.view;
     v.buildType = null; v.ghost = null; v.rock = null; v.raidSel = null;
@@ -202,16 +209,6 @@ const app = {
     }
     const tw = r.towerAt.get(tx + ',' + ty);
     if (tw) {
-      // During a wave, tapping an attacking tower is purely a rhythm action:
-      // on the beat it fires an accent shot, off the beat nothing opens.
-      if (r.phase === 'wave' && !v.buildType && meta.settings.accents !== false && (tw.def.dmg || tw.def.drones)) {
-        const g = judge ? judge.grade : 'miss';
-        const say = (t) => r.text(tw.x, tw.y - 10, t, '#7380b8', 0.5);
-        if (g === 'miss') say('MISS');
-        else if (!r.canAccent(tw)) say('1 PER BAR');
-        else if (!r.accent(tw, g)) say('NO TARGET');
-        return;
-      }
       this.inspect(tw);
       return;
     }
@@ -257,7 +254,8 @@ function mid() {
 }
 
 // Touch controls:
-//  - tap: build / select things; during a wave, tap a tower ON THE BEAT to accent it
+//  - tap: build / select things and open tower info; during a wave the BEAT pad
+//    (the big button) is pressed on the beat to make every tower pulse
 //  - hold (0.38s) on a tower: open its info panel, any time
 //  - one-finger drag during a DROP: Neon Slash
 //  - two fingers: pan the map and pinch to zoom (right/middle mouse drag on desktop)
@@ -362,7 +360,7 @@ canvas.addEventListener('wheel', (e) => {
 window.addEventListener('keydown', (e) => {
   const r = app.run;
   if (!r) return;
-  if (e.code === 'Space') { e.preventDefault(); app.startWave(); }
+  if (e.code === 'Space') { e.preventDefault(); if (e.repeat) return; if (r.phase === 'wave') app.pulse(); else app.startWave(); }
   if (e.key === 'Escape') app.deselect();
   const pan = { ArrowLeft: [40, 0], ArrowRight: [-40, 0], ArrowUp: [0, 40], ArrowDown: [0, -40] }[e.key];
   if (pan) panBy(pan[0], pan[1]);

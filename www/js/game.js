@@ -45,7 +45,7 @@ export class Run {
     this.inDrop = false; this.breakdown = false;
     // Milliseconds between the music clock and what the player hears (output
     // latency + their calibration). Set by main every frame.
-    this.beatLatency = 0; this.slashesLeft = 0;
+    this.beatLatency = 0; this.slashesLeft = 0; this.groove = 0; this.lastPulseBeat = -9;
     this.paused = false;
     this.time = 0;
     this.shake = 0;
@@ -538,8 +538,9 @@ export class Run {
   }
 
   // ---------------- waves ----------------
-  // The 1.1 offsets the DROP's double damage (one bar in every eight).
-  hpScale(w) { return 1.1 * (1 + 0.12 * (w - 1)) * Math.pow(1.07, w - 1) * (w > 40 ? Math.pow(1.03, w - 40) : 1) * this.heatMul.hp * this.mods.hpMult; }
+  // The 1.25 offsets the DROP's double damage and the BEAT pad's pulses for a
+  // player who keeps the groove going most of the time.
+  hpScale(w) { return 1.25 * (1 + 0.12 * (w - 1)) * Math.pow(1.07, w - 1) * (w > 40 ? Math.pow(1.03, w - 40) : 1) * this.heatMul.hp * this.mods.hpMult; }
 
   // Plans a wave in advance so the HUD can preview its composition.
   planWave(w) {
@@ -945,6 +946,7 @@ export class Run {
     const tick = Math.floor(this.beatPos * 4);
     if (tick !== this.lastTick) { this.lastTick = tick; this.tickPending = true; }
     this.quantize = this.speed <= 2;
+    if (this.groove > 0 && (this.phase !== 'wave' || Math.round(this.beatPos) - this.lastPulseBeat > 2)) this.groove = 0;
     const cyc = ((this.beatPos % CYCLE) + CYCLE) % CYCLE;
     const wasDrop = this.inDrop, wasBrk = this.breakdown;
     const live = this.phase === 'wave' && !this.paused;
@@ -964,49 +966,61 @@ export class Run {
     return { ms: Math.round(ms), grade: ms <= 60 ? 'perfect' : ms <= 110 ? 'good' : 'miss', beats };
   }
 
-  // Tower Accent: an on-beat tap during a wave makes the tower fire a charged
-  // shot right away. Once per bar per tower.
-  canAccent(tw) { return this.phase === 'wave' && !this.paused && (tw.def.dmg || tw.def.drones) && !(tw.disabled > 0) && tw.accentBar !== Math.floor(this.beatPos / 4); }
-  accent(tw, grade) {
-    if (!this.canAccent(tw) || grade === 'miss') return false;
-    const s = tw.stats, d = tw.def;
-    const mult = grade === 'perfect' ? 2 : 1.25;
-    // Worth about one second of the tower's normal damage, times the grade.
-    const shots = Math.max(1, s.rate);
-    if (d.drones) {
-      let any = false;
-      for (const u of tw.drones) if (u && u.alive && u.engaged && u.engaged.alive) { any = true; this.line(u.x, u.y, u.engaged.x, u.engaged.y, '#3d7bff', 'rail'); this.damage(u.engaged, u.dmg * tw.def.droneRate * mult, 'kin', tw); }
-      if (!any) return false;
-    } else {
-      const tgt = this.targets(tw, 1)[0];
-      if (!tgt) return false;
-      tw.angle = Math.atan2(tgt.y - tw.y, tgt.x - tw.x);
-      if (d.proj === 'chain' || d.proj === 'rail') {
-        const keep = s.dmg;
-        s.dmg = keep * shots * mult;
-        if (d.proj === 'chain') this.fireChain(tw, tgt); else this.fireRail(tw, tgt);
-        s.dmg = keep;
-      } else if (d.proj === 'hole') {
-        this.hit(tw, tgt, s.dmg * mult, s);
-        if (grade === 'perfect') this.openHole({ tw, x: tgt.x, y: tgt.y });
-      } else {
-        const dmg = s.dmg * (d.proj === 'beam' ? s.rate * Math.max(1, s.ramp * 0.5) : shots) * mult;
-        this.line(tw.x, tw.y, tgt.x, tgt.y, d.color, 'rail');
-        if (s.splash && d.id !== 'cryo') {
-          this.ring(tgt.x, tgt.y, s.splash, d.color);
-          for (const e of this.enemies) if (e.alive && !(d.ground && e.flying) && dist2(e.x, e.y, tgt.x, tgt.y) <= (s.splash + e.size) * (s.splash + e.size)) this.hit(tw, e, dmg, s, { splash: true });
-        } else this.hit(tw, tgt, dmg, s);
-      }
-      this.burst(tgt.x, tgt.y, d.color, 10);
+  // ---- BEAT pad + Groove ----
+  // During a wave the big button becomes a BEAT pad. Each on-beat press makes
+  // every tower fire a pulse shot (a share of one beat's worth of its damage)
+  // and builds Groove (max 16), which scales pulses up to x2 and, at 8+, makes
+  // DROPs hit x2.5. Missing the beat, double-pressing or skipping beats resets it.
+  pulse(judge) {
+    if (this.phase !== 'wave' || this.paused) return null;
+    const beat = Math.round(judge.beats);
+    let grade = judge.grade;
+    if (beat === this.lastPulseBeat) grade = 'miss'; // two presses on one beat
+    this.lastPulseBeat = beat;
+    this.stats.pulses = (this.stats.pulses || 0) + 1;
+    if (grade === 'miss') {
+      if (this.groove >= 4) this.text(this.core.x, this.core.y - 14, 'GROOVE LOST', '#7380b8', 0.7);
+      this.groove = 0;
+      this.emit('pulse', { grade, groove: 0 });
+      return 'miss';
     }
-    tw.accentBar = Math.floor(this.beatPos / 4);
-    tw.recoil = 1;
-    this.ring(tw.x, tw.y, 11, grade === 'perfect' ? '#ffffff' : d.color, 0.3);
-    this.text(tw.x, tw.y - 10, grade === 'perfect' ? 'PERFECT!' : 'GOOD', grade === 'perfect' ? '#2ef2ff' : '#4dff8a', 0.6);
+    this.groove = Math.min(16, (this.groove || 0) + 1);
+    const mult = (grade === 'perfect' ? 1 : 0.6) * (1 + this.groove / 16);
+    const share = 0.25 * (60 / this.track.bpm) * mult; // seconds of each tower's damage
+    for (const tw of this.towers) if (!(tw.disabled > 0)) this.pulseShot(tw, share);
+    this.stats.onBeat = (this.stats.onBeat || 0) + 1;
     this.sfx('accent');
     this.haptic('tap');
-    this.stats.accents = (this.stats.accents || 0) + 1;
-    return true;
+    this.emit('pulse', { grade, groove: this.groove });
+    return grade;
+  }
+  get core() { return { x: 3 * TS + 8, y: 3 * TS + 8 }; }
+  pulseShot(tw, sec) {
+    const s = tw.stats, d = tw.def;
+    if (d.drones) {
+      for (const u of tw.drones) if (u && u.alive && u.engaged && u.engaged.alive) this.damage(u.engaged, u.dmg * d.droneRate * sec, 'kin', tw);
+      return;
+    }
+    if (!d.dmg) return;
+    const tgt = this.targets(tw, 1)[0];
+    if (!tgt) return;
+    tw.angle = Math.atan2(tgt.y - tw.y, tgt.x - tw.x);
+    tw.recoil = 1;
+    if (d.proj === 'chain' || d.proj === 'rail') {
+      const keep = s.dmg;
+      // rail slugs pierce the whole line, so their pulse is scaled down
+      s.dmg = keep * s.rate * sec * (d.proj === 'rail' ? 0.8 : 1);
+      if (d.proj === 'chain') this.fireChain(tw, tgt); else this.fireRail(tw, tgt);
+      s.dmg = keep;
+      return;
+    }
+    // poison towers count their poison too (it is most of their damage)
+    const dps = d.proj === 'hole' ? s.dmg : d.proj === 'beam' ? s.dmg * s.rate * Math.max(1, s.ramp * 0.5) : s.dmg * s.rate + (s.poison || 0);
+    const dmg = dps * sec;
+    this.line(tw.x, tw.y, tgt.x, tgt.y, d.color, 'chain');
+    if (s.splash && d.id !== 'cryo') {
+      for (const e of this.enemies) if (e.alive && !(d.ground && e.flying) && dist2(e.x, e.y, tgt.x, tgt.y) <= (s.splash + e.size) * (s.splash + e.size)) this.hit(tw, e, dmg, s, { splash: true });
+    } else this.hit(tw, tgt, dmg, s);
   }
 
   // Neon Slash: during a DROP, a swipe cuts every enemy along the exact path
@@ -1827,7 +1841,7 @@ export class Run {
     if (!e.alive || (e.phased && !opts.dot)) return;
     let a = amt;
     if (e.boss) a *= 1 + this.mods.bossDmg;
-    if (tw && this.inDrop) a *= 2;
+    if (tw && this.inDrop) a *= this.groove >= 8 ? 2.5 : 2;
     if (e.boss && this.breakdown) a *= 1.75;
     if (this.tb.dmgTaken) a *= 1 + this.tb.dmgTaken;
     if ((e.slowT > 0 || e.freeze > 0) && this.mods.brittle) a *= 1 + this.mods.brittle;

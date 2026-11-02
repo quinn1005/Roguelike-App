@@ -452,3 +452,18 @@ body::after {
 #wavepreview, #bossbar { top: 52px; }
 #toasts { top: 80px; }
 .item .ds.lvl { color: var(--cyan); margin-bottom: 2px; }
+
+/* ---- BEAT pad (the wave button during a wave) ---- */
+#btn-wave.beatpad { border-color: var(--mag); color: var(--mag); text-shadow: 0 0 6px var(--mag); padding: 5px 6px 4px; display: flex; flex-direction: column; align-items: stretch; gap: 2px; touch-action: none; animation: none; }
+#btn-wave.beatpad .pad-l { font-size: 11px; letter-spacing: 3px; }
+#btn-wave.beatpad .groove { display: block; height: 4px; background: #2a0a30; }
+#btn-wave.beatpad .groove i { display: block; height: 100%; background: linear-gradient(90deg, #ff3df2, #2ef2ff); box-shadow: 0 0 6px #ff3df2; transition: width 0.1s; }
+#btn-wave.beatpad small { font-size: 6px; color: var(--dim); text-shadow: none; }
+#btn-wave.beatpad.on { background: linear-gradient(180deg, rgba(90, 20, 90, 0.95), rgba(30, 8, 40, 0.95)); box-shadow: 0 0 14px var(--mag); }
+#btn-wave.beatpad.full { border-color: var(--cyan); }
+#btn-wave.beatpad.full small { color: var(--cyan); }
+#padfx { position: absolute; right: calc(60px + var(--sr)); bottom: 74px; font-size: 12px; pointer-events: none; opacity: 0; }
+#padfx.perfect { color: var(--cyan); text-shadow: 0 0 10px var(--cyan); animation: padPop 0.5s ease-out; }
+#padfx.good { color: var(--grn); text-shadow: 0 0 8px var(--grn); animation: padPop 0.5s ease-out; }
+#padfx.miss { color: var(--dim); animation: padPop 0.5s ease-out; }
+@keyframes padPop { 0% { opacity: 1; transform: translateY(6px) scale(1.2); } 100% { opacity: 0; transform: translateY(-14px) scale(1); } }

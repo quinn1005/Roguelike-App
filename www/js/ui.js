@@ -85,7 +85,10 @@ export class UI {
     this.hudCache = {};
     $('btn-speed').onclick = () => { sfx('click'); this.cycleSpeed(); };
     $('btn-pause').onclick = () => { sfx('click'); this.showPause(); };
-    $('btn-wave').onclick = () => { sfx('click'); this.app.startWave(); };
+    // Between waves this starts the next wave; during a wave it is the BEAT pad
+    // (pointerdown, so presses are judged at the moment the finger lands).
+    $('btn-wave').onclick = () => { if (this.run && this.run.phase === 'build') { sfx('click'); this.app.startWave(); } };
+    $('btn-wave').addEventListener('pointerdown', (e) => { if (this.run && this.run.phase === 'wave') { e.preventDefault(); this.app.pulse(); } });
     $('btn-auto').onclick = () => {
       meta.settings.autoWave = !meta.settings.autoWave; saveMeta();
       $('btn-auto').classList.toggle('on', meta.settings.autoWave);
@@ -511,7 +514,6 @@ export class UI {
       button('SCREEN SHAKE: ' + (meta.settings.shake ? 'ON' : 'OFF'), '', () => { meta.settings.shake = !meta.settings.shake; saveMeta(); this.showSettings(); }),
       button('NEON GLOW: ' + (meta.settings.glow !== false ? 'ON' : 'OFF'), '', () => { meta.settings.glow = meta.settings.glow === false; saveMeta(); this.showSettings(); }),
       button('MUSIC: ' + (meta.settings.music !== false ? 'ON' : 'OFF'), '', () => { meta.settings.music = meta.settings.music === false; setMusic(meta.settings.music); saveMeta(); this.showSettings(); }),
-      button('BEAT ACCENTS: ' + (meta.settings.accents !== false ? 'ON' : 'OFF'), '', () => { meta.settings.accents = meta.settings.accents === false; saveMeta(); this.showSettings(); }),
       button('BEAT TIMING: ' + (meta.settings.beatOffset > 0 ? '+' : '') + (meta.settings.beatOffset || 0) + 'MS', '', () => this.showCalibrate()),
       ...(navigator.vibrate || window.Capacitor ? [button('VIBRATION: ' + (meta.settings.haptics ? 'ON' : 'OFF'), '', () => { meta.settings.haptics = !meta.settings.haptics; saveMeta(); this.showSettings(); })] : []),
       ...(document.documentElement.requestFullscreen ? [button('FULLSCREEN', '', () => this.app.fullscreen())] : []),
@@ -601,11 +603,42 @@ export class UI {
       b.disabled = false;
       b.textContent = pk.boss ? 'BOSS!' : 'WAVE ' + (r.wave + 1);
       b.className = 'btn ' + (pk.boss ? 'red' : 'go');
+    } else if (r.phase === 'wave') {
+      b.disabled = false;
+      b.className = 'btn beatpad';
+      this.padKey = null;
+      this.updatePad();
     } else {
       b.disabled = true;
-      b.textContent = r.phase === 'wave' ? 'WAVE ' + r.wave : '...';
+      b.textContent = '...';
       b.className = 'btn';
     }
+  }
+
+  // The BEAT pad: flashes on every beat and shows the current Groove.
+  updatePad() {
+    const r = this.run, b = $('btn-wave');
+    if (!r || r.phase !== 'wave') return;
+    const g = r.groove || 0, on = (r.beatPos % 1) < 0.2;
+    const key = g + '|' + on + '|' + r.inDrop;
+    if (key === this.padKey) return;
+    this.padKey = key;
+    if (!b.querySelector('.groove')) b.innerHTML = '<span class="pad-l">BEAT</span><span class="groove"><i></i></span><small class="pad-g"></small>';
+    b.querySelector('.groove i').style.width = (g / 16) * 100 + '%';
+    b.querySelector('.pad-g').textContent = g ? 'GROOVE x' + g + (g >= 8 ? ' - DROP x2.5' : '') : 'PRESS ON THE BEAT';
+    b.classList.toggle('on', on);
+    b.classList.toggle('full', g >= 8);
+  }
+
+  pulseFx(grade) {
+    if (!grade) return;
+    const fx = $('padfx');
+    fx.className = '';
+    void fx.offsetWidth;
+    fx.className = grade;
+    fx.textContent = grade === 'perfect' ? 'PERFECT' : grade === 'good' ? 'GOOD' : 'MISS';
+    $('btn-wave').classList.toggle('hit', grade !== 'miss');
+    this.padKey = null;
   }
 
   setHud(id, html, cls) {
@@ -688,6 +721,7 @@ export class UI {
   updateBeat() {
     const r = this.run, bb = $('beatbar');
     if (!r) return;
+    this.updatePad();
     bb.classList.remove('hidden');
     if (!bb.firstChild) {
       bb.innerHTML = '<span class="bt-lab"></span>' + Array.from({ length: 8 }, (_, i) => `<i class="${i === 7 ? 'last' : ''}"></i>`).join('');

@@ -42,7 +42,7 @@ export const PAGES = [
     title: 'UPGRADES & BRANCHES',
     art: () => tw('cannon', 1) + tw('cannon', 2) + tw('cannon', 3),
     body: () => `
-      <p>${k('HOLD')} a built tower to open its panel (between waves a quick tap works too). From there you can:</p>
+      <p>${k('Tap')} (or hold) a built tower to open its panel. From there you can:</p>
       <p>${k('UPGRADE')} through levels 1-3, each one stronger and better looking.<br>
       ${k('BRANCH')} at max level: pick path ${k('A')} or ${k('B')}. Each branch changes how the tower works and gives it a unique look.<br>
       ${k('TARGET')}: cycle between First, Last, Strong and Close.<br>
@@ -113,9 +113,10 @@ export const PAGES = [
     title: 'PLAY TO THE BEAT',
     art: () => tw('railgun', 3) + tw('blackhole', 3) + tw('cannon', 3),
     body: () => `
-      <p>${k('TOWER ACCENTS', 'cyan')}: during a wave, tap a tower <b>right on the beat</b> and it instantly fires a charged accent shot. ${k('PERFECT', 'cyan')} (within 60 ms) hits for double, ${k('GOOD', 'grn')} (within 110 ms) a bit less. Each tower can accent <b>once per bar</b>. Off-beat taps do nothing, so you can drum freely. <b>Hold</b> a tower to open its panel during a wave.</p>
+      <p>${k('THE BEAT PAD', 'mag')}: during a wave the big button becomes the BEAT pad. Press it <b>right on the beat</b> and <b>every tower</b> fires a pulse shot at once. ${k('PERFECT', 'cyan')} (within 60 ms) hits hardest, ${k('GOOD', 'grn')} (within 110 ms) a bit less.</p>
+      <p>${k('GROOVE', 'cyan')}: every on-beat press in a row adds Groove (up to 16), making each pulse stronger, up to double. At 8+ Groove, DROPs hit for <b>x2.5</b> instead of x2. Missing the beat, pressing twice on one beat, or skipping beats resets it. Enemies are tuned for players who keep the groove going.</p>
       <p>${k('NEON SLASH', 'mag')}: during a ${k('DROP', 'mag')}, drag across the path to slash every enemy the line crosses. Let go on the beat for full damage. You get <b>2 slashes per drop</b> (shown as / marks on the beat meter).</p>
-      <p class="c-dim">Phones play sound slightly late. Use BEAT TIMING in Settings and tap along to calibrate, so your taps are judged by what you actually hear. Accents can be turned off there too.</p>`,
+      <p class="c-dim">Phones play sound slightly late. Use BEAT TIMING in Settings and tap along to calibrate, so your taps are judged by what you actually hear.</p>`,
   },
   {
     title: 'COUNTER-RAIDS',
@@ -132,7 +133,7 @@ export const PAGES = [
     art: () => tw('blaster', 1) + tw('amplifier', 2) + tw('laser', 3),
     body: () => `
       <p>${k('Two fingers')} drag to move the map and pinch to zoom (right-drag or arrow keys and the mouse wheel on a computer).<br>
-      ${k('Hold')} any tower to see its info. One-finger drags are saved for Neon Slash.<br>
+      ${k('Tap')} any tower to see its info. One-finger drags are saved for Neon Slash. On a computer, Space is the BEAT pad during waves.<br>
       ${k('Speed')} button: 1x up to 5x. ${k('Pause')} button or Android back button to pause.<br>
       Runs ${k('auto-save')} between waves, so you can quit and CONTINUE later. Run Again keeps your commander, Heat and mutators.</p>
       <p>Back up your progress with ${k('Export Save')} in SETTINGS.</p>

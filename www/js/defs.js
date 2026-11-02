@@ -62,7 +62,7 @@ export const TOWERS = {
   drone: {
     id: 'drone', name: 'Drone Bay', color: '#3d7bff', cost: 130, unlock: 45, rotates: false,
     desc: 'Deploys drones that lock onto enemies near the bay and hunt them down.',
-    range: 36, drones: 2, droneHp: 160, droneDmg: 18, droneRate: 1.5, dtype: 'kin', proj: 'none',
+    range: 36, drones: 2, droneHp: 160, droneDmg: 21, droneRate: 1.5, dtype: 'kin', proj: 'none',
     branches: {
       A: { name: 'Hunter Frames', desc: 'Drones deal +80% damage and fly 40% faster.', droneDmgMult: 1.8, droneSpeed: 1.4 },
       B: { name: 'Swarm Protocol', desc: 'Deploys 4 drones.', dronesBonus: 2 },
