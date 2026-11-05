@@ -97,3 +97,20 @@ button{font:inherit;color:inherit}
 #rotate small{font-family:var(--body);color:var(--muted)}
 @media (orientation:portrait) and (max-width:900px){#rotate{display:flex}}
 @media (prefers-reduced-motion:reduce){.btn.order.full{animation:none}}
+
+/* hotspots (diner interior and street) */
+.hot{position:absolute;background:transparent;border:calc(var(--u)*1) dashed rgba(255,255,255,0);cursor:pointer;padding:0}
+.hot:hover,.hot:focus-visible{border-color:rgba(125,255,176,.8);background:rgba(125,255,176,.08);outline:none}
+.hot span{position:absolute;left:50%;top:0;transform:translate(-50%,-110%);font-family:var(--px);font-size:calc(var(--u)*4.2);white-space:nowrap;background:rgba(10,6,18,.75);padding:calc(var(--u)*1.5) calc(var(--u)*3);color:var(--fg);border:calc(var(--u)*.8) solid var(--line);pointer-events:none}
+.hot span.below{top:100%;transform:translate(-50%,10%)}
+.hot:hover span,.hot:focus-visible span{color:var(--mint);border-color:var(--mint)}
+.hot.locked span{color:var(--muted)}
+.stat-chip{position:absolute;left:calc(var(--u)*6);top:calc(var(--u)*5)}
+.partybar{position:absolute;left:calc(var(--u)*6);right:calc(var(--u)*6);bottom:calc(var(--u)*5);display:flex;gap:calc(var(--u)*4);align-items:center;flex-wrap:wrap;background:rgba(10,6,18,.8);border:calc(var(--u)*1) solid var(--line);padding:calc(var(--u)*3) calc(var(--u)*5)}
+.partybar .px{font-size:calc(var(--u)*5)}
+.tip-line{position:absolute;left:50%;bottom:calc(var(--u)*8);transform:translateX(-50%);font-family:var(--px);font-size:calc(var(--u)*5);background:rgba(10,6,18,.75);padding:calc(var(--u)*3) calc(var(--u)*6)}
+.portrait.big{height:calc(var(--u)*90)}
+#cmd{position:absolute;left:50%;top:calc(var(--u)*24);transform:translateX(-50%);background:rgba(10,6,18,.92);border:calc(var(--u)*1.2) solid var(--gold);padding:calc(var(--u)*4) calc(var(--u)*6);pointer-events:auto;display:flex;flex-direction:column;gap:calc(var(--u)*3);max-width:90%}
+#cmd .cmd-h{font-size:calc(var(--u)*5)}
+#cmd .btn[aria-pressed="true"],.btn[aria-pressed="true"]{background:var(--cyan);color:#06202a;border-color:#c8faff}
+#screen{pointer-events:none}#screen>*{pointer-events:auto}

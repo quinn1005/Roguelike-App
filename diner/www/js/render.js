@@ -41,6 +41,7 @@ class Stage{
       w.globalAlpha=a.alpha??1;
       if(a.sy&&a.sy<1){const h=sp.c.height;w.drawImage(sp.c,0,0,sp.c.width,h,X,Y+Math.round(h*(1-a.sy)),sp.c.width,Math.max(1,Math.round(h*a.sy)))}else w.drawImage(sp.c,X,Y);
       w.globalAlpha=1;if(sp.gc&&!a.flash&&(a.sy??1)>=1)glows.push([sp.gc,X,Y,a.alpha??1])}
+    if(sc.drawFront)sc.drawFront(w,this);
     this.drawParts(w,false);
     // lighting
     this.mx.clearRect(0,0,lw,lh);this.mx.drawImage(this.world,0,0);
@@ -73,14 +74,14 @@ const GutterScene={tiled:true,wet:true,wetY:131,ambient:[58,48,92],
     h.box(f,0,0,320,18,'#0e0a18');h.box(f,0,17,320,1.2,'#1e1630');
     for(const gx of[118,278]){h.box(f,gx,0,26,14,'#241c34');for(let i=0;i<6;i++)h.box(f,gx+2+i*4,0,1.6,13,'#3a3050')}
     h.box(f,0,112,320,8,'#221a30');h.box(f,0,112,320,1,'#2e2440');
+    h.box(f,226,64,40,9,'#2a3a4a');h.box(f,226,64,40,1,'#4a6078');h.text(f,'ARCDYNE',246,68.5,1,'#8aa0b8');h.text(f,'NO DIVING',246,78,1,'#5a5070');
+    h.text(f,'EAT AT LAST STOP',160,90,1,'#a04a7a');h.text(f,'DOLORES WAS HERE',20,104,1,'#4a8a6a');h.line(f,135,95,185,94,'#a04a7a');
     this.far=cf;
     // mid: pipes, signs, canal
     let[cm,m,hm]=mkL();
     hm.box(m,0,30,320,12,'#2e2a3a');hm.box(m,0,31,320,2,'#4a4458');hm.box(m,0,40,320,2,'#1e1a28');for(let x=8;x<320;x+=64){hm.box(m,x,28.5,4,15,'#3e3850');hm.box(m,x,28.5,4,1,'#5a5470')}
     hm.box(m,0,52,320,4,'#3a3046');hm.box(m,0,52,320,1,'#4e4460');
     hm.box(m,100,42,6,78,'#2e2a3a');hm.box(m,100,42,1.4,78,'#4a4458');hm.ell(m,103,80,5,5,'#5a3a3a');hm.ell(m,103,80,3.4,3.4,'#2e2a3a');
-    hm.box(m,226,64,40,9,'#2a3a4a');hm.box(m,226,64,40,1,'#4a6078');hm.text(m,'ARCDYNE',246,68.5,1,'#8aa0b8');hm.text(m,'NO DIVING',246,78,1,'#5a5070');
-    hm.text(m,'EAT AT LAST STOP',160,90,1,'#a04a7a');hm.text(m,'DOLORES WAS HERE',40,104,1,'#4a8a6a');hm.line(m,135,95,185,94,'#a04a7a');
     hm.box(m,0,118,320,14,'#10261e');for(let x=0;x<320;x+=10)hm.box(m,x+(x%20?3:0),121+(x%30?0:4),5,.7,'#1a3a2c');
     this.mid=cm;
     // near: walkway
@@ -137,4 +138,58 @@ const DinerScene={tiled:false,wet:true,wetY:123,ambient:[56,46,96],
   tick(st,dt){},
   overlay(c,st,t){if(!this.rain){this.rain=[];for(let i=0;i<170;i++)this.rain.push({x:Math.random()*st.lw*1.2,y:Math.random()*270,s:R(220,300)})}
     const dt=1/60,gy=st.u(124);c.fillStyle='rgba(170,190,255,.5)';for(const r of this.rain){r.y+=r.s*dt;r.x-=r.s*dt*.18;if(r.y>gy+((r.s*7)%(270-gy))){r.y=-R(0,40);r.x=Math.random()*st.lw*1.2}const x=r.x|0,y=r.y|0;c.fillRect(x,y,1,1);c.fillRect(x+1,y-2,1,2)}}
+};
+
+// ---------------------------------------------------------------- scene: inside the Last Stop Diner (hub)
+const InteriorScene={tiled:false,wet:false,ambient:[70,54,96],
+  bake(st){const S=st.S,lw=st.lw,lh=270,ox=st.ox;const h=H(S,ox);
+    this.back=mk(lw,lh);const b=this.back.getContext('2d');
+    h.box(b,-80,0,480,112,'#2e2638');seed=41;for(let i=0;i<500;i++)h.px(b,-80+rnd()*480,20+rnd()*68,rnd()<.5?'#342b40':'#28212f');
+    h.box(b,-80,0,480,18,'#1a1222');h.box(b,-80,18,480,4,'#1a1220');for(const x of[-60,0,60,160,250,320,380])h.box(b,x,18,4,94,'#1a1220');
+    h.box(b,-80,88,480,24,'#3a2430');for(let x=-80;x<400;x+=10)h.box(b,x,88,.7,24,'#2a1822');h.box(b,-80,88,480,1.2,'#5a3a40');
+    // floor checker
+    h.box(b,-80,112,480,70,'#1a1424');
+    for(let r=0,y=112;y<180;y+=6,r++)for(let x=-80+(r%2)*8,k=0;x<400;x+=16,k++)h.box(b,x,y,8,6,'#2a2236');h.box(b,-80,112,480,.8,'#120c18');
+    for(let y=112;y<180;y+=6)h.box(b,-80,y,480,.5,'#1a1424');
+    // front door (to the street)
+    h.box(b,2,48,26,64,'#1a1220');h.box(b,4,50,22,62,'#2e1e30');h.box(b,7,54,16,20,'#120c18');h.box(b,22,82,1.5,6,'#c8a050');
+    // kitchen pass-through
+    h.box(b,32,38,62,44,'#1a1220');h.box(b,34,40,58,40,'#120c18');for(let x=38;x<90;x+=14){h.line(b,x,40,x,47,'#3a3446');h.ell(b,x,50,3,3,'#4a4458');h.ell(b,x,50,2,2,'#2a2636')}
+    h.box(b,36,62,20,1,'#4a3a30');h.box(b,74,62,16,1,'#4a3a30');for(let i=0;i<5;i++){h.box(b,37+i*4,58,3,4,['#7dffb0','#ff8ad8','#ffd25e','#5ff2ff','#ff7a2a'][i]);h.box(b,75+(i%4)*4,58,3,4,['#c88aff','#ff5a6a','#7ad060','#ffb43a'][i%4])}
+    h.ell(b,63,76,9,4,'#141018');h.ell(b,63,72.5,8,1.6,'#0c2a18');h.box(b,32,80,62,3,'#4a3a30');h.ell(b,86,78.6,2.4,1.6,'#c8a050');
+    // dumbwaiter
+    h.box(b,98,40,28,46,'#5a5470');h.box(b,100,46,24,38,'#0c0814');h.ell(b,112,42,4,4,'#3a3446');h.ell(b,112,42,2,2,'#7a7488');h.line(b,108,42,108,62,'#8a6a40');h.line(b,116,42,116,70,'#8a6a40');
+    h.box(b,101,72,22,10,'#3a2a20');h.box(b,101,72,22,1,'#5a4030');
+    // locker cabinet
+    h.box(b,130,50,20,46,'#3a4250');h.box(b,131,51,9,44,'#4a5262');h.box(b,140.5,51,8.5,44,'#4a5262');for(let y=55;y<62;y+=2){h.box(b,133,y,5,.6,'#2a3240');h.box(b,142,y,5,.6,'#2a3240')}h.box(b,138,72,1,4,'#c9d1db');h.box(b,141.5,72,1,4,'#c9d1db');
+    // back window to the street
+    h.box(b,178,32,64,40,'#1a1220');h.box(b,180,34,60,36,'#140c22');skyline(b,h,{seed:9,x0:180,x1:240,base:70,minH:8,maxH:30,minW:4,maxW:8,col:'#0e0818',win:['#ff5aa8','#5ff2ff','#7dffb0'],winP:.2});h.box(b,209.5,34,1,36,'#1a1220');h.box(b,180,51.5,60,1,'#1a1220');
+    // counter
+    h.box(b,26,96,128,4,'#7a5a44');h.box(b,26,96,128,1,'#9a7a5a');h.box(b,28,100,124,18,'#3a2430');for(let x=34;x<150;x+=12)h.box(b,x,102,8,13,'#442a38');h.box(b,26,117,128,1.5,'#c9d1db');
+    h.box(b,136,88,12,8,'#5a5470');h.box(b,137,89,10,3,'#0c2a18');h.box(b,138,92.5,8,2.5,'#3a3446');
+    h.box(b,121,86,6,10,'#4f9a5a');h.ell(b,124,86,3,2,'#4f9a5a');h.box(b,118,89,3,2,'#4f9a5a');h.box(b,120,93,8,3,'#c0643c');h.px(b,122.5,89,'#1d1526');h.px(b,125,89,'#1d1526');
+    // meatball the cat
+    h.ell(b,76,93.5,6,3,'#d08a3a');h.ell(b,71,92,3,2.6,'#d08a3a');h.poly(b,[[69,90.5],[70.4,88],[71.6,90.5]],'#d08a3a');h.poly(b,[[71.6,90.5],[73,88],[74,90.5]],'#d08a3a');for(const x of[74,77,80])h.box(b,x,91,.8,2.4,'#a0602a');h.line(b,82,94,86,92,'#d08a3a');h.box(b,70,92,1.4,.5,'#1d1526');
+    // jukebox
+    h.ell(b,302,94,11,8,'#4a2a5a');h.box(b,291,94,22,34,'#4a2a5a');h.box(b,294,100,16,14,'#1a1224');h.box(b,294,118,16,8,'#2a1a34');
+    // booth backs and stools
+    for(const x of[166,212,230,276])h.box(b,x,106,7,40,'#7a2a3a');for(const x of[166,212,230,276])h.box(b,x,106,7,2,'#9a3a4a');
+    for(const x of[56,86])h.box(b,x-1,128,2,10,'#8b93a3')},
+  drawFront(w,st){const h=H(st.S,st.ox);for(const[x1,x2]of[[172,212],[236,276]]){h.box(w,x1,126,x2-x1,4,'#6a4a3a');h.box(w,x1,126,x2-x1,1,'#8a6a4a');h.box(w,x1+2,130,x2-x1-4,16,'#3a2430');h.box(w,(x1+x2)/2-1,130,2,16,'#2a1822')}
+    for(const x of[56,86]){h.ell(w,x,128,5,1.6,'#c7333b')}},
+  drawBack(c,st){c.drawImage(this.back,0,0)},
+  drawNear(w,st){},
+  emis(c,st,t){const h=H(st.S,st.ox);
+    const fl=Math.sin(t*15)*Math.sin(t*2.7)>.75;h.box(c,-80,22.4,480,.8,fl?'#7a2a5a':'#ff5aa8');for(const x of[1.4,61.4,161.4,251.4])h.box(c,x,22,.8,66,'#5ff2ff');
+    h.box(c,7,54,16,20,'#4a2a6a');for(let i=0;i<8;i++){const y=(t*60+i*23)%20;h.box(c,8+i*2,54+y,.5,2,'#9fb4ff')}
+    h.flame(c,t,58,72.5,5,['#1aaa5a','#2aff7a','#d0ffe0'],.8);h.text(c,'KITCHEN',63,35,1,'#7dffb0');
+    const p=.6+.4*Math.sin(t*2.5);h.box(c,99,45,26,.8,p>.8?'#9ffaff':'#5ff2ff');h.box(c,99,84,26,.8,'#5ff2ff');h.text(c,'TO THE PIT',112,34,1,'#5ff2ff');
+    h.box(c,137,89,10,3,Math.sin(t*3)>0?'#7dffb0':'#3aa060');h.text(c,'LOCKER',140,46,1,'#c9d1db');
+    for(let i=0;i<5;i++)h.box(c,295+i*3.2,101,2,12,['#ff5aa8','#ffd25e','#7dffb0','#5ff2ff','#c88aff'][(i+Math.floor(t*4))%5]);h.box(c,294,118,16,1,'#ff5aa8');
+    for(const x of[192,256]){h.line(c,x,0,x,58,'#2a2030');h.ell(c,x,60,5,2,'#ffcf7a');h.box(c,x-4,60,8,1,'#fff0c0')}
+    if(Math.sin(t*.8)>.6)h.text(c,'Z',80+Math.sin(t*2)*2,86-((t*6)%6),1,'#e8f0ff');
+    c.globalAlpha=.25;for(let i=0;i<14;i++){const x=180+((i*37+t*8)%60),y=34+((t*70+i*19)%36);h.box(c,x,y,.5,2,'#c8d8ff')}c.globalAlpha=1},
+  lights(lt,st,t){const u=v=>Math.round(v*st.S)+st.ox,v=y=>Math.round(y*st.S);lt(u(160),v(30),240,[255,90,200],.32);lt(u(63),v(70),80,[80,255,140],.8);lt(u(112),v(64),60,[95,242,255],.55);
+    for(const x of[192,256])lt(u(x),v(70),95,[255,200,130],.75);lt(u(302),v(108),70,[255,120,220],.6);lt(u(15),v(64),40,[150,110,255],.5);lt(u(90),v(120),120,[255,190,140],.35);lt(u(210),v(52),60,[255,120,200],.3)},
+  tick(){}
 };

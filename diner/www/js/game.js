@@ -8,8 +8,8 @@ function newSave(){return{v:1,tips:150,shards:0,locker:[makeGear('spatula',0,1),
   ing:{},parts:{},junk:{},best:1,pulleys:[1],delves:0,speed:1,stats:{kills:0,wipes:0}}}
 
 class Game{
-  constructor(){this.stage=new Stage($('#stage'));this.save=this.load();this.mode='hub';this.delve=null;this.hudDirty=true;this.hudT=0;this.party=[];this.walkins=[];this.takeout=[];this.startFloor=1;this.rerolls=0;
-    this.stage.setScene(DinerScene);this.layout();window.addEventListener('resize',()=>{this.layout()});
+  constructor(){this.stage=new Stage($('#stage'));this.save=this.load();this.mode='hub';this.delve=null;this.hudDirty=true;this.hudT=0;this.party=[];this.walkins=[];this.takeout=[];this.startFloor=1;this.rerolls=0;this.targeting=null;this.returnTo='inside';
+    this.stage.setScene(DinerScene);this.layout();window.addEventListener('resize',()=>{this.layout();if($('#modal').hidden){if(this.mode==='inside')this.inside();else if(this.mode==='street')this.street()}});
     document.addEventListener('click',e=>this.onClick(e));this.bindHud();this.hubActors=[];
     this.title();let last=performance.now();const loop=now=>{const dt=Math.min(.05,(now-last)/1000);last=now;this.frame(dt);requestAnimationFrame(loop)};requestAnimationFrame(loop)}
   // ------------------------------------------------------------ persistence
@@ -21,49 +21,68 @@ class Game{
   layout(){const r=this.stage.resize();const ui=$('#ui');Object.assign(this.stage.cv.style,{left:r.x+'px',top:r.y+'px'});Object.assign(ui.style,{left:r.x+'px',top:r.y+'px',width:r.w+'px',height:r.h+'px'});ui.style.setProperty('--u',r.scale+'px');this.u=r.scale}
   frame(dt){const st=this.stage;
     if(this.mode==='delve'&&this.delve){const d=this.delve;if(!this.paused){d.update(dt);st.update(dt*d.speed)}st.frame(d.actors(),(c,s)=>d.drawUI(c,s));this.hudT-=dt;if(this.hudDirty||this.hudT<=0){this.renderHud();this.hudDirty=false;this.hudT=.15}}
-    else{st.update(dt);st.frame(this.hubActors,null)}}
+    else if(this.mode==='inside'){st.update(dt);st.frame(this.customerActors(),(c,s)=>this.insideUI(c,s))}
+    else{st.update(dt);st.frame([],null)}}
   // ------------------------------------------------------------ click routing
-  onClick(e){const el=e.target.closest('[data-a]');if(!el||el.disabled)return;const a=el.dataset.a,v=el.dataset.v;const f=this['a_'+a];if(f)f.call(this,v,el)}
+  onClick(e){const el=e.target.closest('[data-a]');if(!el&&this.mode==='delve'&&this.targeting&&this.delve&&!e.target.closest('button,.hero,#modal')){const r=this.stage.cv.getBoundingClientRect();const st=this.stage;const xu=(((e.clientX-r.left)/st.scale)-st.ox)/st.S,yu=((e.clientY-r.top)/st.scale)/st.S;const u=this.delve.unitAt(xu,yu);if(u)this.pickTarget(u);return}
+    if(!el||el.disabled)return;const a=el.dataset.a,v=el.dataset.v;const f=this['a_'+a];if(f)f.call(this,v,el)}
   toast(msg,t=1800){const el=$('#toast');el.textContent=msg;el.hidden=false;clearTimeout(this._tt);this._tt=setTimeout(()=>el.hidden=true,t)}
   show(html){$('#screen').innerHTML=html;$('#modal').hidden=true}
   modal(html){const m=$('#modal');m.innerHTML=`<div class="panel">${html}</div>`;m.hidden=false}
   closeModal(){$('#modal').hidden=true}
   a_close(){this.closeModal()}
-  // ------------------------------------------------------------ title & hub
-  title(){this.mode='hub';this.stage.setScene(DinerScene);this.show(`<div class="panel hub-title" style="gap:calc(var(--u)*8)"><h1 class="title">LAST STOP<br>DINER</h1><p class="sub">Feed the hungry. Send them into the pit.<br>Cook what they bring back.</p>
+  // ------------------------------------------------------------ title, street and the diner interior
+  title(){this.mode='street';this.stage.setScene(DinerScene);$('#hud').hidden=true;this.show(`<div class="panel hub-title" style="gap:calc(var(--u)*8)"><h1 class="title">LAST STOP<br>DINER</h1><p class="sub">Feed the hungry. Send them into the pit.<br>Cook what they bring back.</p>
     <div class="row">${this.save?'<button class="btn primary" data-a="continue" type="button">Continue</button>':''}<button class="btn ${this.save?'':'primary'}" data-a="newgame" type="button">New game</button></div>
     <p class="sub" style="font-size:calc(var(--u)*5.4)">Milestone 1: Fight Night. Cooking opens in the next update.</p></div>`)}
-  a_continue(){this.hub()}
-  a_newgame(){if(this.save&&!this._confirmNew){this._confirmNew=true;this.toast('Tap New game again to erase your save');return}this.save=newSave();this.persist();this.hub();this.toast('Dolores left you a diner. And a cat. He bites.',2600)}
-  hub(){this.mode='hub';this.stage.setScene(DinerScene);$('#hud').hidden=true;const s=this.save;const smith=s.best>=10;
-    this.show(`<div class="panel hub-title"><div class="title" style="font-size:calc(var(--u)*8)">LAST STOP DINER</div>
-      <div class="stats" style="margin-top:calc(var(--u)*4)">TIPS <span class="gold">${s.tips}</span> &nbsp; SHARDS <span style="color:var(--cyan)">${s.shards}</span><br>DEEPEST FLOOR B${s.best} &nbsp; DELVES ${s.delves}</div></div>
-      <div class="panel hub-menu"><div class="menu">
-      <button class="btn primary" data-a="recruit" type="button">Open for business</button>
-      <button class="btn" data-a="locker" type="button">Locker (${s.locker.length})</button>
-      <button class="btn" data-a="pawn" type="button">Lou's Pawn &amp; Prawn</button>
-      <button class="btn" data-a="smith" type="button" ${smith?'':'aria-describedby="smithlock"'}>Blacksmith${smith?'':' (locked)'}</button>
-      <button class="btn" data-a="pantry" type="button">Pantry</button>
-      ${smith?'':'<div class="lock" id="smithlock">The Blacksmith moves in once someone beats the Gristle Golem on B10.</div>'}
-      <div class="spacer"></div><button class="btn sm" data-a="titleback" type="button">Title screen</button></div></div>`)}
+  a_continue(){this.inside()}
+  a_newgame(){if(this.save&&!this._confirmNew){this._confirmNew=true;this.toast('Tap New game again to erase your save');return}this.save=newSave();this.persist();this.walkins=[];this.inside();this.toast('Dolores left you a diner. And a cat. He bites.',2600)}
   a_titleback(){this.title()}
-  a_back(){this.hub()}
-  // ------------------------------------------------------------ recruiting
-  a_recruit(){this.walkins=[];for(let i=0;i<6;i++)this.walkins.push(makeWalkin(ri(1,2)));this.party=[];this.takeout=[];this.rerolls=0;this.recruitScreen()}
-  portrait(w,h=46){const S=humanShapes(w,{bob:0,arm:0});const sp=raster(xform(S,1,w.look.h,0),ST,RAMPS,{},{});const c=sp.c;return c}
-  recruitScreen(){const cost=this.rerolls?10:0;
-    this.show(`<div class="panel fill"><div class="row"><h2 class="h2">Walk-ins</h2><span class="sub">The Blue Plate Special brought these people in. Pick up to 4.</span><div class="spacer"></div><span class="chip gold">TIPS ${this.save.tips}</span></div>
-      <div class="scroll"><div class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr))">${this.walkins.map((w,i)=>{const C=CLASSES[w.cls];const n=this.party.indexOf(w);const s=heroStats(w);
-        return`<div class="card${n>=0?' sel':''}" data-a="pick" data-v="${i}" role="button" tabindex="0">${n>=0?`<span class="order-n">${n+1}</span>`:''}
-        <div class="row" style="flex-wrap:nowrap;align-items:flex-start"><canvas class="portrait" data-portrait="${i}"></canvas><div style="min-width:0"><div class="nm">${esc(w.name)}</div><div class="meta">${esc(w.job)}</div>
-        <div class="nm" style="color:${C.col};margin-top:calc(var(--u)*2)">${C.name}</div><div class="meta">${C.role} · ${C.school}</div></div></div>
-        <div class="bio">"${esc(w.bio)}"</div><div>${w.traits.map(t=>`<span class="badge" title="${esc(TRAITS[t].desc)}">${TRAITS[t].name}</span>`).join('')}</div>
-        <div class="stats">HP ${s.hp} ATK ${s.atk} DEF ${s.def} SPD ${s.spd} CRIT ${s.crit}%</div></div>`}).join('')}</div></div>
-      <div class="row"><button class="btn" data-a="back" type="button">Close up</button><button class="btn" data-a="reroll" type="button" ${this.save.tips<cost?'disabled':''}>Serve another round${cost?` (${cost} tips)`:' (free)'}</button><div class="spacer"></div>
-      <button class="btn go" data-a="gearup" type="button" ${this.party.length?'':'disabled'}>Gear up (${this.party.length}/4) →</button></div></div>`);
-    document.querySelectorAll('[data-portrait]').forEach(cv=>{const w=this.walkins[+cv.dataset.portrait];const p=this.portrait(w);cv.width=p.width;cv.height=p.height;cv.getContext('2d').drawImage(p,0,0)})}
-  a_pick(v){const w=this.walkins[+v];const i=this.party.indexOf(w);if(i>=0)this.party.splice(i,1);else if(this.party.length<4)this.party.push(w);else this.toast('The booth only seats 4');this.recruitScreen()}
-  a_reroll(){const cost=this.rerolls?10:0;if(this.save.tips<cost)return;this.save.tips-=cost;this.rerolls++;const keep=this.party.slice();this.walkins=keep.concat(Array.from({length:6-keep.length},()=>makeWalkin(ri(1,2))));this.recruitScreen()}
+  a_back(){this.closeModal();if(this.returnTo==='street')this.street();else this.inside()}
+  hotspots(list){return list.map(h=>{const st=this.stage;const x=(st.u(h.x)+st.ox)*st.scale,y=st.u(h.y)*st.scale,w=st.u(h.w)*st.scale,hh=st.u(h.h)*st.scale;
+    return`<button class="hot${h.lock?' locked':''}" data-a="${h.a}" ${h.v!==undefined?`data-v="${h.v}"`:''} type="button" style="left:${x}px;top:${y}px;width:${w}px;height:${hh}px" aria-label="${esc(h.label)}"><span class="${h.below?'below':''}">${esc(h.label)}</span></button>`}).join('')}
+  statsChip(){const s=this.save;return`<div class="chip stat-chip">TIPS <span class="gold">${s.tips}</span> · SHARDS <span style="color:var(--cyan)">${s.shards}</span> · DEEPEST B${s.best}</div>`}
+  street(){this.mode='street';this.returnTo='street';this.stage.setScene(DinerScene);$('#hud').hidden=true;const smith=this.save.best>=10;
+    this.show(this.statsChip()+this.hotspots([{a:'goin',label:'Go inside',x:18,y:38,w:142,h:84},{a:'pawn',label:"Lou's Pawn & Prawn",x:166,y:70,w:70,h:52},{a:'smith',label:smith?'Blacksmith':'Blacksmith (locked)',lock:!smith,x:240,y:58,w:64,h:64}])+
+      `<div class="tip-line">Tap the diner to go back inside.</div>`)}
+  a_goin(){this.inside()}
+  seats(){return[{x:56,y:136,f:1},{x:86,y:136,f:1},{x:180,y:144,f:1},{x:204,y:144,f:-1},{x:244,y:144,f:1},{x:268,y:144,f:-1}]}
+  inside(){this.mode='inside';this.returnTo='inside';this.stage.setScene(InteriorScene);$('#hud').hidden=true;if(!this.walkins.length){this.walkins=Array.from({length:6},()=>makeWalkin(ri(1,2)));this.party=[];this.takeout=[];this.rerolls=0}
+    const seats=this.seats();const cust=this.walkins.map((w,i)=>({a:'cust',v:i,label:w.name.split(' ')[0],x:seats[i].x-9,y:seats[i].y-(i<2?34:34),w:18,h:i<2?34:20,below:i>=2}));
+    this.show(this.statsChip()+this.hotspots([{a:'door',label:'Outside',x:3,y:48,w:24,h:64},{a:'kitchen',label:'Kitchen',x:33,y:38,w:60,h:44},{a:'dumbwaiter',label:'Dumbwaiter: to the pit',x:98,y:40,w:28,h:46},{a:'locker',label:'Locker',x:130,y:50,w:20,h:38},
+      {a:'register',label:'Register',x:134,y:84,w:16,h:12},{a:'moss',label:'Moss',x:117,y:82,w:12,h:14},{a:'cat',label:'Meatball',x:66,y:86,w:20,h:10},{a:'jukebox',label:'Jukebox',x:290,y:86,w:24,h:42}].concat(cust))+
+      `<div class="partybar"><span class="px">PARTY ${this.party.length}/4</span>${this.party.map(w=>`<button class="btn sm" data-a="unpick" data-v="${w.id}" type="button" style="color:${CLASSES[w.cls].col}">${esc(w.name.split(' ')[0])} ✕</button>`).join('')}<span class="sub">${this.party.length?'Ready? Use the Dumbwaiter.':'Tap a customer to see who they are.'}</span></div>`)}
+  customerActors(){if(!this.walkins.length)return[];const seats=this.seats(),t=this.stage.t;if(!this._cc)this._cc=new Map();
+    return this.walkins.map((w,i)=>{const s=seats[i];const eat=Math.pow(Math.max(0,Math.sin(t*1.1+i*2.1)),6);const pose={bob:Math.round(Math.sin(t*2+i)*.4*4)/4,cast:Math.round(eat*.6*10)/10};const key=w.id+JSON.stringify(pose)+s.f;
+      let c=this._cc.get(key);if(!c){let S=humanShapes(w,pose);if(s.f<0)S=mirrorShapes(S);c=raster(xform(S,1,w.look.h,0),ST,RAMPS,{rim:hexRgb('#ffb070')},{});this._cc.set(key,c);if(this._cc.size>200)this._cc.delete(this._cc.keys().next().value)}
+      return{sprite:c,x:s.x,y:s.y,shadow:i<2?7:0}})}
+  insideUI(c,st){const seats=this.seats();this.party.forEach((w,k)=>{const i=this.walkins.indexOf(w);if(i<0)return;const s=seats[i];const X=st.sx(s.x),Y=st.u(s.y-(i<2?44:40))-Math.round(Math.sin(st.t*5)*1.5);c.fillStyle='#7dffb0';for(let j=0;j<4;j++)c.fillRect(X-4+j,Y+j,9-j*2,1);textO(c,String(k+1),X-1,Y-7,1,'#7dffb0','#1d1526')})}
+  a_cust(v){const w=this.walkins[+v];const C=CLASSES[w.cls];const s=heroStats(w);const inP=this.party.includes(w);
+    this.modal(`<div class="row" style="flex-wrap:nowrap;align-items:flex-start;gap:calc(var(--u)*8)"><canvas class="portrait big" id="mp"></canvas><div style="min-width:0;display:flex;flex-direction:column;gap:calc(var(--u)*3)">
+      <div class="h2">${esc(w.name)}</div><div class="meta">${esc(w.job)}</div><div class="nm px" style="color:${C.col};font-size:calc(var(--u)*6)">${C.name}</div><div class="meta">${C.role} · ${C.school} school · ${C.range}</div>
+      <div class="meta">Signature: <b>${C.sig}</b>. ${C.sigDesc}</div><div class="bio">"${esc(w.bio)}"</div>
+      <div>${w.traits.map(t=>`<span class="badge" title="${esc(TRAITS[t].desc)}">${TRAITS[t].name}</span><span class="meta">${esc(TRAITS[t].desc)}</span><br>`).join('')}</div>
+      <div class="stats">LV ${w.level} · HP ${s.hp} ATK ${s.atk} DEF ${s.def} SPD ${s.spd} CRIT ${s.crit}%</div></div></div>
+      <div class="row"><button class="btn" data-a="close" type="button">Keep eating</button><div class="spacer"></div><button class="btn ${inP?'':'go'}" data-a="pick" data-v="${v}" type="button">${inP?'Remove from party':'Recruit'}</button></div>`);
+    const cv=$('#mp');const p=this.portrait(w);cv.width=p.width;cv.height=p.height;cv.getContext('2d').drawImage(p,0,0)}
+  portrait(w){const S=humanShapes(w,{bob:0,arm:0});return raster(xform(S,1,w.look.h,0),ST,RAMPS,{},{}).c}
+  a_pick(v){const w=this.walkins[+v];const i=this.party.indexOf(w);if(i>=0)this.party.splice(i,1);else if(this.party.length<4){this.party.push(w);if(Math.random()<.6)this.toast(`${w.name.split(' ')[0]}: "${pick(['say less','let me finish my fries first','is there dental?','I was born for this','wait, the PIT pit?','for the content'])}"`)}else this.toast('The booth only seats 4');this.closeModal();this.inside()}
+  a_unpick(id){this.party=this.party.filter(w=>w.id!==id);this.inside()}
+  a_register(){const cost=this.rerolls?10:0;this.modal(`<h2 class="h2">The register</h2><p class="sub">Moss: "Want me to call in another round? The people you picked stay. Everyone else finishes up and leaves."</p>
+    <div class="row"><button class="btn" data-a="close" type="button">Never mind</button><div class="spacer"></div><button class="btn go" data-a="reroll" type="button" ${this.save.tips<cost?'disabled':''}>Serve another round ${cost?`(${cost} tips)`:'(free)'}</button></div>`)}
+  a_reroll(){const cost=this.rerolls?10:0;if(this.save.tips<cost)return;this.save.tips-=cost;this.rerolls++;this.walkins=this.walkins.map(w=>this.party.includes(w)?w:makeWalkin(ri(1,2)));this._cc&&this._cc.clear();this.persist();this.closeModal();this.inside();this.toast('A new round of customers walks in')}
+  a_moss(){this.toast(pick(['Moss: "...so anyway."','Moss: "The pit called. I let it go to voicemail."','Moss: "I am a cactus. I take no questions."','Moss: "Tip jar is right there. Hint."']),2400)}
+  a_cat(){this.toast(pick(['Meatball bit you. He seems proud.','Meatball is asleep. Meatball is plotting.','You pet Meatball. +1 morale. -1 finger.','Meatball judges your party choices.']),2400)}
+  a_door(){this.street()}
+  a_kitchen(){this.returnTo='inside';this.a_pantry()}
+  a_dumbwaiter(){if(!this.party.length)return this.toast('Recruit at least one customer first');this.gearScreen()}
+  a_jukebox(){const s=this.save;this.modal(`<h2 class="h2">Jukebox settings</h2>
+    <div class="row"><span class="px" style="font-size:calc(var(--u)*5.4)">BATTLES</span><button class="btn sm" data-a="setmode" data-v="auto" aria-pressed="${s.battleMode!=='turn'}" type="button">Auto</button><button class="btn sm" data-a="setmode" data-v="turn" aria-pressed="${s.battleMode==='turn'}" type="button">Turn-based</button></div>
+    <p class="sub">Auto: the party fights on its own; you use takeout, Order Up and the bell.<br>Turn-based: the game pauses on each hero's turn so you pick Attack, Signature, Defend or Heal.</p>
+    <div class="row"><span class="px" style="font-size:calc(var(--u)*5.4)">SPEED</span>${[1,2,4].map(n=>`<button class="btn sm" data-a="setspeed" data-v="${n}" aria-pressed="${(s.speed||1)===n}" type="button">${n}×</button>`).join('')}</div>
+    <div class="row"><div class="spacer"></div><button class="btn" data-a="close" type="button">Done</button></div>`)}
+  a_setmode(v){this.save.battleMode=v;this.persist();if(this.mode==='delve'){this.applyMode();this.closeModal();this.hudDirty=true}else this.a_jukebox()}
+  a_setspeed(v){this.save.speed=+v;this.persist();this.a_jukebox()}
   // ------------------------------------------------------------ gear up
   usedBy(g){return this.party.find(w=>Object.values(w.gear).some(x=>x&&x.id===g.id))}
   a_gearup(){if(!this.party.length)return;this.gearScreen()}
@@ -73,9 +92,8 @@ class Game{
       ${SLOTS.map(sl=>{const g=w.gear[sl];return`<button class="slot ${g?'b'+g.rar:''}" data-a="slot" data-v="${i}:${sl}" type="button"><small>${SLOT_NAME[sl]}</small>${g?`<span class="r${g.rar}">${esc(gearName(g))}</span>`:'<span class="sub">empty</span>'}</button>`}).join('')}
       <div class="stats">HP ${s.hp} ATK ${s.atk} DEF ${s.def}<br>SPD ${s.spd} CRIT ${s.crit}%</div>
       <button class="btn sm" data-a="row" data-v="${i}" type="button">Row: ${w.row==='front'?'Front':'Back'}</button></div>`}).join('')}</div></div>
-    <div class="row"><button class="btn" data-a="recruitback" type="button">← Walk-ins</button><div class="spacer"></div><button class="btn go" data-a="counter" type="button">To the counter →</button></div></div>`);
+    <div class="row"><button class="btn" data-a="back" type="button">← Back inside</button><div class="spacer"></div><button class="btn go" data-a="counter" type="button">To the counter →</button></div></div>`);
     document.querySelectorAll('[data-gp]').forEach(cv=>{const p=this.portrait(this.party[+cv.dataset.gp]);cv.width=p.width;cv.height=p.height;cv.getContext('2d').drawImage(p,0,0)})}
-  a_recruitback(){this.recruitScreen()}
   a_row(v){const w=this.party[+v];w.row=w.row==='front'?'back':'front';this.gearScreen()}
   a_slot(v){const[i,sl]=v.split(':');const w=this.party[+i];const items=this.save.locker.filter(g=>GEAR[g.base].slot===sl).sort((a,b)=>b.rar-a.rar||b.up-a.up);
     this.modal(`<div class="row"><h2 class="h2">${SLOT_NAME[sl]} for ${esc(w.name)}</h2></div><div class="scroll list" style="max-height:60vh">${w.gear[sl]?`<div class="item"><div class="nm"><b>Take it off</b></div><button class="btn sm" data-a="equip" data-v="${i}:${sl}:" type="button">Unequip</button></div>`:''}
@@ -96,9 +114,23 @@ class Game{
   a_unbuy(i){const k=this.takeout.splice(+i,1)[0];this.save.tips+=TAKEOUT[k].price;this.counterScreen()}
   a_start(f){this.startFloor=+f;this.counterScreen()}
   a_descend(){const f=this.startFloor;for(const w of this.party)w.level+=Math.floor((f-1)*.9);this.save.delves++;this.persist();
-    this.mode='delve';this.stage.setScene(GutterScene);this.show('');this.delve=new Delve(this,this.party,this.takeout,f);$('#hud').hidden=false;this.paused=false;this.hudDirty=true;this.renderHud(true)}
+    this.mode='delve';this.stage.setScene(GutterScene);this.show('');this.delve=new Delve(this,this.party,this.takeout,f);this.delve.speed=this.save.speed||1;this.targeting=null;$('#hud').hidden=false;this.paused=false;this.hudDirty=true;this.renderHud(true)}
   // ------------------------------------------------------------ delve HUD
-  bindHud(){$('#btn-speed').addEventListener('click',()=>{const d=this.delve;if(!d)return;d.speed=d.speed===1?2:d.speed===2?4:1;this.save.speed=d.speed;this.hudDirty=true});
+  applyMode(){const d=this.delve;if(!d)return;if(this.save.battleMode!=='turn'&&d.awaiting){const u=d.awaiting;d.awaiting=null;this.onAwait(null);d.heroAct(u)}}
+  onAwait(u){this.targeting=null;this.renderCmd()}
+  renderCmd(){const d=this.delve,el=$('#cmd');const u=d&&d.awaiting;if(!u){el.hidden=true;return}el.hidden=false;const C=CLASSES[u.cls];
+    if(this.targeting){const list=this.targeting==='ally'?d.alive:d.foes.filter(e=>!e.dying);el.innerHTML=`<div class="px cmd-h">${this.targeting==='ally'?'HEAL WHO?':'ATTACK WHO?'} <span class="sub">tap one on screen or below</span></div><div class="row">${list.map((e,i)=>`<button class="btn sm" data-a="tgt" data-v="${i}" type="button">${esc(e.name.split(' ')[0])} ${Math.max(0,Math.round(e.hp))}/${e.stats.hp}</button>`).join('')}<button class="btn sm" data-a="tgtcancel" type="button">Back</button></div>`;return}
+    const ready=(u.charge||0)>=3;el.innerHTML=`<div class="px cmd-h"><span style="color:${C.col}">${esc(u.name)}</span>'s turn</div><div class="row">
+      <button class="btn sm" data-a="cmd" data-v="attack" type="button">Attack</button>
+      <button class="btn sm ${ready?'primary':''}" data-a="cmd" data-v="sig" type="button" ${ready?'':'disabled'}>${C.sig}${ready?'':` (${3-(u.charge||0)} more)`}</button>
+      ${u.cls==='witch'?'<button class="btn sm" data-a="cmd" data-v="heal" type="button">Heal</button>':''}
+      <button class="btn sm" data-a="cmd" data-v="defend" type="button">Defend</button></div>`}
+  a_cmd(v){const d=this.delve;if(!d||!d.awaiting)return;if(v==='attack'){this.targeting='enemy';this.renderCmd();return}if(v==='heal'){this.targeting='ally';this.renderCmd();return}d.command({type:v});this.hudDirty=true}
+  a_tgt(i){const d=this.delve;const list=this.targeting==='ally'?d.alive:d.foes.filter(e=>!e.dying);const t=list[+i];if(t)this.pickTarget(t)}
+  a_tgtcancel(){this.targeting=null;this.renderCmd()}
+  pickTarget(t){const d=this.delve;if(!d||!d.awaiting||!this.targeting)return;if(this.targeting==='enemy'&&t.side!=='enemy')return;if(this.targeting==='ally'&&t.side!=='hero')return;const kind=this.targeting==='ally'?'heal':'attack';this.targeting=null;$('#cmd').hidden=true;d.command({type:kind,target:t});this.hudDirty=true}
+  bindHud(){$('#btn-mode').addEventListener('click',()=>{this.save.battleMode=this.save.battleMode==='turn'?'auto':'turn';this.persist();this.applyMode();this.hudDirty=true;this.toast(this.save.battleMode==='turn'?'Turn-based: you control each hero':'Auto battle: the party fights on its own')});
+$('#btn-speed').addEventListener('click',()=>{const d=this.delve;if(!d)return;d.speed=d.speed===1?2:d.speed===2?4:1;this.save.speed=d.speed;this.hudDirty=true});
     $('#btn-bell').addEventListener('click',()=>{const d=this.delve;if(!d)return;if(!d.canBell())return this.toast(`Out of rope. Next Pulley Station: B${Math.ceil(d.floor/10)*10}`);d.ringBell()});
     $('#btn-order').addEventListener('click',()=>{const d=this.delve;if(!d)return;this.toast(d.meter>=100?'Tap a hero below to fire their signature move':'Order Up fills as your party deals and takes damage')});
     $('#hud-heroes').addEventListener('click',e=>{const el=e.target.closest('.hero');if(!el||!this.delve)return;const h=this.delve.heroes[+el.dataset.i];if(this.delve.orderUp(h))this.toast(`${h.name}: ${CLASSES[h.cls].sig}!`,1000)});
@@ -106,7 +138,7 @@ class Game{
   renderHud(force){const d=this.delve;if(!d)return;const b=d.bag;const items=b.gear.length+Object.values(b.ing).reduce((a,c)=>a+c,0)+Object.values(b.parts).reduce((a,c)=>a+c,0)+Object.values(b.junk).reduce((a,c)=>a+c,0);
     $('#hud-floor').innerHTML=`B${d.floor} · ${d.canBell()?`<span style="color:var(--mint)">ROPE TO B${d.anchor+d.rope}</span>`:'<span style="color:var(--red)">OUT OF ROPE</span>'}`;
     $('#hud-loot').textContent=`${b.tips} TIPS · ${items} LOOT${d.banked?' · BANKED':''}`;
-    $('#btn-speed').textContent=d.speed+'×';
+    $('#btn-speed').textContent=d.speed+'×';$('#btn-mode').textContent=this.save.battleMode==='turn'?'TURNS':'AUTO';
     const rail=d.state==='fight'?d.predict(6):[];$('#rail').innerHTML=rail.map(u=>`<span class="${u.side==='enemy'?'e':''}">${esc(u.name.split(' ')[0].slice(0,8).toUpperCase())}</span>`).join('');
     $('#hud-takeout').innerHTML=[0,1,2,3].map(i=>{const k=d.takeout[i];return k?`<button class="btn" data-t="${i}" type="button" style="color:${TAKEOUT[k].col}">${TAKEOUT[k].name}</button>`:'<button class="btn empty" type="button" disabled>—</button>'}).join('');
     $('#hud-heroes').innerHTML=d.heroes.map((h,i)=>`<div class="hero${h.alive?'':' down'}${d.meter>=100&&h.alive?' ready':''}" data-i="${i}" role="button" tabindex="0"><div class="n" style="color:${CLASSES[h.cls].col}">${esc(h.name)} <span style="color:var(--muted)">L${h.level}</span></div><div class="c">${h.alive?CLASSES[h.cls].name:h.left?'headed out':'minted home'}</div><div class="bar"><i style="width:${Math.max(0,h.hp/h.stats.hp*100)}%"></i></div></div>`).join('');
@@ -119,7 +151,7 @@ class Game{
   a_keepgoing(){this.closeModal();this.delve.keepGoing();this.hudDirty=true}
   // ------------------------------------------------------------ end of delve: receipt
   onDelveEnd(r){const s=this.save,L=r.loot;s.tips+=L.tips;s.shards+=L.shards;for(const g of L.gear)s.locker.push(g);for(const k of['ing','parts','junk'])for(const id in L[k])s[k][id]=(s[k][id]||0)+L[k][id];
-    s.stats.kills+=r.stats.kills;if(r.kind==='wipe')s.stats.wipes++;this.noteFloor(r.floor);this.persist();$('#hud').hidden=true;this.mode='hub';this.stage.setScene(DinerScene);this.delve=null;
+    s.stats.kills+=r.stats.kills;if(r.kind==='wipe')s.stats.wipes++;this.noteFloor(r.floor);this.persist();$('#hud').hidden=true;this.mode='receipt';this.stage.setScene(InteriorScene);this.delve=null;this.walkins=[];this.returnTo='inside';this.targeting=null;$('#cmd').hidden=true;
     const head={retreat:'RANG THE BELL',wipe:'PARTY WIPED',pulley:'PULLEY STATION RIDE'}[r.kind];const mvp=Object.entries(r.stats.dmg).sort((a,b)=>b[1]-a[1])[0];
     const ln=(a,b,c='')=>`<div class="ln ${c}"><span>${esc(a)}</span><span>${esc(b)}</span></div>`;
     const lines=[];for(const g of L.gear)lines.push(ln(gearName(g),RARITY[g.rar].name,'r'+g.rar));for(const id in L.ing)lines.push(ln(INGREDIENTS[id].name,'x'+L.ing[id],'r'+INGREDIENTS[id].rar));for(const id in L.parts)lines.push(ln(PARTS[id].name,'x'+L.parts[id]));for(const id in L.junk)lines.push(ln(JUNK[id].name,'x'+L.junk[id]));
@@ -129,7 +161,7 @@ class Game{
       ${r.kind==='wipe'?`<div style="text-align:center">ON THE TAB (25%)${r.loot!==r.full&&this.delve===null?'':''}</div>`:''}
       ${ln('TIPS',L.tips)}${L.shards?ln('MANA SHARDS',L.shards):''}${lines.join('')||ln('ITEMS','none')}<hr>${fates.join('')}<hr>
       <div style="text-align:center">THANK YOU FOR DELVING<br>PLEASE TIP YOUR HEROES</div></div></div>
-      <div class="row"><div class="spacer"></div><button class="btn go" data-a="back" type="button">Back to the diner</button></div></div>`)}
+      <div class="row"><div class="spacer"></div><button class="btn go" data-a="back" type="button">Back inside</button></div></div>`)}
   // ------------------------------------------------------------ locker
   a_locker(){this.lockerScreen()}
   lockerScreen(sel){const s=this.save;const items=s.locker.slice().sort((a,b)=>SLOTS.indexOf(GEAR[a.base].slot)-SLOTS.indexOf(GEAR[b.base].slot)||b.rar-a.rar);const g=sel&&s.locker.find(x=>x.id===sel);

@@ -68,7 +68,8 @@ class Delve{
     this.enemies.push(new Unit({side:'enemy',k,type:T,name:T.name,level:f,stats:s,hp:s.hp,base:{...slot},gauge:Math.random()*30,hitStreak:0}))}
   // ------------------------------------------------------------ combat
   fightStep(dt){if(this.cur){const c=this.cur;c.t+=dt;for(const im of c.imp)if(!im.done&&c.t>=im.at){im.done=true;im.fn();if(this.freeze>0)return}
-      if(c.t>=c.dur){if(c.u)c.u.dx=0;this.cur=null;this.afterAction()}return}
+      if(c.t>=c.dur){if(c.u)c.u.dx=0;this.cur=null;this.gap=.45;this.afterAction()}return}
+    if(this.awaiting)return;if(this.gap>0){this.gap-=dt;return}
     if(!this.foes.length||!this.alive.length){this.afterAction();return}
     const all=[...this.alive,...this.foes].filter(u=>!u.dying);let best=null,bt=1e9;for(const u of all){const need=Math.max(0,100-u.gauge)/u.spdNow;if(need<bt){bt=need;best=u}}
     for(const u of all)u.gauge+=u.spdNow*bt;best.gauge=0;this.act(best)}
@@ -78,14 +79,21 @@ class Delve{
     for(let i=0;i<n;i++){let best=null,bt=1e9;for(const a of all){const need=Math.max(0,100-a.g)/a.s;if(need<bt){bt=need;best=a}}for(const a of all)a.g+=a.s*bt;best.g=0;out.push(best.u)}return out}
   tick(u){if(u.st.burn){const d=u.st.burn.d;this.damage(null,u,d,{raw:true,col:'#ff9a3a'});u.st.burn.t--;if(u.st.burn.t<=0)delete u.st.burn}
     for(const k of['slow','taunt'])if(u.st[k]){u.st[k]--;if(u.st[k]<=0)delete u.st[k]}u.buffs=u.buffs.filter(b=>--b.t>0)}
-  act(u){u.acts++;this.tick(u);if(!u.alive||u.dying){this.cur={t:0,dur:.3,imp:[]};return}
+  act(u){u.acts++;delete u.st.guard;this.tick(u);if(!u.alive||u.dying){this.cur={t:0,dur:.3,imp:[]};return}
     if(u.st.stun){u.st.stun--;if(u.st.stun<=0)delete u.st.stun;this.say(u,u.side==='hero'?'*scrolling the wifi list*':'...',1.2);this.cur={t:0,dur:.6,imp:[]};return}
-    if(u.side==='hero')this.heroAct(u);else this.enemyAct(u)}
+    if(u.side==='hero'){u.charge=Math.min(3,(u.charge||0)+1);if(this.g.save.battleMode==='turn'&&!u.forceSig){if(u.w.traits.includes('tnc')&&Math.random()<.12){this.say(u,'This turn is sponsored by ArcDyne.',1.8);this.cur={t:0,dur:1,imp:[]};return}this.awaiting=u;this.g.onAwait(u);return}this.heroAct(u)}else this.enemyAct(u)}
+  command(cmd){const u=this.awaiting;if(!u)return;this.awaiting=null;this.g.onAwait(null);
+    if(cmd.type==='sig'){u.charge=0;this.signature(u,u.cls,1);return}
+    if(cmd.type==='defend'){u.st.guard=1;this.meter=Math.min(100,this.meter+8);this.pop(u.x,u.y-40,'GUARD','#9ffaff',1);this.say(u,pick(['bracing','not today','*hides behind spatula*']),1.2);this.cur={u,kind:'cast',t:0,dur:.8,imp:[]};return}
+    if(cmd.type==='heal'){const t=cmd.target;this.castAt(u,t,()=>this.heal(u,t,Math.round(u.atkNow*1.5+8)),'#7dffb0');return}
+    const t=cmd.target&&cmd.target.alive?cmd.target:this.heroTarget(u);if(!t){this.cur={t:0,dur:.2,imp:[]};return}
+    if(CLASSES[u.cls].range==='ranged')this.castAt(u,t,()=>this.strike(u,t,u.cls==='witch'?.8:1),u.cls==='pyro'?'#ff8a2a':'#7dffb0');else this.melee(u,t,[()=>this.strike(u,t,1)])}
+  unitAt(xu,yu){let best=null,bd=18;for(const u of[...this.heroes,...this.enemies]){if(!u.alive||u.dying)continue;const h=u.type&&u.type.boss?44:30;const dx=Math.abs(xu-u.x),dy=yu<u.y+2&&yu>u.y-h?0:99;if(dy===0&&dx<bd){bd=dx;best=u}}return best}
   heroAct(u){const w=u.w;
     if(w.traits.includes('tnc')&&Math.random()<.12){this.say(u,pick(['This fight is sponsored by ArcDyne.','Use code PIT for 10% off mana.','ArcDyne: we own the pipes.']),1.8);this.cur={t:0,dur:.9,imp:[]};return}
     if(w.traits.includes('milkshake')&&Math.random()<.05&&this.takeout.length){const lost=this.takeout.splice(Math.random()*this.takeout.length|0,1)[0];this.say(u,`oops. dropped the ${TAKEOUT[lost].name}`,1.8);this.g.hudDirty=true}
-    let sig=u.forceSig||u.acts%3===0;u.forceSig=false;
-    if(sig){this.signature(u,u.cls,1);return}
+    let sig=u.forceSig||u.charge>=3;u.forceSig=false;
+    if(sig){u.charge=0;this.signature(u,u.cls,1);return}
     if(u.cls==='witch'){const low=this.alive.filter(h=>h.hp/h.stats.hp<.55).sort((a,b)=>a.hp/a.stats.hp-b.hp/b.stats.hp)[0];if(low){this.castAt(u,low,()=>this.heal(u,low,Math.round(u.atkNow*1.5+8)),'#7dffb0');return}}
     const tgt=this.heroTarget(u);if(!tgt){this.cur={t:0,dur:.2,imp:[]};return}
     if(CLASSES[u.cls].range==='ranged')this.castAt(u,tgt,()=>this.strike(u,tgt,u.cls==='witch'?.8:1),u.cls==='pyro'?'#ff8a2a':'#7dffb0');
@@ -109,15 +117,15 @@ class Delve{
     if(T.ranged)this.castAt(u,tgt,()=>this.strike(u,tgt,1),'#5ff2ff');else this.melee(u,tgt,[()=>this.strike(u,tgt,1)])}
   enemyTarget(){const a=this.alive.filter(h=>!h.dying);if(!a.length)return null;const tn=a.filter(h=>h.st.taunt);if(tn.length)return pick(tn);const fr=a.filter(h=>h.row==='front');return pick(fr.length&&Math.random()<.7?fr:a)}
   // ------------------------------------------------------------ action animations
-  melee(u,t,hits,style){const dir=u.side==='hero'?1:-1;const reach=u.type&&u.type.boss?30:14;const tx=t.x-dir*reach-u.base.x;const dur=style==='slam'?1.2:.85;const at0=style==='slam'?.55:.32;
-    const imp=hits.map((fn,i)=>({at:at0+i*.18,fn}));this.cur={u,kind:'melee',style,tx,t:0,dur:dur+(hits.length-1)*.18,imp,at0}}
-  cast(u,fn,mult,style){this.cur={u,kind:'cast',style,t:0,dur:.95,imp:[{at:.5,fn}]}}
-  castAt(u,t,fn,col){this.cur={u,kind:'cast',t:0,dur:.9,imp:[{at:.25,fn:()=>this.bolt(u,t,col)},{at:.5,fn}]}}
+  melee(u,t,hits,style){const dir=u.side==='hero'?1:-1;const reach=u.type&&u.type.boss?30:14;const tx=t.x-dir*reach-u.base.x;const dur=style==='slam'?1.75:1.35;const at0=style==='slam'?.85:.55;
+    const imp=hits.map((fn,i)=>({at:at0+i*.32,fn}));this.cur={u,kind:'melee',style,tx,t:0,dur:dur+(hits.length-1)*.32,imp,at0}}
+  cast(u,fn,mult,style){this.cur={u,kind:'cast',style,t:0,dur:1.45,imp:[{at:.8,fn}]}}
+  castAt(u,t,fn,col){this.cur={u,kind:'cast',t:0,dur:1.4,imp:[{at:.4,fn:()=>this.bolt(u,t,col)},{at:.8,fn}]}}
   animate(u){const c=this.cur;const p={};if(!c||c.u!==u)return p;const k=c.t/c.dur;
     if(c.kind==='melee'){const a=c.at0/c.dur;const m=k<a?ei(k/a):k<a+.25?1:1-eo((k-a-.25)/(1-a-.25));u.dx=c.tx*clamp(m,0,1);if(c.style==='slam'){p.slam=k<a?-eo(k/a):k<a+.25?1:lerp(1,0,(k-a-.25)/(1-a-.25))}else p.arm=k<a*.6?-k/(a*.6):k<a+.1?1:lerp(1,0,(k-a-.1)/(1-a-.1));p.lean=(u.side==='hero'?1:-1)*(k<a?5*k/a:2);p.dash=k>a*.4&&k<a}
     else{p.cast=Math.sin(Math.PI*clamp(k*1.2,0,1));if(c.style==='shake')p.flex=Math.sin(c.t*30)}
     return p}
-  bolt(u,t,col){const n=10;for(let i=0;i<n;i++){const k=i/n;this.g.stage.emit({x:lerp(u.x,t.x,k),y:lerp(u.y-20,t.y-18,k)+Math.sin(k*Math.PI)*-6,vx:R(-8,8),vy:R(-8,8),life:.25+k*.15,col,glow:true})}}
+  bolt(u,t,col){const n=14;for(let i=0;i<n;i++){const k=i/n;this.g.stage.emit({x:lerp(u.x,t.x,k),y:lerp(u.y-20,t.y-18,k)+Math.sin(k*Math.PI)*-6,vx:R(-6,6),vy:R(-6,6),life:.2+k*.3,col,glow:true})}}
   fireCone(u){for(let i=0;i<36;i++)this.g.stage.emit({x:u.x+6,y:u.y-20,vx:R(80,180),vy:R(-40,40),life:R(.3,.6),col:pick(['#ff9a2e','#ffe36a','#e8452c']),glow:true,drag:2,size:Math.random()<.4?1.6:1})}
   dust(x,y){for(let i=0;i<16;i++)this.g.stage.emit({x:x+R(-8,8),y:y,vx:R(-50,50),vy:R(-30,-6),g:50,life:R(.4,.8),col:pick(['#9fb4ff','#6a7ab8']),size:Math.random()<.4?2:1,drag:3,floor:y+1})}
   // ------------------------------------------------------------ resolution
@@ -129,7 +137,7 @@ class Delve{
     this.damage(a,t,d,{crit});
     if(t.type&&t.type.ab==='sticky'&&a.side==='hero'&&CLASSES[a.cls].range==='melee'){a.st.slow=1;this.pop(a.x,a.y-40,'STICKY','#7ad060',1)}
     if(t.type&&t.type.boss&&a.side==='hero'){t.hitStreak=(t.hitStreak||0)+1;if(t.hitStreak>=3&&!t.armorBroken){t.armorBroken=2;t.hitStreak=0;this.say(t,'MY FORM!!',1.6);this.pop(t.x,t.y-56,'ARMOR BROKEN','#ff5a6a',1)}}}
-  damage(a,t,d,o={}){t.hp-=d;t.flash=.11;t.hurt=.35;t.kb=(t.side==='hero'?-1:1)*(o.crit?7:4);
+  damage(a,t,d,o={}){if(t.st.guard&&!o.raw)d=Math.max(1,Math.round(d*.5));t.hp-=d;t.flash=.11;t.hurt=.35;t.kb=(t.side==='hero'?-1:1)*(o.crit?7:4);
     if(a&&a.side==='hero'){this.stats.dmg[a.name]=(this.stats.dmg[a.name]||0)+d;this.meter=Math.min(100,this.meter+5)}if(t.side==='hero')this.meter=Math.min(100,this.meter+3);this.g.hudDirty=true;
     this.pop(t.x+R(-3,3),t.y-(t.type&&t.type.boss?52:36),(o.crit?'CRIT ':'')+d,o.col||(o.crit?'#ffd84a':t.side==='hero'?'#ff7a6a':'#ffffff'),o.crit?2:2);
     if(!o.raw){this.freeze=o.crit?.09:.05;this.g.stage.shake=Math.max(this.g.stage.shake,o.crit?1:.5);this.g.stage.flashes.push({x:t.x,y:t.y-18,r:60,col:[255,235,190],a:.9,t:.18,max:.18,blob:o.crit?7:4});
@@ -157,8 +165,8 @@ class Delve{
     if(id==='espresso'){for(const h of al){h.gauge=100;this.pop(h.x,h.y-40,'WIRED','#d8a06a',1)}}
     if(id==='doggy'){this.banked=JSON.parse(JSON.stringify(this.bag));this.banner={txt:'LOOT BANKED',sub:'THE DOGGY BAG IS SAFE',t:1.6}}
     this.g.hudDirty=true}
-  orderUp(h){if(this.meter<100||!h.alive||this.state!=='fight')return false;this.meter=0;h.forceSig=true;h.gauge=999;this.g.hudDirty=true;this.say(h,'ORDER UP!',1);return true}
-  ringBell(){if(!this.canBell()||['retreat','wipe','pulley','done'].includes(this.state))return;this.cur=null;this.state='retreat';this.timer=2.4;this.retreatT=0;this.banner={txt:'DING DING',sub:'THE DUMBWAITER IS COMING',t:2};for(const h of this.alive)this.say(h,'ight imma head out',2)}
+  orderUp(h){if(this.meter<100||!h.alive||this.state!=='fight')return false;this.meter=0;if(this.awaiting===h){this.meter=0;this.command({type:'sig'});this.g.hudDirty=true;return true}h.forceSig=true;h.gauge=999;this.g.hudDirty=true;this.say(h,'ORDER UP!',1);return true}
+  ringBell(){if(!this.canBell()||['retreat','wipe','pulley','done'].includes(this.state))return;this.cur=null;if(this.awaiting){this.awaiting=null;this.g.onAwait(null)}this.state='retreat';this.timer=2.4;this.retreatT=0;this.banner={txt:'DING DING',sub:'THE DUMBWAITER IS COMING',t:2};for(const h of this.alive)this.say(h,'ight imma head out',2)}
   finish(kind){if(this.state==='done')return;this.state='done';let loot=this.bag;
     if(kind==='wipe'){const keep=this.banked||{tips:0,gear:[],ing:{},parts:{},junk:{},shards:0};const rest=this.bag;const k={tips:keep.tips+Math.round((rest.tips-keep.tips)*.25),gear:keep.gear.slice(),ing:{...keep.ing},parts:{...keep.parts},junk:{...keep.junk},shards:keep.shards};
       for(const g of rest.gear)if(!keep.gear.some(x=>x.id===g.id)&&Math.random()<.25)k.gear.push(g);
@@ -181,6 +189,8 @@ class Delve{
     for(const h of[...this.heroes,...this.enemies]){if(h.gone||h.dying)continue;const X=st.sx(h.x),boss=h.type&&h.type.boss;if(boss)continue;const Y=u(h.y)-(h.side==='hero'?u(38*(h.w.look.h)):u(h.k==='tumble'?24:h.k==='tourist'?40:h.k==='wisp'?22:16));const W=u(16);
       c.fillStyle='#0a0612';c.fillRect(X-W/2-1,Y-1,W+2,4);c.fillStyle=h.side==='hero'?'#4ad06a':'#e0405a';c.fillRect(X-W/2,Y,Math.max(0,Math.round(W*h.hp/h.stats.hp)),2);
       let s='';if(h.st.burn)s+='B';if(h.st.slow)s+='S';if(h.st.taunt)s+='T';if(h.st.stun)s+='Z';if(h.buffs.length)s+='+';if(s)text(c,s,X+W/2+2,Y-2,1,'#ffd25e')}
+    if(this.awaiting){const a=this.awaiting;const X=st.sx(a.x),Y=u(a.y-48*(a.w.look.h))-Math.round(Math.sin(st.t*6)*2);c.fillStyle='#ffd25e';for(let i=0;i<4;i++)c.fillRect(X-4+i,Y+i,9-i*2,1);
+      const tg=this.g.targeting;if(tg){const list=tg==='ally'?this.alive:this.foes;for(const e of list){const ex=st.sx(e.x),ey=u(e.y)+2;const r=u(e.type&&e.type.boss?16:9)+Math.round(Math.sin(st.t*8));c.fillStyle=tg==='ally'?'#7dffb0':'#ff5a6a';c.fillRect(ex-r,ey,r*2,1);c.fillRect(ex-r,ey-2,1,2);c.fillRect(ex+r-1,ey-2,1,2)}}}
     const boss=this.enemies.find(e=>e.type.boss&&!e.gone);if(boss){const W=u(140),X=st.sx(160)-W/2,Y=u(24);c.fillStyle='#0a0612';c.fillRect(X-2,Y-2,W+4,8);c.fillStyle='#3a1020';c.fillRect(X,Y,W,4);c.fillStyle=boss.armorBroken?'#ff9a3a':'#e0405a';c.fillRect(X,Y,Math.round(W*Math.max(0,boss.hp)/boss.stats.hp),4);textO(c,boss.name.toUpperCase()+(boss.armorBroken?' (ARMOR BROKEN)':''),X,Y+8,1,'#ffffff','#0a0612')}
     for(const h of[...this.heroes,...this.enemies]){if(!h.bubble||h.gone)continue;const top=h.side==='hero'?46:h.type.boss?72:h.k==='tourist'?50:30;bubbleAt(c,st.sx(h.x),u(h.y-top),h.bubble.txt,st.lw)}
     for(const p of this.popq){if(p.t<0)continue;const k=p.t;const y=u(p.y)-Math.round((k<.15?k/.15*8:8+k*10)*st.S);if(k>.9&&((k*20)|0)%2)continue;const tw=textW(p.txt,p.sc);textO(c,p.txt,st.sx(p.x)-(tw>>1),y,p.sc,p.col,'#1d1526')}
