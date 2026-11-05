@@ -1,8 +1,8 @@
-# Last Stop Diner: Game Design Doc (v0.3, Neon Arcana)
+# Last Stop Diner: Game Design Doc (v0.4, Neon Arcana)
 
 > A comedy dungeon-delving idle roguelike in a rain-soaked city where wizards run on neon.
 > You run an all-night diner on the edge of a bottomless pit. Feed drifters, send them
-> down, cook what they bring back, get burped back in time, do it again but better.
+> down, cook what they bring back, get burped back in time, do it again but better. Forever.
 
 **How to review:** every idea has a number like **[4.3]**. Reply with what to cut, change or
 keep, e.g. "cut 7.4 and 12.6, change 9.2, keep everything else."
@@ -73,8 +73,8 @@ Dolores' **Cookbook** is burp-proof (it's laminated). The **Stars** from the rev
 and are your **rebirth points**.
 
 **[2.7] Why each loop is deeper and harder.** The Hunger's taste gets more refined every meal,
-and the pit stretches ("making room for dessert"). Bottom at floor 50, then 100, 150, 200
-(finale), then endless. It also gets pickier: dishes it has already eaten score lower.
+and the pit stretches ("making room for dessert"). Bottom at floor 50, then 100, 150, 200,
+and +25 floors every loop after that, forever. It also gets pickier: dishes it has already eaten score lower.
 
 **[2.8] ArcDyne's angle.** ArcDyne has noticed the pit's mana output spikes every time someone
 cooks a great meal down there. They want to buy your diner, franchise it, and put the Hunger on a
@@ -115,16 +115,15 @@ rated you higher and starts competing. ArcDyne sends Glimmerstone with a buyout 
 
 **[2.19] Loop 3: The Collab (1–150).** Moss admits they remember. Basil proposes a collab for a
 6-star review (he wants to go viral). You find Dolores at floor 140 running a pop-up stall for
-monsters; she joins as a legendary Regular. ArcDyne tries to install a mana pump in the Hunger.
+monsters; from then on she's a rare walk-in at the diner. ArcDyne tries to install a mana pump in the Hunger.
 
-**[2.20] Loop 4: Final Course (1–200).** You, Dolores, Basil, Moss and Meatball cook the perfect
-meal while fending off ArcDyne's pump. The Hunger gives 5 stars for the first time in 14 worlds and cries.
+**[2.20] Loop 4 and beyond: Seconds, Forever.** The story never ends. Each new loop brings a new
+Hunger mood (it's on a diet, it's going through a spicy phase, it's hungover), a new ArcDyne scheme,
+new Postcards from Dolores' other loops and new Pitnet drama. Story beats are written in small
+arcs that keep coming, like seasons of a sitcom.
 
-**[2.21] Endings.**
-- *"Can I get the check?"*: the loop breaks, Dolores comes home, the Hunger retires to be a food critic on the Pitnet.
-- *"Seconds?"*: keep looping. Endless mode, and the Hunger gets pickier forever.
-- *Secret, "Franchise"*: collect every Postcard and open a Last Stop Diner *inside* the Hunger. New hub, post-game.
-- *Joke ending, "Sell Out"*: accept ArcDyne's buyout. The game ends in 30 seconds with a corporate jingle, and the credits are a terms-of-service scroll.
+**[2.21] No ending.** There is no final loop and no credits. The game is the loop: delve, cook,
+reach the bottom, get reviewed, get burped, go again deeper.
 
 ---
 
@@ -132,82 +131,95 @@ meal while fending off ArcDyne's pump. The Hunger gives 5 stars for the first ti
 
 **[3.1] The loop.**
 1. **Cook** a dish in the cauldron → drifters walk in.
-2. **Seat** up to 4 in the Booth (your party) and pack **Takeout** (consumables).
+2. **Recruit** a brand-new party of random walk-ins (up to 4) and pack **Takeout** (consumables).
 3. **Delve**: the party auto-fights floor after floor while you watch.
 4. **Push or bail**: Ring the Bell to retreat with all loot, or keep going.
-5. **Spend** tips and ingredients on recipes and renovations.
+5. **Cook** the ingredients you found in the cooking mini-game, and spend tips on renovations.
 6. Reach the **Bottom** → serve the Hunger → **Review** → **Big Burp** → spend Stars → repeat.
 
 **[3.2] Currencies.**
 | Currency | From | Spent on | Survives rebirth |
 |---|---|---|---|
 | Tips (coins) | Enemies, chests | Renovations, gear, cooking | No |
-| Ingredients | Drops, Vaults, garden | Recipes, takeout | No |
+| Ingredients (Common → Legendary) | Delve drops, Vaults, garden | The cooking mini-game | No |
 | Mana Shards | Rare drops, bosses | Enchanting gear, neon upgrades | No |
 | Stars | The Hunger's review | Secret Menu (rebirth tree) | Yes |
 | Postcards | Story drops | Lore, secret recipes | Yes |
-| Recipes | Test Kitchen discovery | Unlocked forever | Yes |
+| Recipe Book entries | Cooking a new dish | Quick Cook | Yes |
 
-**[3.3] Pacing targets.** A delve is 2–5 minutes to watch. Loop 1 takes about 1–2 hours; later
-loops take about as long thanks to rebirth upgrades.
+**[3.3] Pacing targets.** Delves are **long runs**: roughly 10–20 minutes at 1× speed (less at
+2×/4×), clearing many floors each. Reaching the bottom takes **many delves**: about 15–25 in
+loop 1, and the deeper pit keeps later loops just as long even with rebirth upgrades. Pulley
+Station shortcuts mean each delve picks up deeper, but the walk-ins are always new.
 
 ---
 
-## 4. Recruiting: the Menu
+## 4. Recruiting: random walk-ins
 
-**[4.1] The dish decides who walks in.** Each dish attracts 3–5 drifters of mostly one class.
-Better kitchens raise their level and trait odds.
+**[4.1] Every delve gets a brand-new party.** Nobody stays. After each delve, everyone goes home
+(or gets minted home), and you recruit fresh walk-ins for the next one. There are no permanent
+heroes, no Regulars and no merging.
 
-| ID | Dish | Class | Role | Signature | Personality |
-|---|---|---|---|---|---|
-| **[4.2]** | Double Smash Burger | **Line Brawler** | Tank / melee | *Grease Slick*: taunt + slow | Gym bro with a cyber-arm. Counts reps mid-fight. |
-| **[4.3]** | Dragon Wings (Extra Hot) | **Pyro Punk** | AoE fire | *Ghost Pepper Breath*: fire cone | Fire mage with a mohawk. Hasn't blinked since 2019. |
-| **[4.4]** | Chamomile & Toast | **Hedge Witch** | Healer | *Warm Cuppa*: heal + cleanse | Casts spells from her spellphone. "Have you tried drinking water?" |
-| **[4.5]** | Bottomless Void Coffee | **Night Owl** | Fast crit rogue | *Double Shot*: acts twice every 3rd turn | Netrunner thief. Has not slept. Says "ok boomer." |
-| **[4.6]** | Chili Bowl | **Chrome Cowboy** | Ranged control | *Lasso*: yanks a backliner forward | Neon lasso, says "yeehaw" unironically. |
-| **[4.7]** | Blue Plate Special | **Drifter** | All-rounder | *Hustle*: copies an ally at 50% | Four side hustles, zero income. |
-| **[4.8]** | Pancake Stack | **Short-Order Knight** | Shield tank | *Syrup Wall*: party shield | Takes breakfast extremely seriously. |
-| **[4.9]** | Mystery Meatloaf | **Gravedigger** | Summoner | *Leftovers*: raises a defeated enemy for 2 turns | The raised enemy just wants to go home. |
-| **[4.10]** | Mana Milkshake | **Bubble Bard** | Buffer | *Brain Freeze* haste/slow; *Emotional Damage* | Synth-lute. Rhymes everything, badly. |
-| **[4.11]** | Midnight Pie | **Pie-rate** | Gold / thief | *Steal a Slice*: steals buffs and tips | Sky-pirate. Pie puns only. |
-| **[4.12]** | Rune Taco | **Glitch Shaman** | Debuffs | *Bluescreen*: blinds a row | Talks to his taco. The taco talks back. |
-| **[4.13]** | Dolores' Special | **Gullet Diver** | Elite | *Last Call*: once per delve, revives the party at 30% | Has done this 4,812 times. Unimpressed. |
+**[4.2] Who walks in depends on what you cook.** You serve a dish you made in the cooking
+mini-game (section 8). Its flavor profile decides which classes show up, and its quality decides
+how strong they are and how many come in. A bad dish brings in a sad handful of Drifters.
 
-**[4.14] Traits** (0–2 per drifter):
+**[4.3] Random people, generated every time.** Each walk-in gets a random name, day job, look,
+class, 0–2 traits and a one-line bio, e.g.:
+- *"Kevin, 41. Dentist. Wants to be a wizard. Has already been a wizard for 20 minutes."*
+- *"Brenda. ArcDyne middle manager on her lunch break. Brought a stapler."*
+- *"Tyler. Says he's 'in crypto.' Is a Pyro Punk now."*
+Names, jobs and bios come from the joke file, so there are thousands of combinations.
+
+**[4.4] Classes** (who a flavor attracts):
+| Class | Role | Signature | Drawn in by | Personality |
+|---|---|---|---|---|
+| **Line Brawler** | Tank / melee | *Grease Slick*: taunt + slow | Protein, Greasy | Gym bro energy. Counts reps mid-fight. |
+| **Pyro Punk** | AoE fire | *Ghost Pepper Breath*: fire cone | Spicy | Hasn't blinked since 2019. |
+| **Hedge Witch** | Healer | *Warm Cuppa*: heal + cleanse | Herbal, Comfort | "Have you tried drinking water?" |
+| **Night Owl** | Fast crit rogue | *Double Shot*: acts twice every 3rd turn | Caffeinated | Netrunner. Has not slept. |
+| **Chrome Cowboy** | Ranged control | *Lasso*: yanks a backliner forward | Smoky | Says "yeehaw" unironically. |
+| **Drifter** | All-rounder | *Hustle*: copies an ally at 50% | Anything (the fallback) | Four side hustles, zero income. |
+| **Short-Order Knight** | Shield tank | *Syrup Wall*: party shield | Sweet, Breakfast | Takes breakfast extremely seriously. |
+| **Gravedigger** | Summoner | *Leftovers*: raises a defeated enemy for 2 turns | Cursed | The raised enemy just wants to go home. |
+| **Bubble Bard** | Buffer | *Brain Freeze*; *Emotional Damage* | Sweet, Fizzy | Rhymes everything, badly. |
+| **Pie-rate** | Gold / thief | *Steal a Slice*: steals buffs and tips | Sweet, Salty | Pie puns only. |
+| **Glitch Shaman** | Debuffs | *Bluescreen*: blinds a row | Mana | Talks to his food. The food talks back. |
+| **Gullet Diver** | Elite | *Last Call*: once per delve, revives the party at 30% | Legendary dishes only | Unimpressed by everything. |
+
+**[4.5] Traits** (0–2 per walk-in):
 | Trait | Effect |
 |---|---|
 | *Main Character Energy* | +20% stats, must be front row |
 | *Hold My Milkshake* | 2× damage, 25% chance to drop a takeout |
-| *Picky Eater* | +50% stats, double recruit cost |
+| *Picky Eater* | +50% stats, only joins for Rare+ dishes |
 | *Big Tipper* | +25% tips |
 | *Ight Imma Head Out* | Flees below 25% HP, keeps party loot safe |
 | *Clumsy* | 10% miss, 10% double hit |
 | *Chronically Online* | +damage vs. Pitnet enemies |
 | *Lowkey Built Different* | One random stat doubled |
 | *Terms & Conditions Apply* | ArcDyne-sponsored: +30% stats, but reads an ad aloud every few turns (skips a turn) |
-| *Regular* | Survives 3 delves → stays forever |
+| *Forager* | Finds extra ingredients |
+| *Food Critic* | Ingredients they find are one rarity higher, but they complain constantly |
 
-**[4.15] Regulars.** Most drifters leave after one delve. A Regular gets a name, a booth plaque,
-persistent levels and bonds, and survives rebirth at level 1.
+**[4.6] School synergies.** Each walk-in has a magic **School** (Pyre, Hex, Chrome, Brew, Void).
+2 or 4 of the same School in a party grants a bonus, auto-battler style. Since parties are random,
+this is about picking the best mix from whoever walked in.
 
-**[4.16] Bonds.** Regulars who delve together unlock duo combo moves
-(e.g. Pyro Punk + Line Brawler = *Flambé*: the Brawler throws a flaming pan).
-
-**[4.17] School synergies.** Each drifter also has a magic **School** (Pyre, Hex, Chrome, Brew, Void).
-2 or 4 of the same School in a party grants a bonus, auto-battler style.
-
-**[4.18] Merge duplicates.** Three drifters of the same class merge into one ★2 drifter.
+**[4.7] Rare walk-ins.** Special guests can show up for certain dishes: Dolores (loop 3+), Courier
+Hal, an off-duty ArcDyne intern, a monster who "just wants to try the food."
 
 ---
 
 ## 5. Combat
 
 **[5.1] Booth formation.** 4 seats (6 later): front row 2, back row 2. Front takes most hits.
+Walk-ins level up during a delve (they start each delve fresh).
 
 **[5.2] Turn order** by Speed, shown as order tickets on a rail along the top.
 
 **[5.3] Player inputs during auto-combat:**
-- **Takeout**: tap a packed consumable (up to 4 slots, bottom-left).
+- **Takeout**: tap a packed dish (up to 4 slots, bottom-left).
 - **Order Up!**: a shared meter that fills as you fight; spend it to fire one hero's signature move now (bottom-right).
 - **Ring the Bell**: call the Dumbwaiter and retreat (bottom-right). Heroes say "ight imma head out."
 
@@ -289,27 +301,69 @@ You keep only what's **on the tab** (25%, upgradeable).
 
 ---
 
-## 8. Kitchen
+## 8. The Kitchen: cooking mini-game
 
-**[8.1] Takeout** (consumables, 4 slots per delve):
-| Takeout | Effect |
+Cooking is a full mini-game and the second half of the game. Everything you find in the pit is
+an ingredient, and every dish you make has real effects.
+
+### Ingredients
+**[8.1] Funny ingredients in five rarities**, found on every delve (enemy drops, chests, Vaults,
+events, the rooftop garden):
+| Rarity | Examples |
 |---|---|
-| Fries Basket | Heal all 20% |
-| Hot Sauce Packet | +30% damage, 3 turns |
-| Iced Tea | Cleanse + small heal |
-| Fortune Cookie | Random strong effect; the fortune is always a meme |
-| Espresso Shot | Party acts first next round |
-| Bento of Courage | Revive one hero at 50% |
-| Spite Soup | Poison all enemies |
-| Doggy Bag | Bank 100% of current loot even if the party wipes |
+| **Common** | Sus Mushroom, Pipe Rat Jerky, Day-Old Bread, Generic Onion, Tap Water (Pitnet Edition) |
+| **Uncommon** | Ghost Pepper of Regret, Brine Bat Wing, Mana Milk (2 days expired), Kombucha Mother, Salted Tears |
+| **Rare** | Sigma Protein Powder, Bottled Rizz, Doomscroller Eyeball, Stonks Seeds, Grandma's Mystery Spice |
+| **Epic** | Salt Wyrm Scale, Main Character Garlic, Emotional Support Butter, Crypto Truffle (value fluctuates) |
+| **Legendary** | The Last Fry, Dragon's Unpaid Invoice, A Single Perfect Egg, Hunger Drool |
 
-**[8.2] Test Kitchen.** Combine 2–3 ingredients to discover recipes; a cookbook with blank pages
-fills in as you go. Failed dishes become **Gross Goop**.
+**[8.2] Every ingredient has properties:**
+- **Flavors**: Spicy, Sweet, Salty, Sour, Umami, Herbal, Greasy, Smoky, Fizzy, Caffeinated, Cursed, Mana.
+- **Stats** it adds to a dish: Power, Guard, Speed, Heal, Luck.
+- **Quirks**: special behaviors, e.g. *Volatile* (explodes if overcooked), *Clingy* (ruins the flavor of whatever's next to it), *Smug* (+quality if plated on top), *Vegan* (the dish won't stop mentioning it).
+- A **joke description** on its card.
 
-**[8.3] Meatball eats the goop.** Feed Gross Goop to Meatball for a random reward. "Meatball is stronger now."
+**[8.3] Pairings.** Some ingredients combo (Ghost Pepper + Emotional Support Butter = "Comfort Burn")
+and some clash (anything + Clingy). Pairings are discovered by cooking and noted in the Recipe Book.
 
-**[8.4] The Hunger's meal.** The dish you serve at the Bottom is built from your best ingredients.
-Its quality, novelty and your run performance set the review score.
+### The mini-game
+**[8.4] Five steps, each graded** Perfect / Great / Good / Meh / Burnt:
+1. **Pick** 2–5 ingredients from your pantry. A flavor wheel shows how balanced the mix is.
+2. **Prep**: chop to a rhythm (tap on the beat). Some ingredients fight back.
+3. **Cook**: keep the heat needle in the moving sweet spot while stirring. Volatile ingredients make it jumpier.
+4. **Season**: a timing pinch; too much and the dish gets *Salty* (the meme kind).
+5. **Plate**: drag the parts into an arrangement; presentation adds quality and style.
+
+**[8.5] Kitchen tools are upgrades**, bought as renovations: sharper knives widen chop windows,
+a better stove slows the heat needle, a fancy plate set adds plating bonuses.
+
+### The dish
+**[8.6] The result is a funny meme dish** named from its ingredients, dominant flavors and grades:
+*"Emotional Damage Ramen," "Sigma Grindset Smoothie," "This Is Fine Flambé," "Certified Bruh
+Burrito," "Mid Casserole," "Unhinged Pancakes (Burnt)."* Each gets a generated pixel-art icon.
+
+**[8.7] Dish properties come from what went in and how well you did:**
+- **Flavor profile** → which classes walk in when it's served as a recruit meal.
+- **Stats** → buffs for the party that eats it, or the effect when used as takeout.
+- **Quality** (from grades + rarity) → strength of everything above, and how many walk-ins come.
+- **Quirks** carry over (a *Volatile* dish used as takeout explodes on enemies).
+
+**[8.8] Three ways to use a dish:**
+- **Recruit meal**: serve it at the diner; it decides who walks in and gives them a starting buff.
+- **Takeout**: pack it for the delve as a usable item (heal, buff, damage, revive, bank loot...).
+- **The Hunger's meal**: your best dish of the loop, served at the bottom. Its quality and novelty drive the review.
+
+**[8.9] Gross Goop.** A fully burnt dish becomes Gross Goop. Feed it to Meatball for a random reward.
+
+### The Recipe Book
+**[8.10] Every dish you make is recorded** with its ingredients, properties, flavor profile, best
+grade and a joke tasting note. Undiscovered pages show hints ("something spicy and very sad...").
+
+**[8.11] Quick Cook.** Tap any known dish to cook it again instantly at your best recorded grade,
+if you have the ingredients. Perfecting a dish manually improves its Quick Cook result.
+
+**[8.12] The Recipe Book survives rebirth**, so your cooking knowledge keeps growing every loop
+while your pantry resets.
 
 ---
 
@@ -322,12 +376,12 @@ Its quality, novelty and your run performance set the review score.
 | Booths | Party size 4 → 5 → 6 |
 | Counter | More drifters per cook ("Rizz") |
 | Pantry | Ingredient storage |
-| Test Kitchen | Recipe discovery |
+| Kitchen Line | Cooking tools: knives, stove, seasoning rack, plate sets |
 | Dumbwaiter | Rope length, on-the-tab % |
 | Enchanting Bench | Spend Mana Shards to enchant hand-me-down gear |
 | Chalkboard | Gambits |
 | Rooftop Garden | Passive ingredients ("Touch Grass" tiers) |
-| Motel Rooms | Regulars live here |
+| Bus Stop | More walk-ins per meal, higher rare-guest chance |
 | Rune Jukebox | Passive buffs per track |
 | Neon Sign | Recruit quality; each tier is a funnier sign ("EAT" → "EAT HERE" → "EAT HERE OR ELSE") |
 | Espresso Machine | Unlocks 4× fight speed |
@@ -336,7 +390,7 @@ Its quality, novelty and your run performance set the review score.
 **[9.2] The diner grows visually** from one cramped stall into a whole neon block of Rimside.
 
 **[9.3] Hand-me-down gear.** Spatula swords, pot-lid shields, apron armor, cyber oven mitts. Gear is
-loaned to drifters and comes back with them (unless they flee with it).
+loaned to each new party and comes back with them (unless someone flees with it).
 
 **[9.4] Cosmetics.** Diner paint jobs, neon sign designs, jukebox tracks, Meatball hats. Earned in play.
 
@@ -344,7 +398,7 @@ loaned to drifters and comes back with them (unless they flee with it).
 
 ## 10. Idle: the Night Shift
 
-**[10.1] Night Cook Ruby** (unlocked at floor 30) sends auto-parties down while the game is closed,
+**[10.1] Night Cook Ruby** (unlocked at floor 30) Quick Cooks a meal, recruits walk-ins and sends them down while the game is closed,
 up to your best floor minus 10, retreating automatically.
 
 **[10.2] The Morning Receipt.** On return, an itemized receipt of loot plus one-liners
@@ -363,18 +417,19 @@ opening night (Moss: "...so anyway.") → spend Stars → next loop.
 a reduced review ("didn't even finish. 1 star.").
 
 **[11.3] What resets / stays.** Resets: tips, ingredients, Mana Shards, renovations, progress.
-Stays: Stars, Secret Menu, recipes, Postcards, Regulars (level 1), cosmetics.
+Stays: Stars, Secret Menu, the Recipe Book, Postcards, cosmetics.
 
-**[11.4] Review score** = depth speed + dish quality + dish novelty + Regulars alive + style bonuses.
+**[11.4] Review score** = delves taken + dish quality + dish novelty + walk-ins who made it home + style bonuses.
 
-**[11.5] The Secret Menu** (rebirth tree), a neon menu board with five sections:
+**[11.5] The Secret Menu** (rebirth tree), a neon menu board with six sections:
 - **Appetizers (economy):** *Number Go Up* (+1% tips, stacks 10×), *Stonks*, *Not Stonks* (shop −10%), *Tip Jar*, *Free Refills* → capstone *Passive Income*.
 - **Entrées (combat):** *Built Different*, *Skill Issue*, *This Is Fine*, *Emotional Damage*, *Git Gud* → capstone *Final Boss Music* (last hero alive gets +100% stats and the music changes).
-- **Sides (recruiting):** *Rizz*, *Main Character Arc*, *Regular's Discount*, *Word of Mouth*, *Squad Goals* → capstone *The Gang's All Here*.
+- **Sides (recruiting):** *Rizz* (+1 walk-in), *Main Character Arc*, *Word of Mouth*, *Squad Goals* (School bonuses +), *Celebrity Sighting* (rare guests) → capstone *Rush Hour* (double walk-ins, pick your favorites).
+- **Specials (cooking):** *Chef's Kiss* (wider Perfect windows), *Mise en Place* (start each loop with common ingredients), *Secret Ingredient* (+1 ingredient slot), *Five-Second Rule* (burnt dishes become Meh instead) → capstone *Michelin Energy* (Quick Cook always at Perfect).
 - **Drinks (pit & Dumbwaiter):** *Ight Imma Head Out* (+rope), *On the Tab*, *Speedrun Strats*, *Any% Glitch* → capstone *Skip the Cutscene*.
 - **Desserts (weird stuff):** *Press F*, *Sus*, *Meatball Approves*, *Rickroll Immunity*, *Lore Accurate* → capstone *The Hunger's Favorite*.
 
-**[11.6] Node ranks** in endless mode: Regular → Large → Extra Large → "Supersize Me Please."
+**[11.6] Node ranks** keep the tree growing forever: Regular → Large → Extra Large → "Supersize Me Please."
 
 ---
 
@@ -392,7 +447,7 @@ Stays: Stars, Secret Menu, recipes, Postcards, Regulars (level 1), cosmetics.
 
 **[12.6] Seasonal events.** Limited-time Pitnet trends that change enemy banter and add a themed boss.
 
-**[12.7] Hardcore mode.** Fortune Mints disabled: fallen drifters and Regulars are gone for good.
+**[12.7] Hardcore mode.** Fortune Mints disabled: a fallen walk-in drops everything they carried in the pit.
 
 **[12.8] Meatball's questline.** Feed Meatball enough goop and he reveals a secret floor.
 
@@ -421,8 +476,8 @@ burp that shakes the screen, rain ambience above ground.
 **[14.2] Thumb zones.** Takeout bottom-left; Order Up! and Ring the Bell bottom-right; nothing important behind notches.
 
 **[14.3] Screens.** Diner street view (swipe), Cauldron (menu left, counter right), Pack Takeout,
-Delve, Receipt, the Review (giant spellphone held sideways), Secret Menu (wide menu board),
-Cookbook (two-page spread), Booth Plaques, Codex.
+Delve, Receipt, Kitchen (the cooking mini-game), Recipe Book (two-page spread with Quick Cook),
+the Review (giant spellphone held sideways), Secret Menu (wide menu board), Codex.
 
 ---
 
@@ -441,14 +496,17 @@ Cookbook (two-page spread), Booth Plaques, Codex.
 **[16.1] Tech.** Plain HTML5 Canvas + JS, no build step, Capacitor for Android. Same stack as
 Neon Bastion, but a separate app folder so the two never interfere.
 
-**[16.2] Milestone 1, "Fight Night" (playable slice):** one delve screen in the Neon Arcana look,
-4 classes, floors 1–10, the Gristle Golem boss, takeout, Ring the Bell, retreat and wipe rules, simple save.
+**[16.2] Milestone 1, "Fight Night" (playable slice):** one long delve in the Neon Arcana look,
+random walk-ins from 4 classes, floors 1–10, the Gristle Golem boss, ingredient drops, takeout,
+Ring the Bell, retreat and wipe rules, simple save.
 
-**[16.3] Milestone 2, "Opening Night":** the diner hub, cooking to recruit, renovations, floors 1–50,
-4 bosses, the Hunger (simple), Review, Big Burp, Secret Menu (~10 nodes). A full Loop 1.
+**[16.3] Milestone 2, "Kitchen Nightmares":** the cooking mini-game (all 5 steps), ~40 ingredients,
+generated meme dishes, the Recipe Book with Quick Cook, dishes deciding who walks in.
 
-**[16.4] Milestone 3, "Regulars":** Regulars, bonds, traits, Test Kitchen discovery, events, Night Shift.
+**[16.4] Milestone 3, "Opening Night":** the diner hub, renovations, floors 1–50, bosses, the Hunger,
+the Review, the Big Burp and the Secret Menu. A full loop.
 
-**[16.5] Milestone 4, "Story":** loops 2–4, Basil, ArcDyne, Postcards, endings.
+**[16.5] Milestone 4, "Seconds":** endless loops, story arcs for loops 2+, Basil, ArcDyne, Postcards,
+events, Night Shift.
 
 **[16.6] Milestone 5, "Polish & ship":** music and SFX, Codex, achievements, balancing, store build.
