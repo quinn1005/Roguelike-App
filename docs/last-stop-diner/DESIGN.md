@@ -142,7 +142,9 @@ reach the bottom, get reviewed, get burped, go again deeper.
 |---|---|---|---|
 | Tips (coins) | Enemies, chests | Renovations, gear, cooking | No |
 | Ingredients (Common → Legendary) | Delve drops, Vaults, garden | The cooking mini-game | No |
-| Mana Shards | Rare drops, bosses | Enchanting gear, neon upgrades | No |
+| Mana Shards | Rare drops, bosses | High-level gear upgrades, neon upgrades | No |
+| Monster Parts | Every kill can drop one | Forging at the Blacksmith, or cooking | No |
+| Gear | Delve drops, forging | Equip on walk-ins, upgrade, or pawn | No (see 17.9) |
 | Stars | The Hunger's review | Secret Menu (rebirth tree) | Yes |
 | Postcards | Story drops | Lore, secret recipes | Yes |
 | Recipe Book entries | Cooking a new dish | Quick Cook | Yes |
@@ -378,7 +380,8 @@ while your pantry resets.
 | Pantry | Ingredient storage |
 | Kitchen Line | Cooking tools: knives, stove, seasoning rack, plate sets |
 | Dumbwaiter | Rope length, on-the-tab % |
-| Enchanting Bench | Spend Mana Shards to enchant hand-me-down gear |
+| Pawn Shop | Sell gear, junk and spare parts for tips (open from the start) |
+| Blacksmith | Upgrade gear, then forge new gear from monster parts and loot |
 | Chalkboard | Gambits |
 | Rooftop Garden | Passive ingredients ("Touch Grass" tiers) |
 | Bus Stop | More walk-ins per meal, higher rare-guest chance |
@@ -389,8 +392,7 @@ while your pantry resets.
 
 **[9.2] The diner grows visually** from one cramped stall into a whole neon block of Rimside.
 
-**[9.3] Hand-me-down gear.** Spatula swords, pot-lid shields, apron armor, cyber oven mitts. Gear is
-loaned to each new party and comes back with them (unless someone flees with it).
+**[9.3] Gear.** See section 17: equipment slots, meme gear drops, the Pawn Shop and the Blacksmith.
 
 **[9.4] Cosmetics.** Diner paint jobs, neon sign designs, jukebox tracks, Meatball hats. Earned in play.
 
@@ -510,3 +512,41 @@ the Review, the Big Burp and the Secret Menu. A full loop.
 events, Night Shift.
 
 **[16.6] Milestone 5, "Polish & ship":** music and SFX, Codex, achievements, balancing, store build.
+
+---
+
+## 17. Gear, Pawn Shop & Blacksmith
+
+**[17.1] Four equipment slots per walk-in:** Weapon, Hat, Armor, Trinket. Walk-ins arrive with
+nothing; you dress them from your Locker before each delve.
+
+**[17.2] Meme gear drops on every delve**, in the same five rarities as ingredients:
+- Weapons: *Spatula of Mild Inconvenience*, *Pool Noodle (Wet)*, *Keyboard (Mechanical, Loud)*, *Baguette of Destiny*.
+- Hats: *Tinfoil Hat*, *Propeller Cap*, *Traffic Cone*, *Fedora of Unearned Confidence*.
+- Armor: *Hoodie (3 Days Worn)*, *Gamer Chair Backplate*, *Bubble Wrap Vest*, *Inflatable Dinosaur Suit*.
+- Trinkets: *Participation Trophy*, *Ring Light*, *Lucky Rubber Duck*, *Unopened Mystery Box*.
+
+**[17.3] Affixes.** Gear rolls 0–3 meme affixes that add stats and quirks: *Sigma* (+Power%),
+*Certified* (+Guard), *Gamer* (+Speed), *Thicc* (+HP), *Lucky* (+Crit), *Cursed* (big Power, lose HP),
+*Of Mild Inconvenience* (small stats, enemies sigh when hit), *Main Character* (+stats, must be front row).
+
+**[17.4] Keep it, use it, or pawn it.** All gear found comes home with you (under the normal
+retreat/wipe rules). Gear in the Locker can be equipped on any future party.
+
+**[17.5] Equipped gear comes home.** The Fortune Mint sends a fallen walk-in's equipment back with
+them, so you never lose gear you brought in. Only gear *found* during a wiped delve is at risk.
+
+**[17.6] The Pawn Shop.** Run by Lou ("Lou's Pawn & Prawn"). Sells gear, junk loot (*Broken
+Spellphone*, *Gum (Used)*) and spare parts for tips. Lou haggles and insults your stuff.
+
+**[17.7] Upgrading.** The Blacksmith upgrades gear from +0 to +10 using tips and monster parts
+(Mana Shards at higher levels). Each level adds stats, and every few levels the item's name gets
+more dramatic.
+
+**[17.8] Forging.** Later, the Blacksmith forges new gear from monster parts and loot, with
+recipes like *Rat Tail Whip* (3 Rat Tails) or *Gristle Gauntlets* (Golem Gristle + 2 Rat Tails).
+Monster parts are also cooking ingredients, so every part is a choice: eat it or wear it.
+
+**[17.9] Gear and rebirth.** The Locker resets on the Big Burp like renovations, except gear you
+mark as **Laminated** (a Secret Menu unlock, one slot at first) survives.
+
