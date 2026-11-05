@@ -470,16 +470,28 @@ Laid out like a diner menu board with five sections. Nodes cost 1–10 Stars; ea
 
 ---
 
-## 13. UI screens (mobile portrait)
+## 13. Orientation & UI screens (landscape)
 
-1. **Diner** (hub): side-scrolling view of the building; tap a building to open it.
-2. **Grill**: pick a dish → drifters walk in → drag them into the Booth.
-3. **Pack Takeout**: 4 slots.
-4. **Delve**: party left, enemies right, ticket rail on top; takeout + Order Up! + Bell at the bottom; banter bubbles.
-5. **Receipt**: itemized loot with joke line items ("1x emotional damage .......... $0.00").
-6. **The Review**: the Hunger's phone screen with stars and a comment.
-7. **Secret Menu**: rebirth tree, styled as a diner menu board.
-8. **Cookbook**: recipes, ingredients, Postcards.
+The whole game is **landscape only** (locked in the Capacitor/Android config and on web).
+
+- **Native resolution:** 16:9 pixel canvas (320×180 or 480×270, picked with the art style),
+  scaled up by whole numbers. Taller/wider phones get extra background on the sides
+  (more desert, more pit wall), never stretched pixels.
+- **Thumb zones:** the player holds the phone with both hands. Primary buttons sit in the
+  **bottom-left and bottom-right corners**; nothing important goes in the top-center or behind
+  the notch/camera cutout (respect safe-area insets on both short edges).
+- **Readability:** the side-view fight fills the middle; the UI hugs the edges as thin bars.
+
+### Screens
+1. **Diner** (hub): wide side-scrolling street view of the building; swipe left/right, tap a building to open it.
+2. **Grill**: dish menu as a panel on the left, the diner counter on the right where drifters walk in; drag them into the Booth.
+3. **Pack Takeout**: 4 slots in a bar along the bottom, inventory grid above.
+4. **Delve**: party on the left, enemies on the right, order-ticket turn rail along the top.
+   Takeout buttons in the **bottom-left** corner; **Order Up!** and **Ring the Bell** in the **bottom-right**; banter bubbles over the fighters.
+5. **Receipt**: itemized loot receipt sliding in from the right ("1x emotional damage .......... $0.00").
+6. **The Review**: the Hunger's giant phone held sideways, filling the screen, stars and comment.
+7. **Secret Menu**: rebirth tree as a wide diner menu board with five columns (one per section).
+8. **Cookbook**: two-page open book spread: recipes left, details right.
 9. **Booth Plaques**: Regulars and their stories.
 
 ---
