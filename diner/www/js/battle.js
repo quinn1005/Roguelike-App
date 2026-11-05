@@ -32,7 +32,7 @@ class Delve{
   isRest(f){return f%5===0&&f%10!==0}isBoss(f){return f%10===0}
   planFloor(){this.fightIdx=0;this.fights=this.isBoss(this.floor)?1:this.isRest(this.floor)?0:2+(this.floor%3===0?1:0)}
   say(u,txt,dur=2.2){u.bubble={txt,t:dur}}
-  pop(xu,yu,txt,col,sc=2,delay=0){this.popq.push({x:xu,y:yu,txt,col,sc,t:-delay})}
+  pop(xu,yu,txt,col,sc=2,delay=0){const near=this.popq.filter(p=>Math.abs(p.x-xu)<10&&p.t<.6&&p.t>-1).length;this.popq.push({x:xu+(near%2?5:-5)*(near>0),y:yu-near*7,txt,col,sc,t:-delay})}
   // ------------------------------------------------------------ flow
   update(dt){dt*=this.speed;const st=this.g.stage;
     for(const u of[...this.heroes,...this.enemies]){u.flash=Math.max(0,u.flash-dt);u.hurt=Math.max(0,u.hurt-dt);u.kb*=Math.exp(-dt*9);if(u.bubble){u.bubble.t-=dt;if(u.bubble.t<=0)u.bubble=null}
@@ -192,12 +192,16 @@ class Delve{
     if(this.awaiting){const a=this.awaiting;const X=st.sx(a.x),Y=u(a.y-48*(a.w.look.h))-Math.round(Math.sin(st.t*6)*2);c.fillStyle='#ffd25e';for(let i=0;i<4;i++)c.fillRect(X-4+i,Y+i,9-i*2,1);
       const tg=this.g.targeting;if(tg){const list=tg==='ally'?this.alive:this.foes;for(const e of list){const ex=st.sx(e.x),ey=u(e.y)+2;const r=u(e.type&&e.type.boss?16:9)+Math.round(Math.sin(st.t*8));c.fillStyle=tg==='ally'?'#7dffb0':'#ff5a6a';c.fillRect(ex-r,ey,r*2,1);c.fillRect(ex-r,ey-2,1,2);c.fillRect(ex+r-1,ey-2,1,2)}}}
     const boss=this.enemies.find(e=>e.type.boss&&!e.gone);if(boss){const W=u(140),X=st.sx(160)-W/2,Y=u(24);c.fillStyle='#0a0612';c.fillRect(X-2,Y-2,W+4,8);c.fillStyle='#3a1020';c.fillRect(X,Y,W,4);c.fillStyle=boss.armorBroken?'#ff9a3a':'#e0405a';c.fillRect(X,Y,Math.round(W*Math.max(0,boss.hp)/boss.stats.hp),4);textO(c,boss.name.toUpperCase()+(boss.armorBroken?' (ARMOR BROKEN)':''),X,Y+8,1,'#ffffff','#0a0612')}
-    for(const h of[...this.heroes,...this.enemies]){if(!h.bubble||h.gone)continue;const top=h.side==='hero'?46:h.type.boss?72:h.k==='tourist'?50:30;bubbleAt(c,st.sx(h.x),u(h.y-top),h.bubble.txt,st.lw)}
+    const bl=[...this.heroes,...this.enemies].filter(h=>h.bubble&&!h.gone).sort((a,b)=>b.bubble.t-a.bubble.t).slice(0,3).map(h=>({cx:st.sx(h.x),by:u(h.y-(h.side==='hero'?46*h.w.look.h:h.type.boss?72:h.k==='tourist'?50:30)),txt:h.bubble.txt}));drawBubbles(c,bl,st.lw,this.banner?u(60)+44:0)
     for(const p of this.popq){if(p.t<0)continue;const k=p.t;const y=u(p.y)-Math.round((k<.15?k/.15*8:8+k*10)*st.S);if(k>.9&&((k*20)|0)%2)continue;const tw=textW(p.txt,p.sc);textO(c,p.txt,st.sx(p.x)-(tw>>1),y,p.sc,p.col,'#1d1526')}
     if(this.banner){const b=this.banner;const a=Math.min(1,b.t*3);c.globalAlpha=a;const tw=textW(b.txt,3);const cx=st.lw>>1;c.fillStyle='rgba(10,6,18,.65)';c.fillRect(0,u(60),st.lw,b.sub?40:28);textO(c,b.txt,cx-(tw>>1),u(60)+5,3,'#ffffff','#1d1526');if(b.sub){const sw=textW(b.sub,1);textO(c,b.sub,cx-(sw>>1),u(60)+27,1,'#7dffb0','#1d1526')}c.globalAlpha=1}}
 }
-function bubbleAt(c,cx,by,s,lw){const sc=1,ink='#1d1526',paper='#fbf6ec';const words=s.toUpperCase().split(' ');const lines=[];let ln='';for(const w of words){if((ln+' '+w).trim().length>22){lines.push(ln.trim());ln=w}else ln+=' '+w}if(ln.trim())lines.push(ln.trim());
-  const tw=Math.max(...lines.map(l=>textW(l,sc))),p=3,w=tw+p*2,h=lines.length*6*sc-sc+p*2;let x=Math.round(cx-w/2);x=clamp(x,2,lw-w-2);const y=by-h-3;
-  c.fillStyle=ink;c.fillRect(x-1,y,w+2,h);c.fillRect(x,y-1,w,h+2);c.fillStyle=paper;c.fillRect(x,y,w,h);const t=clamp(Math.round(cx),x+3,x+w-4);
-  for(let i=0;i<3;i++){const ww=5-2*i;c.fillStyle=ink;c.fillRect(t-(ww>>1)-1,y+h+i,ww+2,1);c.fillStyle=paper;c.fillRect(t-(ww>>1),y+h+i,ww,1)}
-  lines.forEach((l,i)=>text(c,l,x+p,y+p+i*6*sc,sc,ink))}
+function drawBubbles(c,items,lw,bannerBottom){const sc=1,ink='#1d1526',paper='#fbf6ec';const placed=[];
+  for(const it of items){const words=it.txt.toUpperCase().split(' ');const lines=[];let ln='';for(const w of words){if((ln+' '+w).trim().length>20){lines.push(ln.trim());ln=w}else ln+=' '+w}if(ln.trim())lines.push(ln.trim());
+    const tw=Math.max(...lines.map(l=>textW(l,sc))),p=3,w=tw+p*2,h=lines.length*6*sc-sc+p*2;let x=clamp(Math.round(it.cx-w/2),2,lw-w-2);let y=it.by-h-4;
+    for(let guard=0;guard<8;guard++){const hit=placed.find(r=>x<r.x+r.w+3&&x+w+3>r.x&&y<r.y+r.h+3&&y+h+3>r.y);if(!hit)break;y=hit.y-h-4}
+    y=Math.max(y,30);placed.push({x,y,w,h,lines,cx:it.cx,by:it.by,p})}
+  for(const r of placed){const{x,y,w,h,lines,p}=r;c.fillStyle=ink;c.fillRect(x-1,y,w+2,h);c.fillRect(x,y-1,w,h+2);c.fillStyle=paper;c.fillRect(x,y,w,h);
+    const t=clamp(Math.round(r.cx),x+3,x+w-4);const gap=r.by-(y+h);if(gap>6){c.fillStyle=paper;c.fillRect(t,y+h,1,gap-2);c.fillStyle=ink;c.fillRect(t-1,y+h,1,gap-2);c.fillRect(t+1,y+h,1,gap-2)}
+    else for(let i=0;i<3;i++){const ww=5-2*i;c.fillStyle=ink;c.fillRect(t-(ww>>1)-1,y+h+i,ww+2,1);c.fillStyle=paper;c.fillRect(t-(ww>>1),y+h+i,ww,1)}
+    lines.forEach((l,i)=>text(c,l,x+p,y+p+i*6*sc,sc,ink))}}

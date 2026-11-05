@@ -11,7 +11,7 @@ class Game{
   constructor(){this.stage=new Stage($('#stage'));this.save=this.load();this.mode='hub';this.delve=null;this.hudDirty=true;this.hudT=0;this.party=[];this.walkins=[];this.takeout=[];this.startFloor=1;this.rerolls=0;this.targeting=null;this.returnTo='inside';
     this.stage.setScene(DinerScene);this.layout();window.addEventListener('resize',()=>{this.layout();if($('#modal').hidden){if(this.mode==='inside')this.inside();else if(this.mode==='street')this.street()}});
     document.addEventListener('click',e=>this.onClick(e));this.bindHud();this.hubActors=[];
-    this.title();let last=performance.now();const loop=now=>{const dt=Math.min(.05,(now-last)/1000);last=now;this.frame(dt);requestAnimationFrame(loop)};requestAnimationFrame(loop)}
+    $('#ui').classList.toggle('labels',!!(this.save&&this.save.labels));this.title();let last=performance.now();const loop=now=>{const dt=Math.min(.05,(now-last)/1000);last=now;this.frame(dt);requestAnimationFrame(loop)};requestAnimationFrame(loop)}
   // ------------------------------------------------------------ persistence
   load(){try{const s=JSON.parse(localStorage.getItem(SAVE_KEY));if(s&&s.v===1)return s}catch(e){}return null}
   persist(){try{localStorage.setItem(SAVE_KEY,JSON.stringify(this.save))}catch(e){}}
@@ -21,8 +21,8 @@ class Game{
   layout(){const r=this.stage.resize();const ui=$('#ui');Object.assign(this.stage.cv.style,{left:r.x+'px',top:r.y+'px'});Object.assign(ui.style,{left:r.x+'px',top:r.y+'px',width:r.w+'px',height:r.h+'px'});ui.style.setProperty('--u',r.scale+'px');this.u=r.scale}
   frame(dt){const st=this.stage;
     if(this.mode==='delve'&&this.delve){const d=this.delve;if(!this.paused){d.update(dt);st.update(dt*d.speed)}st.frame(d.actors(),(c,s)=>d.drawUI(c,s));this.hudT-=dt;if(this.hudDirty||this.hudT<=0){this.renderHud();this.hudDirty=false;this.hudT=.15}}
-    else if(this.mode==='inside'){st.update(dt);st.frame(this.customerActors(),(c,s)=>this.insideUI(c,s))}
-    else{st.update(dt);st.frame([],null)}}
+    else if(this.mode==='inside'){st.update(dt);st.frame(this.customerActors(),(c,s)=>{this.markers(c,s);this.insideUI(c,s)})}
+    else{st.update(dt);st.frame([],this.mode==='street'?(c,s)=>this.markers(c,s):null)}}
   // ------------------------------------------------------------ click routing
   onClick(e){const el=e.target.closest('[data-a]');if(!el&&this.mode==='delve'&&this.targeting&&this.delve&&!e.target.closest('button,.hero,#modal')){const r=this.stage.cv.getBoundingClientRect();const st=this.stage;const xu=(((e.clientX-r.left)/st.scale)-st.ox)/st.S,yu=((e.clientY-r.top)/st.scale)/st.S;const u=this.delve.unitAt(xu,yu);if(u)this.pickTarget(u);return}
     if(!el||el.disabled)return;const a=el.dataset.a,v=el.dataset.v;const f=this['a_'+a];if(f)f.call(this,v,el)}
@@ -39,18 +39,20 @@ class Game{
   a_newgame(){if(this.save&&!this._confirmNew){this._confirmNew=true;this.toast('Tap New game again to erase your save');return}this.save=newSave();this.persist();this.walkins=[];this.inside();this.toast('Dolores left you a diner. And a cat. He bites.',2600)}
   a_titleback(){this.title()}
   a_back(){this.closeModal();if(this.returnTo==='street')this.street();else this.inside()}
-  hotspots(list){return list.map(h=>{const st=this.stage;const x=(st.u(h.x)+st.ox)*st.scale,y=st.u(h.y)*st.scale,w=st.u(h.w)*st.scale,hh=st.u(h.h)*st.scale;
+  hotspots(list){this.hotList=list;return list.map(h=>{const st=this.stage;const x=(st.u(h.x)+st.ox)*st.scale,y=st.u(h.y)*st.scale,w=st.u(h.w)*st.scale,hh=st.u(h.h)*st.scale;
     return`<button class="hot${h.lock?' locked':''}" data-a="${h.a}" ${h.v!==undefined?`data-v="${h.v}"`:''} type="button" style="left:${x}px;top:${y}px;width:${w}px;height:${hh}px" aria-label="${esc(h.label)}"><span class="${h.below?'below':''}">${esc(h.label)}</span></button>`}).join('')}
-  statsChip(){const s=this.save;return`<div class="chip stat-chip">TIPS <span class="gold">${s.tips}</span> · SHARDS <span style="color:var(--cyan)">${s.shards}</span> · DEEPEST B${s.best}</div>`}
+  markers(c,st){if(!this.hotList)return;for(const h of this.hotList){if(h.a==='cust')continue;const X=st.sx(h.x+h.w/2),Y=st.u(h.y)-3+Math.round(Math.sin(st.t*3+h.x)*1.5);c.fillStyle='#1d1526';c.fillRect(X-3,Y-1,7,5);c.fillStyle=h.lock?'#8a7a9a':'#7dffb0';c.fillRect(X-2,Y+1,5,1);c.fillRect(X-1,Y,3,3);c.fillRect(X,Y-1,1,5)}}
+  statsChip(){const s=this.save;return`<div class="topbar"><div class="chip">TIPS <span class="gold">${s.tips}</span> · SHARDS <span style="color:var(--cyan)">${s.shards}</span> · DEEPEST B${s.best}</div><div class="spacer"></div><button class="btn sm" data-a="labels" aria-pressed="${!!s.labels}" type="button">Labels</button><button class="btn sm" data-a="jukebox" type="button">Settings</button></div>`}
+  a_labels(){this.save.labels=!this.save.labels;this.persist();$('#ui').classList.toggle('labels',!!this.save.labels);if(this.mode==='inside')this.inside();else this.street()}
   street(){this.mode='street';this.returnTo='street';this.stage.setScene(DinerScene);$('#hud').hidden=true;const smith=this.save.best>=10;
     this.show(this.statsChip()+this.hotspots([{a:'goin',label:'Go inside',x:18,y:38,w:142,h:84},{a:'pawn',label:"Lou's Pawn & Prawn",x:166,y:70,w:70,h:52},{a:'smith',label:smith?'Blacksmith':'Blacksmith (locked)',lock:!smith,x:240,y:58,w:64,h:64}])+
-      `<div class="tip-line">Tap the diner to go back inside.</div>`)}
+      `<div class="tip-line">Tap the diner to go back inside. Green markers show what you can use.</div>`)}
   a_goin(){this.inside()}
   seats(){return[{x:56,y:136,f:1},{x:86,y:136,f:1},{x:180,y:144,f:1},{x:204,y:144,f:-1},{x:244,y:144,f:1},{x:268,y:144,f:-1}]}
   inside(){this.mode='inside';this.returnTo='inside';this.stage.setScene(InteriorScene);$('#hud').hidden=true;if(!this.walkins.length){this.walkins=Array.from({length:6},()=>makeWalkin(ri(1,2)));this.party=[];this.takeout=[];this.rerolls=0}
-    const seats=this.seats();const cust=this.walkins.map((w,i)=>({a:'cust',v:i,label:w.name.split(' ')[0],x:seats[i].x-9,y:seats[i].y-(i<2?34:34),w:18,h:i<2?34:20,below:i>=2}));
-    this.show(this.statsChip()+this.hotspots([{a:'door',label:'Outside',x:3,y:48,w:24,h:64},{a:'kitchen',label:'Kitchen',x:33,y:38,w:60,h:44},{a:'dumbwaiter',label:'Dumbwaiter: to the pit',x:98,y:40,w:28,h:46},{a:'locker',label:'Locker',x:130,y:50,w:20,h:38},
-      {a:'register',label:'Register',x:134,y:84,w:16,h:12},{a:'moss',label:'Moss',x:117,y:82,w:12,h:14},{a:'cat',label:'Meatball',x:66,y:86,w:20,h:10},{a:'jukebox',label:'Jukebox',x:290,y:86,w:24,h:42}].concat(cust))+
+    const seats=this.seats();const cust=this.walkins.map((w,i)=>({a:'cust',v:i,label:w.name.split(' ')[0],x:seats[i].x-9,y:seats[i].y-34,w:18,h:i<2?34:20,below:true}));
+    this.hotList=null;this.show(this.statsChip()+this.hotspots([{a:'door',label:'Outside',x:3,y:48,w:24,h:64},{a:'kitchen',label:'Kitchen',x:33,y:38,w:60,h:44},{a:'dumbwaiter',label:'Dumbwaiter (to the pit)',x:98,y:40,w:28,h:46},{a:'locker',label:'Locker',x:130,y:50,w:20,h:38},
+      {a:'register',label:'Register',x:134,y:84,w:16,h:12,below:true},{a:'moss',label:'Moss',x:117,y:82,w:12,h:14},{a:'cat',label:'Meatball',x:66,y:86,w:20,h:10,below:true},{a:'jukebox',label:'Jukebox',x:290,y:86,w:24,h:42}].concat(cust))+
       `<div class="partybar"><span class="px">PARTY ${this.party.length}/4</span>${this.party.map(w=>`<button class="btn sm" data-a="unpick" data-v="${w.id}" type="button" style="color:${CLASSES[w.cls].col}">${esc(w.name.split(' ')[0])} ✕</button>`).join('')}<span class="sub">${this.party.length?'Ready? Use the Dumbwaiter.':'Tap a customer to see who they are.'}</span></div>`)}
   customerActors(){if(!this.walkins.length)return[];const seats=this.seats(),t=this.stage.t;if(!this._cc)this._cc=new Map();
     return this.walkins.map((w,i)=>{const s=seats[i];const eat=Math.pow(Math.max(0,Math.sin(t*1.1+i*2.1)),6);const pose={bob:Math.round(Math.sin(t*2+i)*.4*4)/4,cast:Math.round(eat*.6*10)/10};const key=w.id+JSON.stringify(pose)+s.f;
@@ -92,7 +94,7 @@ class Game{
       ${SLOTS.map(sl=>{const g=w.gear[sl];return`<button class="slot ${g?'b'+g.rar:''}" data-a="slot" data-v="${i}:${sl}" type="button"><small>${SLOT_NAME[sl]}</small>${g?`<span class="r${g.rar}">${esc(gearName(g))}</span>`:'<span class="sub">empty</span>'}</button>`}).join('')}
       <div class="stats">HP ${s.hp} ATK ${s.atk} DEF ${s.def}<br>SPD ${s.spd} CRIT ${s.crit}%</div>
       <button class="btn sm" data-a="row" data-v="${i}" type="button">Row: ${w.row==='front'?'Front':'Back'}</button></div>`}).join('')}</div></div>
-    <div class="row"><button class="btn" data-a="back" type="button">← Back inside</button><div class="spacer"></div><button class="btn go" data-a="counter" type="button">To the counter →</button></div></div>`);
+    <div class="row"><button class="btn" data-a="back" type="button">Back inside</button><div class="spacer"></div><button class="btn go" data-a="counter" type="button">To the counter</button></div></div>`);
     document.querySelectorAll('[data-gp]').forEach(cv=>{const p=this.portrait(this.party[+cv.dataset.gp]);cv.width=p.width;cv.height=p.height;cv.getContext('2d').drawImage(p,0,0)})}
   a_row(v){const w=this.party[+v];w.row=w.row==='front'?'back':'front';this.gearScreen()}
   a_slot(v){const[i,sl]=v.split(':');const w=this.party[+i];const items=this.save.locker.filter(g=>GEAR[g.base].slot===sl).sort((a,b)=>b.rar-a.rar||b.up-a.up);
@@ -108,7 +110,7 @@ class Game{
       <p class="sub" style="margin-top:calc(var(--u)*6)">Packed: ${this.takeout.length?this.takeout.map((k,i)=>`<button class="btn sm" data-a="unbuy" data-v="${i}" type="button">${TAKEOUT[k].name} ✕</button>`).join(' '):'nothing yet'}</p>
       <div class="row" style="margin-top:calc(var(--u)*6)"><span class="px" style="font-size:calc(var(--u)*5.4)">START AT</span>${s.pulleys.slice().sort((a,b)=>a-b).map(f=>`<button class="btn sm" data-a="start" data-v="${f}" aria-pressed="${f===this.startFloor}" type="button" style="${f===this.startFloor?'background:var(--cyan);color:#06202a':''}">B${f}</button>`).join('')}
       <span class="sub">Rope reaches ${this.ropeLen()} floors below where you start. Past that, Ring the Bell won't work until the next Pulley Station.</span></div></div>
-      <div class="row"><button class="btn" data-a="gearback" type="button">← Gear up</button><div class="spacer"></div><button class="btn primary" data-a="descend" type="button">Descend into the Gutter</button></div></div>`)}
+      <div class="row"><button class="btn" data-a="gearback" type="button">Gear up</button><div class="spacer"></div><button class="btn primary" data-a="descend" type="button">Descend into the Gutter</button></div></div>`)}
   a_gearback(){this.gearScreen()}
   a_buy(k){const t=TAKEOUT[k];if(this.takeout.length>=4)return this.toast('Takeout bag is full');if(this.save.tips<t.price)return this.toast('Not enough tips');this.save.tips-=t.price;this.takeout.push(k);this.counterScreen()}
   a_unbuy(i){const k=this.takeout.splice(+i,1)[0];this.save.tips+=TAKEOUT[k].price;this.counterScreen()}
@@ -168,7 +170,7 @@ $('#btn-speed').addEventListener('click',()=>{const d=this.delve;if(!d)return;d.
     this.show(`<div class="panel fill"><div class="row"><h2 class="h2">Locker</h2><span class="sub">Everything you own. Walk-ins borrow it for a delve and bring it back.</span></div>
       <div class="row scroll" style="align-items:stretch;flex-wrap:nowrap"><div class="scroll list" style="flex:1.3">${items.map(x=>`<div class="item b${x.rar}" data-a="lsel" data-v="${x.id}" role="button" tabindex="0" style="cursor:pointer${x===g?';outline:calc(var(--u)*1) solid var(--mint)':''}"><div class="nm"><b class="r${x.rar}">${esc(gearName(x))}</b><small>${SLOT_NAME[GEAR[x.base].slot]} · ${RARITY[x.rar].name} · item level ${x.ilvl}</small></div></div>`).join('')||'<p class="sub">Empty. Go find some meme gear.</p>'}</div>
       <div class="card" style="flex:1;cursor:default">${g?gearDetail(g):'<p class="sub">Tap an item to see its stats.</p>'}</div></div>
-      <div class="row"><button class="btn" data-a="back" type="button">← Diner</button></div></div>`)}
+      <div class="row"><button class="btn" data-a="back" type="button">Diner</button></div></div>`)}
   a_lsel(v){this.lockerScreen(v)}
   // ------------------------------------------------------------ pawn shop
   a_pawn(){this.pawnTab='gear';this.lou=pick(LOU_LINES);this.pawnScreen()}
@@ -178,7 +180,7 @@ $('#btn-speed').addEventListener('click',()=>{const d=this.delve;if(!d)return;d.
     this.show(`<div class="panel fill"><div class="row"><h2 class="h2">Lou's Pawn &amp; Prawn</h2><span class="quote">${esc(this.lou)}</span><div class="spacer"></div><span class="chip gold">TIPS ${s.tips}</span></div>
       <div class="tabs">${[['gear','Gear'],['junk','Junk'],['parts','Monster parts'],['ing','Ingredients']].map(([k,n])=>`<button class="btn sm" data-a="pawntab" data-v="${k}" aria-pressed="${k===t}" type="button">${n}</button>`).join('')}${t==='junk'&&Object.values(s.junk).some(n=>n)?'<button class="btn sm" data-a="selljunk" type="button">Sell all junk</button>':''}</div>
       <div class="scroll list">${rows||'<p class="sub">Nothing to sell here.</p>'}</div>${t!=='gear'&&t!=='junk'?'<p class="sub">Monster parts and ingredients are also used for cooking (next update) and forging.</p>':''}
-      <div class="row"><button class="btn" data-a="back" type="button">← Diner</button></div></div>`)}
+      <div class="row"><button class="btn" data-a="back" type="button">Diner</button></div></div>`)}
   a_pawntab(v){this.pawnTab=v;this.pawnScreen()}
   a_sellgear(id){const s=this.save;const i=s.locker.findIndex(g=>g.id===id);if(i<0)return;const g=s.locker[i];s.tips+=gearPrice(g);s.locker.splice(i,1);this.lou=pick(LOU_LINES);this.persist();this.pawnScreen()}
   a_sellstack(v){const[t,id,n]=v.split(':');const s=this.save;const tab={junk:[s.junk,JUNK],parts:[s.parts,PARTS],ing:[s.ing,INGREDIENTS]}[t];const D=tab[1][id];const p=D.price||[2,4,9,18,40][D.rar];const k=Math.min(+n,tab[0][id]||0);tab[0][id]-=k;if(!tab[0][id])delete tab[0][id];s.tips+=p*k;this.lou=pick(LOU_LINES);this.persist();this.pawnScreen()}
@@ -192,7 +194,7 @@ $('#btn-speed').addEventListener('click',()=>{const d=this.delve;if(!d)return;d.
     else body=`<div class="scroll list">${FORGE.map(f=>{const G=GEAR[f.id];const ok=s.tips>=f.tips&&Object.entries(f.need).every(([p,n])=>(s.parts[p]||0)>=n);return`<div class="item"><div class="nm"><b>${G.name}</b><small>${SLOT_NAME[G.slot]} · ${statLine(G.st)} · needs ${Object.entries(f.need).map(([p,n])=>`${n} ${PARTS[p].name} (${s.parts[p]||0})`).join(', ')}</small></div><span class="gold px">${f.tips}</span><button class="btn sm" data-a="forge" data-v="${f.id}" type="button" ${ok?'':'disabled'}>Forge</button></div>`}).join('')}</div><p class="sub">Forged gear rolls a random rarity, and Uncommon is the minimum.</p>`;
     this.show(`<div class="panel fill"><div class="row"><h2 class="h2">Blacksmith</h2><span class="quote">${esc(this.brun)}</span><div class="spacer"></div><span class="chip gold">TIPS ${s.tips}</span></div>
       <div class="tabs"><button class="btn sm" data-a="smithtab" data-v="up" aria-pressed="${t==='up'}" type="button">Upgrade</button><button class="btn sm" data-a="smithtab" data-v="forge" aria-pressed="${t==='forge'}" type="button">Forge</button></div>${body}
-      <div class="row"><button class="btn" data-a="back" type="button">← Diner</button></div></div>`)}
+      <div class="row"><button class="btn" data-a="back" type="button">Diner</button></div></div>`)}
   a_smithtab(v){this.smithTab=v;this.smithScreen()}
   a_ssel(v){this.smithScreen(v)}
   spendParts(n){const s=this.save;const ids=Object.keys(s.parts).sort((a,b)=>PARTS[a].rar-PARTS[b].rar);for(const id of ids){while(n>0&&s.parts[id]>0){s.parts[id]--;n--}if(!s.parts[id])delete s.parts[id]}}
@@ -204,7 +206,7 @@ $('#btn-speed').addEventListener('click',()=>{const d=this.delve;if(!d)return;d.
     this.show(`<div class="panel fill"><div class="row"><h2 class="h2">Pantry</h2><span class="sub">The cooking mini-game opens in the next update. Start hoarding.</span></div>
       <div class="scroll list">${ing.map(([id,n])=>{const I=INGREDIENTS[id];return`<div class="item b${I.rar}"><div class="nm"><b class="r${I.rar}">${esc(I.name)} ×${n}</b><small>${RARITY[I.rar].name} · ${I.fl.join(', ')} · ${esc(I.desc)}</small></div></div>`}).join('')}
       ${parts.map(([id,n])=>{const P=PARTS[id];return`<div class="item"><div class="nm"><b class="r${P.rar}">${esc(P.name)} ×${n}</b><small>Monster part · ${esc(P.desc)}</small></div></div>`}).join('')}${!ing.length&&!parts.length?'<p class="sub">Empty. Every monster in the pit is a potential ingredient.</p>':''}</div>
-      <div class="row"><button class="btn" data-a="back" type="button">← Diner</button></div></div>`)}
+      <div class="row"><button class="btn" data-a="back" type="button">Diner</button></div></div>`)}
 }
 function statLine(st){const o=[];for(const[k,n]of[['hp','HP'],['atk','ATK'],['def','DEF'],['spd','SPD'],['crit','CRIT']])if(st[k])o.push(`${n} ${st[k]>0?'+':''}${st[k]}${k==='crit'?'%':''}`);for(const[k,n]of[['atkP','ATK'],['hpP','HP'],['allP','ALL']])if(st[k])o.push(`${n} ${st[k]>0?'+':''}${Math.round(st[k]*100)}%`);if(st.res)o.push('stun resist');return o.join(' · ')||'no stats (vibes only)'}
 function gearDetail(g){const B=GEAR[g.base];return`<div class="nm r${g.rar}">${esc(gearName(g))}</div><div class="meta">${SLOT_NAME[B.slot]} · ${RARITY[g.rar].name} · item level ${g.ilvl}${g.up?` · upgraded +${g.up}`:''}</div><div class="stats">${statLine(gearStats(g)).replace(/ · /g,'<br>')}</div><div class="meta">Lou would pay ${gearPrice(g)} tips.</div>`}
