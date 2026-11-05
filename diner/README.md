@@ -15,7 +15,16 @@ python3 -m http.server 8090 --directory diner/www
 
 Then open http://localhost:8090.
 
-## Milestone 1: Fight Night (current)
+## Milestone 2: Kitchen Nightmares (current)
+
+- Walk around inside the diner; everything is a tappable spot (kitchen, dumbwaiter, locker, register, jukebox, door)
+- Recruit from the customers eating there; serve a cooked dish at the register to choose who walks in
+- Cooking mini-game: pick 2-5 ingredients, then Chop, Cook, Season and Plate, each graded
+- Generated meme dishes with flavors, stats and quirks; Recipe Book with Quick Cook; Fridge
+- Dishes work as recruit meals or as takeout during delves
+- Auto or turn-based battles
+
+## Milestone 1: Fight Night
 
 - Random walk-ins every delve (name, job, bio, class, traits, look)
 - Gear Up: 4 equipment slots per walk-in, gear is visible on the characters

@@ -15,8 +15,9 @@ function heroStats(w){const C=CLASSES[w.cls];const lm=1+.09*(w.level-1);const s=
 class Unit{constructor(o){Object.assign(this,{gauge:0,acts:0,st:{},buffs:[],dx:0,dy:0,kb:0,flash:0,hurt:0,alive:true,gone:false,sy:1,alpha:1,bubble:null,cache:new SpriteCache(36)},o)}
   get x(){return this.base.x+this.dx+this.kb}get y(){return this.base.y+this.dy}
   get spdNow(){return this.stats.spd*(this.st.slow?.6:1)}
-  get atkNow(){let m=1;for(const b of this.buffs)m*=b.m;return this.stats.atk*m}
-  get defNow(){return this.stats.def*(this.armorBroken?.3:1)}}
+  get atkNow(){let m=1;for(const b of this.buffs)if(!b.k||b.k==='atk')m*=b.m;return this.stats.atk*m}
+  get defNow(){let m=1;for(const b of this.buffs)if(b.k==='def')m*=b.m;return this.stats.def*m*(this.armorBroken?.3:1)}
+  get critNow(){let c=this.stats.crit;for(const b of this.buffs)if(b.k==='crit')c+=b.m;return c}}
 
 class Delve{
   constructor(game,party,takeout,startFloor){this.g=game;this.floor=startFloor;this.anchor=startFloor;this.rope=game.ropeLen();this.takeout=takeout.slice();
@@ -133,7 +134,7 @@ class Delve{
     if(w&&w.traits.includes('clumsy')){const r=Math.random();if(r<.1)miss=true;else if(r<.2)dbl=true}
     if(w&&w.traits.includes('milkshake'))m*=2;
     if(miss){this.pop(t.x,t.y-38,'WHIFF','#c9c2d6',1);return}
-    const crit=Math.random()*100<a.stats.crit+(o.crit||0);let d=a.atkNow*m*R(.9,1.1)*40/(40+t.defNow);if(crit)d*=1.6;d=Math.max(1,Math.round(d*(dbl?2:1)));
+    const crit=Math.random()*100<a.critNow+(o.crit||0);let d=a.atkNow*m*R(.9,1.1)*40/(40+t.defNow);if(crit)d*=1.6;d=Math.max(1,Math.round(d*(dbl?2:1)));
     this.damage(a,t,d,{crit});
     if(t.type&&t.type.ab==='sticky'&&a.side==='hero'&&CLASSES[a.cls].range==='melee'){a.st.slow=1;this.pop(a.x,a.y-40,'STICKY','#7ad060',1)}
     if(t.type&&t.type.boss&&a.side==='hero'){t.hitStreak=(t.hitStreak||0)+1;if(t.hitStreak>=3&&!t.armorBroken){t.armorBroken=2;t.hitStreak=0;this.say(t,'MY FORM!!',1.6);this.pop(t.x,t.y-56,'ARMOR BROKEN','#ff5a6a',1)}}}
@@ -160,6 +161,8 @@ class Delve{
     this.g.hudDirty=true}
   // ------------------------------------------------------------ player inputs
   useTakeout(i){if(['retreat','wipe','pulley','done'].includes(this.state))return;const id=this.takeout[i];if(!id)return;this.takeout.splice(i,1);const al=this.alive;
+    if(typeof id==='object'){const d=id.dish,e=dishEffect(d);this.banner={txt:'CHOW TIME',sub:d.name.toUpperCase().slice(0,40),t:1.6};for(const h of al){if(e.heal)this.heal(null,h,Math.round(h.stats.hp*e.heal/100));if(e.atk)h.buffs.push({k:'atk',m:1+e.atk/100,t:5});if(e.def)h.buffs.push({k:'def',m:1+e.def/100,t:5});if(e.crit)h.buffs.push({k:'crit',m:e.crit,t:5});if(e.spd)h.gauge=Math.min(100,h.gauge+e.spd)}
+      if(d.quirks.includes('volatile'))for(const f of this.foes.filter(f=>!f.dying))this.damage(null,f,Math.max(1,Math.round(d.st.pow*1.5)),{col:'#ff9a3a'});const h=pick(al);if(h)this.say(h,pick(['bussin','this slaps','who made this?? (complimentary)','mid but I will eat it','I can taste the content']),1.6);this.g.hudDirty=true;return}
     if(id==='fries')for(const h of al)this.heal(null,h,Math.round(h.stats.hp*.25));
     if(id==='sauce'){for(const h of al){h.buffs.push({m:1.3,t:4});this.pop(h.x,h.y-40,'SPICY','#ff5a3a',1)}}
     if(id==='espresso'){for(const h of al){h.gauge=100;this.pop(h.x,h.y-40,'WIRED','#d8a06a',1)}}
@@ -172,7 +175,7 @@ class Delve{
       for(const g of rest.gear)if(!keep.gear.some(x=>x.id===g.id)&&Math.random()<.25)k.gear.push(g);
       for(const key of['ing','parts','junk'])for(const id in rest[key]){const extra=rest[key][id]-(keep[key][id]||0);let n=0;for(let i=0;i<extra;i++)if(Math.random()<.25)n++;if(n)k[key][id]=(k[key][id]||0)+n}
       loot=k}
-    this.g.onDelveEnd({kind,loot,full:this.bag,floor:this.floor,stats:this.stats,heroes:this.heroes})}
+    this.g.onDelveEnd({kind,loot,takeoutLeft:this.takeout,full:this.bag,floor:this.floor,stats:this.stats,heroes:this.heroes})}
   // ------------------------------------------------------------ rendering
   sprite(u,p){const look=u.side==='hero';const fl=u.flash>0;const hurt=u.hurt>0;
     const pose={bob:Math.round(Math.sin(this.g.stage.t*(look?4.2:3.4)+u.base.x)*.6*4)/4,arm:Math.round((p.arm||0)*10)/10,cast:Math.round((p.cast||0)*10)/10,slam:Math.round((p.slam||0)*10)/10,flex:Math.round((p.flex||0)*4)/4,hurt,walk:p.walk?Math.round(p.walk*4)/4:0,lean:Math.round((p.lean||0)*2)/2};

@@ -5,15 +5,15 @@ const SAVE_KEY='lsd_save_v1';
 const $=s=>document.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function newSave(){return{v:1,tips:150,shards:0,locker:[makeGear('spatula',0,1),makeGear('hoodie',0,1),makeGear('tinfoil',0,1),makeGear('trophy',0,1),makeGear('noodle',0,1)],
-  ing:{},parts:{},junk:{},best:1,pulleys:[1],delves:0,speed:1,stats:{kills:0,wipes:0}}}
+  ing:{onion:2,bread:2,mushroom:2,jerky:1,pepper:1},parts:{},junk:{},best:1,pulleys:[1],delves:0,speed:1,stats:{kills:0,wipes:0},book:{},dishes:[]}}
 
 class Game{
-  constructor(){this.stage=new Stage($('#stage'));this.save=this.load();this.mode='hub';this.delve=null;this.hudDirty=true;this.hudT=0;this.party=[];this.walkins=[];this.takeout=[];this.startFloor=1;this.rerolls=0;this.targeting=null;this.returnTo='inside';
+  constructor(){this.stage=new Stage($('#stage'));this.save=this.load();this.mode='hub';this.delve=null;this.hudDirty=true;this.hudT=0;this.party=[];this.walkins=[];this.takeout=[];this.startFloor=1;this.rerolls=0;this.targeting=null;this.returnTo='inside';this.kitchen=new Kitchen(this);
     this.stage.setScene(DinerScene);this.layout();window.addEventListener('resize',()=>{this.layout();if($('#modal').hidden){if(this.mode==='inside')this.inside();else if(this.mode==='street')this.street()}});
     document.addEventListener('click',e=>this.onClick(e));this.bindHud();this.hubActors=[];
     $('#ui').classList.toggle('labels',!!(this.save&&this.save.labels));this.title();let last=performance.now();const loop=now=>{const dt=Math.min(.05,(now-last)/1000);last=now;this.frame(dt);requestAnimationFrame(loop)};requestAnimationFrame(loop)}
   // ------------------------------------------------------------ persistence
-  load(){try{const s=JSON.parse(localStorage.getItem(SAVE_KEY));if(s&&s.v===1)return s}catch(e){}return null}
+  load(){try{const s=JSON.parse(localStorage.getItem(SAVE_KEY));if(s&&s.v===1){s.book=s.book||{};s.dishes=s.dishes||[];return s}}catch(e){}return null}
   persist(){try{localStorage.setItem(SAVE_KEY,JSON.stringify(this.save))}catch(e){}}
   ropeLen(){return 6}
   noteFloor(f){if(f>this.save.best){this.save.best=f}}
@@ -34,11 +34,11 @@ class Game{
   // ------------------------------------------------------------ title, street and the diner interior
   title(){this.mode='street';this.stage.setScene(DinerScene);$('#hud').hidden=true;this.show(`<div class="panel hub-title" style="gap:calc(var(--u)*8)"><h1 class="title">LAST STOP<br>DINER</h1><p class="sub">Feed the hungry. Send them into the pit.<br>Cook what they bring back.</p>
     <div class="row">${this.save?'<button class="btn primary" data-a="continue" type="button">Continue</button>':''}<button class="btn ${this.save?'':'primary'}" data-a="newgame" type="button">New game</button></div>
-    <p class="sub" style="font-size:calc(var(--u)*5.4)">Milestone 1: Fight Night. Cooking opens in the next update.</p></div>`)}
+    <p class="sub" style="font-size:calc(var(--u)*5.4)">Milestone 2: Kitchen Nightmares. Now with cooking.</p></div>`)}
   a_continue(){this.inside()}
   a_newgame(){if(this.save&&!this._confirmNew){this._confirmNew=true;this.toast('Tap New game again to erase your save');return}this.save=newSave();this.persist();this.walkins=[];this.inside();this.toast('Dolores left you a diner. And a cat. He bites.',2600)}
   a_titleback(){this.title()}
-  a_back(){this.closeModal();if(this.returnTo==='street')this.street();else this.inside()}
+  a_back(){this.kitchen.stop();this.closeModal();if(this.returnTo==='street')this.street();else this.inside()}
   hotspots(list){this.hotList=list;return list.map(h=>{const st=this.stage;const x=(st.u(h.x)+st.ox)*st.scale,y=st.u(h.y)*st.scale,w=st.u(h.w)*st.scale,hh=st.u(h.h)*st.scale;
     return`<button class="hot${h.lock?' locked':''}" data-a="${h.a}" ${h.v!==undefined?`data-v="${h.v}"`:''} type="button" style="left:${x}px;top:${y}px;width:${w}px;height:${hh}px" aria-label="${esc(h.label)}"><span class="${h.below?'below':''}">${esc(h.label)}</span></button>`}).join('')}
   markers(c,st){if(!this.hotList)return;for(const h of this.hotList){if(h.a==='cust')continue;const X=st.sx(h.x+h.w/2),Y=st.u(h.y)-3+Math.round(Math.sin(st.t*3+h.x)*1.5);c.fillStyle='#1d1526';c.fillRect(X-3,Y-1,7,5);c.fillStyle=h.lock?'#8a7a9a':'#7dffb0';c.fillRect(X-2,Y+1,5,1);c.fillRect(X-1,Y,3,3);c.fillRect(X,Y-1,1,5)}}
@@ -70,13 +70,24 @@ class Game{
   portrait(w){const S=humanShapes(w,{bob:0,arm:0});return raster(xform(S,1,w.look.h,0),ST,RAMPS,{},{}).c}
   a_pick(v){const w=this.walkins[+v];const i=this.party.indexOf(w);if(i>=0)this.party.splice(i,1);else if(this.party.length<4){this.party.push(w);if(Math.random()<.6)this.toast(`${w.name.split(' ')[0]}: "${pick(['say less','let me finish my fries first','is there dental?','I was born for this','wait, the PIT pit?','for the content'])}"`)}else this.toast('The booth only seats 4');this.closeModal();this.inside()}
   a_unpick(id){this.party=this.party.filter(w=>w.id!==id);this.inside()}
-  a_register(){const cost=this.rerolls?10:0;this.modal(`<h2 class="h2">The register</h2><p class="sub">Moss: "Want me to call in another round? The people you picked stay. Everyone else finishes up and leaves."</p>
-    <div class="row"><button class="btn" data-a="close" type="button">Never mind</button><div class="spacer"></div><button class="btn go" data-a="reroll" type="button" ${this.save.tips<cost?'disabled':''}>Serve another round ${cost?`(${cost} tips)`:'(free)'}</button></div>`)}
+  a_register(){const cost=this.rerolls?10:0;const ds=this.save.dishes;this.modal(`<h2 class="h2">The register</h2><p class="sub">Moss: "Serve something and a new crowd shows up. The people you picked stay. What you cook decides who comes in."</p>
+    <div class="scroll list" style="max-height:45vh"><div class="item"><div class="nm"><b>Blue Plate Special</b><small>Random crowd, levels 1 to 2.</small></div><button class="btn sm go" data-a="reroll" type="button" ${this.save.tips<cost?'disabled':''}>Serve ${cost?`(${cost} tips)`:'(free)'}</button></div>
+    ${ds.map(d=>`<div class="item b${d.rar}"><div class="nm"><b>${esc(d.name)}</b><small>${dishCrowdText(d)}</small></div><button class="btn sm go" data-a="serve" data-v="${d.id}" type="button">Serve</button></div>`).join('')||'<p class="sub">Cook dishes in the kitchen to attract better customers.</p>'}</div>
+    <div class="row"><div class="spacer"></div><button class="btn" data-a="close" type="button">Never mind</button></div>`)}
+  a_serve(id){const s=this.save;const d=s.dishes.find(x=>x.id===id);if(!d)return;s.dishes=s.dishes.filter(x=>x!==d);const w=dishCrowd(d);const n=Math.min(6,3+Math.round(d.q*3));const lb=Math.floor(d.q*2+d.rar*.5);
+    const fresh=Array.from({length:Math.max(0,n-this.party.length)},()=>makeWalkin(ri(1,2)+lb,weighted(Object.keys(w),c=>w[c])));this.walkins=this.party.concat(fresh).slice(0,6);this._cc&&this._cc.clear();this.persist();this.closeModal();this.inside();this.toast(`${d.name} is served. ${fresh.length} hungry customers walk in.`,2600)}
   a_reroll(){const cost=this.rerolls?10:0;if(this.save.tips<cost)return;this.save.tips-=cost;this.rerolls++;this.walkins=this.walkins.map(w=>this.party.includes(w)?w:makeWalkin(ri(1,2)));this._cc&&this._cc.clear();this.persist();this.closeModal();this.inside();this.toast('A new round of customers walks in')}
   a_moss(){this.toast(pick(['Moss: "...so anyway."','Moss: "The pit called. I let it go to voicemail."','Moss: "I am a cactus. I take no questions."','Moss: "Tip jar is right there. Hint."']),2400)}
   a_cat(){this.toast(pick(['Meatball bit you. He seems proud.','Meatball is asleep. Meatball is plotting.','You pet Meatball. +1 morale. -1 finger.','Meatball judges your party choices.']),2400)}
   a_door(){this.street()}
-  a_kitchen(){this.returnTo='inside';this.a_pantry()}
+  a_kitchen(){this.returnTo='inside';this.kitchen.open()}
+  a_kadd(v){this.kitchen.add(v)}
+  a_krem(v){this.kitchen.rem(v)}
+  a_kstart(){this.kitchen.start()}
+  a_book(){this.kitchen.book()}
+  a_fridge(){this.kitchen.fridge()}
+  a_quick(k){this.kitchen.quick(k)}
+  a_toss(id){this.save.dishes=this.save.dishes.filter(d=>d.id!==id);this.persist();this.kitchen.fridge()}
   a_dumbwaiter(){if(!this.party.length)return this.toast('Recruit at least one customer first');this.gearScreen()}
   a_jukebox(){const s=this.save;this.modal(`<h2 class="h2">Jukebox settings</h2>
     <div class="row"><span class="px" style="font-size:calc(var(--u)*5.4)">BATTLES</span><button class="btn sm" data-a="setmode" data-v="auto" aria-pressed="${s.battleMode!=='turn'}" type="button">Auto</button><button class="btn sm" data-a="setmode" data-v="turn" aria-pressed="${s.battleMode==='turn'}" type="button">Turn-based</button></div>
@@ -107,13 +118,15 @@ class Game{
   counterScreen(){const s=this.save;
     this.show(`<div class="panel fill"><div class="row"><h2 class="h2">The counter</h2><span class="sub">Pack takeout for the trip (4 max) and pick where to start.</span><div class="spacer"></div><span class="chip gold">TIPS ${s.tips}</span></div>
       <div class="scroll"><div class="grid" style="grid-template-columns:repeat(4,minmax(0,1fr))">${Object.entries(TAKEOUT).map(([k,t])=>`<div class="card" data-a="buy" data-v="${k}" role="button" tabindex="0"><div class="nm" style="color:${t.col}">${t.name}</div><div class="meta">${t.desc}</div><div class="gold px" style="font-size:calc(var(--u)*5)">${t.price} TIPS</div></div>`).join('')}</div>
-      <p class="sub" style="margin-top:calc(var(--u)*6)">Packed: ${this.takeout.length?this.takeout.map((k,i)=>`<button class="btn sm" data-a="unbuy" data-v="${i}" type="button">${TAKEOUT[k].name} ✕</button>`).join(' '):'nothing yet'}</p>
+      ${s.dishes.length?`<div class="nm px" style="margin-top:calc(var(--u)*6);font-size:calc(var(--u)*5.4)">FROM THE FRIDGE</div><div class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-top:calc(var(--u)*3)">${s.dishes.map(d=>`<div class="card b${d.rar}" data-a="pack" data-v="${d.id}" role="button" tabindex="0"><div class="nm">${esc(d.name)}</div><div class="meta">${dishEffectText(d)}</div><div class="px" style="font-size:calc(var(--u)*4.4);color:${tierOf(d.q)[2]}">${tierOf(d.q)[1].toUpperCase()} · FREE</div></div>`).join('')}</div>`:''}
+      <p class="sub" style="margin-top:calc(var(--u)*6)">Packed (${this.takeout.length}/4): ${this.takeout.length?this.takeout.map((k,i)=>`<button class="btn sm" data-a="unbuy" data-v="${i}" type="button">${esc(tkName(k))} ✕</button>`).join(' '):'nothing yet'}</p>
       <div class="row" style="margin-top:calc(var(--u)*6)"><span class="px" style="font-size:calc(var(--u)*5.4)">START AT</span>${s.pulleys.slice().sort((a,b)=>a-b).map(f=>`<button class="btn sm" data-a="start" data-v="${f}" aria-pressed="${f===this.startFloor}" type="button" style="${f===this.startFloor?'background:var(--cyan);color:#06202a':''}">B${f}</button>`).join('')}
       <span class="sub">Rope reaches ${this.ropeLen()} floors below where you start. Past that, Ring the Bell won't work until the next Pulley Station.</span></div></div>
       <div class="row"><button class="btn" data-a="gearback" type="button">Gear up</button><div class="spacer"></div><button class="btn primary" data-a="descend" type="button">Descend into the Gutter</button></div></div>`)}
   a_gearback(){this.gearScreen()}
   a_buy(k){const t=TAKEOUT[k];if(this.takeout.length>=4)return this.toast('Takeout bag is full');if(this.save.tips<t.price)return this.toast('Not enough tips');this.save.tips-=t.price;this.takeout.push(k);this.counterScreen()}
-  a_unbuy(i){const k=this.takeout.splice(+i,1)[0];this.save.tips+=TAKEOUT[k].price;this.counterScreen()}
+  a_unbuy(i){const k=this.takeout.splice(+i,1)[0];if(typeof k==='object')this.save.dishes.push(k.dish);else this.save.tips+=TAKEOUT[k].price;this.counterScreen()}
+  a_pack(id){if(this.takeout.length>=4)return this.toast('Takeout bag is full');const s=this.save;const d=s.dishes.find(x=>x.id===id);if(!d)return;s.dishes=s.dishes.filter(x=>x!==d);this.takeout.push({dish:d});this.counterScreen()}
   a_start(f){this.startFloor=+f;this.counterScreen()}
   a_descend(){const f=this.startFloor;for(const w of this.party)w.level+=Math.floor((f-1)*.9);this.save.delves++;this.persist();
     this.mode='delve';this.stage.setScene(GutterScene);this.show('');this.delve=new Delve(this,this.party,this.takeout,f);this.delve.speed=this.save.speed||1;this.targeting=null;$('#hud').hidden=false;this.paused=false;this.hudDirty=true;this.renderHud(true)}
@@ -142,7 +155,7 @@ $('#btn-speed').addEventListener('click',()=>{const d=this.delve;if(!d)return;d.
     $('#hud-loot').textContent=`${b.tips} TIPS · ${items} LOOT${d.banked?' · BANKED':''}`;
     $('#btn-speed').textContent=d.speed+'×';$('#btn-mode').textContent=this.save.battleMode==='turn'?'TURNS':'AUTO';
     const rail=d.state==='fight'?d.predict(6):[];$('#rail').innerHTML=rail.map(u=>`<span class="${u.side==='enemy'?'e':''}">${esc(u.name.split(' ')[0].slice(0,8).toUpperCase())}</span>`).join('');
-    $('#hud-takeout').innerHTML=[0,1,2,3].map(i=>{const k=d.takeout[i];return k?`<button class="btn" data-t="${i}" type="button" style="color:${TAKEOUT[k].col}">${TAKEOUT[k].name}</button>`:'<button class="btn empty" type="button" disabled>—</button>'}).join('');
+    $('#hud-takeout').innerHTML=[0,1,2,3].map(i=>{const k=d.takeout[i];return k?`<button class="btn" data-t="${i}" type="button" style="color:${typeof k==='object'?tierOf(k.dish.q)[2]:TAKEOUT[k].col}" title="${esc(tkName(k))}">${esc(tkName(k).length>22?tkName(k).slice(0,21)+'…':tkName(k))}</button>`:'<button class="btn empty" type="button" disabled>—</button>'}).join('');
     $('#hud-heroes').innerHTML=d.heroes.map((h,i)=>`<div class="hero${h.alive?'':' down'}${d.meter>=100&&h.alive?' ready':''}" data-i="${i}" role="button" tabindex="0"><div class="n" style="color:${CLASSES[h.cls].col}">${esc(h.name)} <span style="color:var(--muted)">L${h.level}</span></div><div class="c">${h.alive?CLASSES[h.cls].name:h.left?'headed out':'minted home'}</div><div class="bar"><i style="width:${Math.max(0,h.hp/h.stats.hp*100)}%"></i></div></div>`).join('');
     const o=$('#btn-order');o.classList.toggle('full',d.meter>=100);$('#order-fill').style.width=d.meter+'%';
     $('#btn-bell').disabled=!d.canBell()||['retreat','wipe','pulley','done'].includes(d.state)}
@@ -152,7 +165,7 @@ $('#btn-speed').addEventListener('click',()=>{const d=this.delve;if(!d)return;d.
   a_rideup(){this.closeModal();this.delve.finish('pulley')}
   a_keepgoing(){this.closeModal();this.delve.keepGoing();this.hudDirty=true}
   // ------------------------------------------------------------ end of delve: receipt
-  onDelveEnd(r){const s=this.save,L=r.loot;s.tips+=L.tips;s.shards+=L.shards;for(const g of L.gear)s.locker.push(g);for(const k of['ing','parts','junk'])for(const id in L[k])s[k][id]=(s[k][id]||0)+L[k][id];
+  onDelveEnd(r){const s=this.save,L=r.loot;for(const k of r.takeoutLeft||[])if(typeof k==='object')s.dishes.push(k.dish);s.tips+=L.tips;s.shards+=L.shards;for(const g of L.gear)s.locker.push(g);for(const k of['ing','parts','junk'])for(const id in L[k])s[k][id]=(s[k][id]||0)+L[k][id];
     s.stats.kills+=r.stats.kills;if(r.kind==='wipe')s.stats.wipes++;this.noteFloor(r.floor);this.persist();$('#hud').hidden=true;this.mode='receipt';this.stage.setScene(InteriorScene);this.delve=null;this.walkins=[];this.returnTo='inside';this.targeting=null;$('#cmd').hidden=true;
     const head={retreat:'RANG THE BELL',wipe:'PARTY WIPED',pulley:'PULLEY STATION RIDE'}[r.kind];const mvp=Object.entries(r.stats.dmg).sort((a,b)=>b[1]-a[1])[0];
     const ln=(a,b,c='')=>`<div class="ln ${c}"><span>${esc(a)}</span><span>${esc(b)}</span></div>`;
@@ -179,7 +192,7 @@ $('#btn-speed').addEventListener('click',()=>{const d=this.delve;if(!d)return;d.
     else{const tab={junk:[s.junk,JUNK],parts:[s.parts,PARTS],ing:[s.ing,INGREDIENTS]}[t];rows=Object.entries(tab[0]).filter(([,n])=>n>0).map(([id,n])=>{const D=tab[1][id];const p=D.price||[2,4,9,18,40][D.rar];return`<div class="item"><div class="nm"><b class="${D.rar!==undefined?'r'+D.rar:''}">${esc(D.name)} ×${n}</b><small>${esc(D.desc)}</small></div><span class="gold px">${p}</span><button class="btn sm" data-a="sellstack" data-v="${t}:${id}:1" type="button">Sell 1</button><button class="btn sm" data-a="sellstack" data-v="${t}:${id}:${n}" type="button">All</button></div>`}).join('')}
     this.show(`<div class="panel fill"><div class="row"><h2 class="h2">Lou's Pawn &amp; Prawn</h2><span class="quote">${esc(this.lou)}</span><div class="spacer"></div><span class="chip gold">TIPS ${s.tips}</span></div>
       <div class="tabs">${[['gear','Gear'],['junk','Junk'],['parts','Monster parts'],['ing','Ingredients']].map(([k,n])=>`<button class="btn sm" data-a="pawntab" data-v="${k}" aria-pressed="${k===t}" type="button">${n}</button>`).join('')}${t==='junk'&&Object.values(s.junk).some(n=>n)?'<button class="btn sm" data-a="selljunk" type="button">Sell all junk</button>':''}</div>
-      <div class="scroll list">${rows||'<p class="sub">Nothing to sell here.</p>'}</div>${t!=='gear'&&t!=='junk'?'<p class="sub">Monster parts and ingredients are also used for cooking (next update) and forging.</p>':''}
+      <div class="scroll list">${rows||'<p class="sub">Nothing to sell here.</p>'}</div>${t!=='gear'&&t!=='junk'?'<p class="sub">Monster parts and ingredients are also used for cooking in the kitchen, and parts for forging.</p>':''}
       <div class="row"><button class="btn" data-a="back" type="button">Diner</button></div></div>`)}
   a_pawntab(v){this.pawnTab=v;this.pawnScreen()}
   a_sellgear(id){const s=this.save;const i=s.locker.findIndex(g=>g.id===id);if(i<0)return;const g=s.locker[i];s.tips+=gearPrice(g);s.locker.splice(i,1);this.lou=pick(LOU_LINES);this.persist();this.pawnScreen()}
@@ -208,6 +221,7 @@ $('#btn-speed').addEventListener('click',()=>{const d=this.delve;if(!d)return;d.
       ${parts.map(([id,n])=>{const P=PARTS[id];return`<div class="item"><div class="nm"><b class="r${P.rar}">${esc(P.name)} ×${n}</b><small>Monster part · ${esc(P.desc)}</small></div></div>`}).join('')}${!ing.length&&!parts.length?'<p class="sub">Empty. Every monster in the pit is a potential ingredient.</p>':''}</div>
       <div class="row"><button class="btn" data-a="back" type="button">Diner</button></div></div>`)}
 }
+function tkName(k){return typeof k==='object'?k.dish.name:TAKEOUT[k].name}
 function statLine(st){const o=[];for(const[k,n]of[['hp','HP'],['atk','ATK'],['def','DEF'],['spd','SPD'],['crit','CRIT']])if(st[k])o.push(`${n} ${st[k]>0?'+':''}${st[k]}${k==='crit'?'%':''}`);for(const[k,n]of[['atkP','ATK'],['hpP','HP'],['allP','ALL']])if(st[k])o.push(`${n} ${st[k]>0?'+':''}${Math.round(st[k]*100)}%`);if(st.res)o.push('stun resist');return o.join(' · ')||'no stats (vibes only)'}
 function gearDetail(g){const B=GEAR[g.base];return`<div class="nm r${g.rar}">${esc(gearName(g))}</div><div class="meta">${SLOT_NAME[B.slot]} · ${RARITY[g.rar].name} · item level ${g.ilvl}${g.up?` · upgraded +${g.up}`:''}</div><div class="stats">${statLine(gearStats(g)).replace(/ · /g,'<br>')}</div><div class="meta">Lou would pay ${gearPrice(g)} tips.</div>`}
 
