@@ -1,12 +1,12 @@
 name: Publish web version
 
-# Publishes the game in www/ to GitHub Pages so it can be played in any
-# browser, including iPhone Safari.
+# Publishes Neon Bastion (www/) to GitHub Pages, with Last Stop Diner
+# (diner/www/) under /diner/, so both can be played in any browser.
 
 on:
   push:
     branches: ['**']
-    paths: ['www/**', '.github/workflows/pages.yml']
+    paths: ['www/**', 'diner/www/**', '.github/workflows/pages.yml']
   workflow_dispatch:
 
 permissions:
@@ -27,8 +27,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
+      - name: Assemble site
+        run: |
+          mkdir -p _site/diner
+          cp -r www/. _site/
+          cp -r diner/www/. _site/diner/
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: www
+          path: _site
       - id: deployment
         uses: actions/deploy-pages@v4
