@@ -27,6 +27,36 @@ let S = null; // saved state
 let D = null; // desk (shift) state
 
 // ------------------------------------------------------------------ utilities
+// A sideways strip of buttons: drag it (finger or mouse), swipe it, or tap the arrows at
+// either end. The edges fade when there is more to see, and a drag never counts as a tap.
+function scrollStrip(wrap) {
+  if (!wrap) return;
+  const el = wrap.querySelector('.tools-scroll'), prev = wrap.querySelector('.prev'), next = wrap.querySelector('.next');
+  const upd = () => {
+    const max = el.scrollWidth - el.clientWidth;
+    prev.hidden = el.scrollLeft <= 2; next.hidden = el.scrollLeft >= max - 2;
+    wrap.classList.toggle('more-left', !prev.hidden); wrap.classList.toggle('more-right', !next.hidden);
+  };
+  const step = (d) => el.scrollBy({ left: d * el.clientWidth * 0.8, behavior: 'smooth' });
+  prev.onclick = () => step(-1); next.onclick = () => step(1);
+  let id = null, sx = 0, sl = 0, moved = false;
+  el.addEventListener('pointerdown', (e) => { if (e.button > 0) return; id = e.pointerId; sx = e.clientX; sl = el.scrollLeft; moved = false; });
+  el.addEventListener('pointermove', (e) => {
+    if (e.pointerId !== id) return;
+    const dx = e.clientX - sx;
+    if (!moved && Math.abs(dx) > 6) moved = true;
+    if (moved) el.scrollLeft = sl - dx;
+  });
+  const end = (e) => { if (e.pointerId === id) id = null; };
+  el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+  el.addEventListener('click', (e) => { if (moved) { e.stopPropagation(); e.preventDefault(); moved = false; } }, true);
+  el.addEventListener('scroll', upd, { passive: true });
+  window.addEventListener('resize', upd);
+  // Keep the chosen tool in view.
+  el.addEventListener('focusin', (e) => { if (e.target.closest('.tool')) e.target.scrollIntoView({ block: 'nearest', inline: 'nearest' }); });
+  requestAnimationFrame(upd);
+}
+
 function toast(msg, cls = '') {
   const t = document.createElement('div');
   t.className = 'toast ' + cls;
@@ -298,7 +328,7 @@ function startShift(resuming) {
     </div>
     <button class="infostrip" id="strip" aria-label="Show the form and worksheet"></button>
     <div class="toolbar" id="toolbar">
-      <div class="tools-scroll">${tools.map((t) => `<button class="tool" data-tool="${t}" title="${esc(TOOLS[t].desc)}">${ICONS[t]}<span>${TOOLS[t].name}</span></button>`).join('')}</div>
+      <div class="tools-wrap"><button class="tools-nav prev" aria-label="Scroll tools left" hidden>‹</button><div class="tools-scroll">${tools.map((t) => `<button class="tool" data-tool="${t}" title="${esc(TOOLS[t].desc)}">${ICONS[t]}<span>${TOOLS[t].name}</span></button>`).join('')}</div><button class="tools-nav next" aria-label="Scroll tools right" hidden>›</button></div>
       <button class="verdict-btn" id="verdictBtn">VERDICT</button>
     </div>
   </div>`;
@@ -310,6 +340,7 @@ function startShift(resuming) {
   $('#sideClose').onclick = () => $('#side').classList.remove('open');
   setScene(D.minute >= 420 ? 'deskLate' : 'desk');
   $$('.tool').forEach((b) => b.onclick = () => useTool(b.dataset.tool));
+  scrollStrip($('.tools-wrap'));
   $('#verdictBtn').onclick = openVerdict;
   $('#clockout').onclick = () => {
     const m = modal(`<h2>Clock out early?</h2><p>You've met today's quota. The rest of the queue goes to Dot.</p><div class="row"><button class="btn" data-x>Keep working</button><button class="btn primary" data-y>Clock out</button></div>`);
