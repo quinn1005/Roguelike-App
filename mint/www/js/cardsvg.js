@@ -313,7 +313,7 @@ const BACK = { gg: ggBack, ns: nsBack, bl: blBack };
 
 // Counterfeit copyright lines: plausible but wrong.
 const BAD_CR = { gg: ['©1995 GRISTLE TOYS', '©1994 GRISTLE TOY', '©1994 GRISTEL TOYS'], ns: ['©1988 SAINTS WRESTLING LEAGUE', '©1987 SAINTS WRESTLING LEAUGE', '©1987 SAINT WRESTLING LEAGUE'], bl: ['©1999 BLOOM WORKS', '©2001 BLOOMWORKS', '©1999 BLOOMWORK'] };
-function copyrightText(inst) {
+export function copyrightText(inst) {
   if (inst.fake && inst.fake.kinds.includes('copyright')) return BAD_CR[inst.line][inst.fake.cr || 0];
   return LINES[inst.line].copyright;
 }

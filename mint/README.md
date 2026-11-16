@@ -29,8 +29,12 @@ This folder holds the **first slice**: 5 in-game days, 3 card lines, 4 tools.
   corners, trimmed cards, and forms that don't match their card.
 - **Payday:** pay per card, accuracy bonuses, citations and fines, food, rent on Friday.
   Seven citations and you're fired.
-- **Evenings:** two actions a night. The card shop (packs you tear open yourself, singles,
-  selling), the night-market bulk bins, extra shifts at the Last Stop Diner, and your binder.
+- **Evenings:** you step out onto the street and walk to a place. Two stops a night.
+  Brick & Mortar Cards (packs you tear open yourself, singles, selling to Lou), the night
+  market bulk bins, a diner shift (pay, tips and gossip about tomorrow), and home (binder,
+  sleep). Each place has its own scene and a character whose lines follow your choices.
+- **Feedback:** a wrong verdict prints a citation slip on the spot that says exactly what
+  you missed. The reference binder has a Rules tab.
 - **Story:** a bribe from Vince Carrow, a kid's counterfeit heirloom, your brother's
   inhaler, the rent, and an audit on Friday. Several endings.
 
@@ -71,6 +75,7 @@ same stable key as Neon Bastion, so updates install over older versions.
 | `www/js/grading.js` | Sub-grades, final grade, centering, value multipliers |
 | `www/js/gen.js` | Card instances, flaws, variants, fakes, altered cards, submissions |
 | `www/js/story.js` | Story submissions, letters, evening events |
+| `www/js/scenes.js` | Street and location illustrations, and what Lou, Sal, the seller and Theo say |
 | `www/js/game.js` | Screens: title, bulletin, desk, payday, city, shop, packs, bins, binder, endings |
 
 Fonts are bundled in `www/fonts` (SIL Open Font License, except Special Elite: Apache 2.0).

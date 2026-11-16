@@ -1,10 +1,11 @@
 // Mint Condition: first slice (5 days). Screens, desk interaction, economy and story flow.
 import { LINES, CARDS, DAYS, TOOLS, TIERS, RENT, FOOD, START_MONEY, MAX_CITATIONS, PACKS } from './data.js';
-import { cardSVG, hitPoint, defectName, cardSize } from './cardsvg.js';
+import { cardSVG, hitPoint, defectName, cardSize, copyrightText } from './cardsvg.js';
 import { subsFrom, finalGrade, centerPct, gradeName, trueGrade } from './grading.js';
 import { makeRng, makeSubmission, truthOf, makeInst, rollVariants, pickCard, pickQuality, cardValue, cardValueRaw, cardTitle, variantLabels, rarityName, blankInst, makeFake } from './gen.js';
 import { storySubs, onStoryStamp, morningLetters, eveningEvents, dayName } from './story.js';
 import { VERSION } from './version.js';
+import { streetSVG, shopSVG, marketSVG, dinerSVG, homeSVG, louLine, sellerLine, salLine, rumor, theoLine } from './scenes.js';
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
@@ -138,12 +139,20 @@ const ICONS = {
   binder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4h12a3 3 0 0 1 3 3v13H7a3 3 0 0 1-3-3z"/><path d="M4 17a3 3 0 0 1 3-3h12"/></svg>',
 };
 
+
+const TIPS = {
+  2: '<b>New: UV lamp.</b> Old genuine stock stays dull under it. Fakes on modern paper glow bright. Bloomlings are in the queue now too: check the reference notes.',
+  3: '<b>New rules.</b> Flip every card: counterfeit backs are turning up. Under UV, touch-up ink glows in patches. Stamp plus shadow on a Bloomling means altered.',
+  4: '<b>Trimmed cards are going around.</b> The Ruler shows card size as well as centering. Anything under 2.50 × 3.50 in has been cut.',
+  5: '<b>Audit day.</b> Everything you stamp today will be checked against your week.',
+};
+
 function startShift() {
   closeAllModals();
   const cfg = DAYS[S.day - 1];
   const R = makeRng(S.seed + S.day * 7919);
   D = { cfg, R, story: storySubs(R, S.day, S.flags), served: 0, minute: 0, sub: null, face: 'front', tool: 'hand', uv: false, ruler: false, measured: false,
-    found: new Set(), paid: {}, log: [], ended: false, coach: S.day === 1 ? 0 : -1, timer: null, busy: false };
+    found: new Set(), paid: {}, log: [], ended: false, cites: 0, tip: TIPS[S.day] || null, coach: S.day === 1 ? 0 : -1, timer: null, busy: false };
   app.innerHTML = `<div class="screen desk">
     <div class="topbar">
       <span class="day">${dayName(S.day).slice(0, 3)}</span>
@@ -217,7 +226,7 @@ function updateTop() {
   c.classList.toggle('late', D.minute >= 420);
   $('#quota').textContent = `${D.served}/${D.cfg.quota} cards`;
   $('#cash').textContent = money(S.money);
-  $('#cites').textContent = `⚠ ${S.citations}/${MAX_CITATIONS}`;
+  $('#cites').textContent = `⚠ ${S.citations + D.cites}/${MAX_CITATIONS}`;
   $('#clockout').hidden = D.served < D.cfg.quota;
 }
 
@@ -421,6 +430,12 @@ function tagAt(p, quiet) {
 function coach() {
   const el = $('#coach');
   if (!el || !D) return;
+  if (D.tip && D.served === 0 && !D.tipSeen) {
+    el.innerHTML = `${D.tip} <button class="btn small primary" id="cnext">Got it</button>`;
+    el.hidden = false;
+    $('#cnext').onclick = () => { D.tipSeen = true; el.hidden = true; };
+    return;
+  }
   if (D.coach < 0 || D.sub.story !== 'tutorial') { el.hidden = true; return; }
   if (D.coach === 1 && D.found.size >= 1) D.coach = 2;
   if (D.coach === 2 && D.measured) D.coach = 3;
@@ -440,12 +455,17 @@ function coach() {
 function openReference(line, n, lines) {
   let cur = { line, n: CARDS[line].some((c) => c.n === n) ? n : 1 };
   const m = modal(`<div class="row" style="justify-content:space-between;align-items:center"><h2>Reference binder</h2><button class="btn small" data-close>Close</button></div>
-    <div class="shop-tabs" id="rtabs">${lines.map((l) => `<button data-l="${l}">${LINES[l].name}</button>`).join('')}</div>
+    <div class="shop-tabs" id="rtabs"><button data-l="rules">Rules</button>${lines.map((l) => `<button data-l="${l}">${LINES[l].name}</button>`).join('')}</div>
     <div id="rbody"></div>`, { wide: true });
   // The clock keeps running while you read.
   $('[data-close]', m).onclick = () => m.close();
   const draw = () => {
     $$('#rtabs button', m).forEach((b) => b.setAttribute('aria-selected', b.dataset.l === cur.line ? 'true' : 'false'));
+    if (cur.line === 'rules') {
+      const rules = DAYS.slice(0, S.day).flatMap((d) => d.rules);
+      $('#rbody', m).innerHTML = `<div class="paper memo" style="max-width:none"><div class="head"><h2>STANDING RULES</h2><span>${dayName(S.day)}</span></div><ol>${rules.map((r) => `<li>${esc(r)}</li>`).join('')}</ol></div>`;
+      return;
+    }
     const L = LINES[cur.line];
     const c = CARDS[cur.line].find((x) => x.n === cur.n);
     const off = blankInst(cur.line, cur.n);
@@ -502,8 +522,10 @@ function openVerdict() {
 function stamp(verdict, grade) {
   D.busy = true;
   const sub = D.sub;
-  const entry = { sub, verdict, grade: verdict === 'grade' || verdict === 'error' ? grade : null, truth: truthOf(sub) };
+  const entry = { sub, verdict, grade: verdict === 'grade' || verdict === 'error' ? grade : null, truth: truthOf(sub), found: [...D.found], measured: D.measured, sheet: worksheet().grade };
+  judge(entry);
   D.log.push(entry);
+  if (entry.res === 'cite') { D.cites++; setTimeout(() => citationSlip(entry), 650); }
   if (sub.story) onStoryStamp(sub, verdict, grade, S.flags);
   if (D.coach >= 0 && sub.story === 'tutorial') D.coach = -1;
   const label = { grade: 'GRADE ' + fmtG(grade), error: 'ERROR · ' + fmtG(grade), altered: 'ALTERED', counterfeit: 'COUNTERFEIT', return: 'RETURNED' }[verdict];
@@ -536,6 +558,70 @@ function endShift(early) {
   setTimeout(showPayday, early ? 300 : 1100);
 }
 
+
+// Decide whether a stamped verdict was right. Walk-ins skip review.
+function judge(e) {
+  if (e.sub.story && e.sub.story !== 'tutorial') { e.res = 'story'; return e; }
+  if (!e.truth.ok.includes(e.verdict)) { e.res = 'cite'; e.why = citeReason(e); e.detail = citeDetail(e); }
+  else if (e.grade != null && Math.abs(e.grade - e.truth.grade) >= 1) { e.res = 'cite'; e.why = `Graded ${fmtG(e.grade)}. It was a ${fmtG(e.truth.grade)}.`; e.detail = gradeDetail(e); }
+  else { e.res = 'ok'; e.exact = e.grade == null || e.grade === e.truth.grade; }
+  return e;
+}
+
+const FAKE_TELL = {
+  print: () => 'The print is smeared under the loupe. No clean dot rosette.',
+  copyright: (inst) => `The footer reads "${copyrightText(inst)}". It should read "${LINES[inst.line].copyright}".`,
+  uv: () => 'It\'s printed on modern paper. It glows under the UV lamp.',
+  swirl: () => 'The holo swirl turns counter-clockwise. Genuine swirls turn clockwise.',
+  back: () => 'The back is wrong. Compare it with the reference binder.',
+};
+const ALT_TELL = {
+  stamp: '1st Edition stamp on a print with a drop shadow. Real 1st Editions are shadowless.',
+  recolor: 'A damaged spot was inked over. It glows in a patch under the UV lamp.',
+  trim: 'It measures 2.46 × 3.44 in. Someone trimmed the edges.',
+};
+
+function citeDetail(e) {
+  const { inst, form } = e.sub, ok = e.truth.ok, v = e.verdict;
+  if (ok.includes('return') && v !== 'return') {
+    if (e.sub.mismatch === 'name') return `The form says ${form.name}. The card is ${cardTitle(inst)}.`;
+    if (e.sub.mismatch === 'number') return `The form says No. ${pad3(form.n)}. The card is No. ${pad3(inst.n)}.`;
+    const extra = form.claims.filter((c) => !variantLabels(inst.v).includes(c));
+    return `The form claims ${extra.join(', ') || 'a variant'}. The card isn't.`;
+  }
+  if (ok.includes('counterfeit') && v !== 'counterfeit') return inst.fake.kinds.map((k) => FAKE_TELL[k](inst)).join(' ');
+  if (ok.includes('altered') && v !== 'altered') return ALT_TELL[inst.alt.kind];
+  if (v === 'counterfeit' || v === 'altered') return 'Nothing on it was fake or tampered with.';
+  if (v === 'return') return 'Name, number and variant all matched the form.';
+  if (v === 'error' && !inst.v.noYellow) return 'The inks are normal. It isn\'t a misprint.';
+  if (v === 'grade' && inst.v.noYellow) return 'The yellow ink layer is missing: white where yellow should be, cyan greens, pink reds. That\'s a genuine error.';
+  return '';
+}
+
+function gradeDetail(e) {
+  const inst = e.sub.inst;
+  const out = [];
+  if (e.grade !== e.sheet) out.push(e.grade > e.sheet ? `You graded above your own worksheet (${fmtG(e.sheet)}).` : `You graded below your own worksheet (${fmtG(e.sheet)}).`);
+  const missed = inst.defects.filter((d) => !e.found.includes(d.id) && !(inst.alt && inst.alt.hidden === d.id));
+  if (missed.length) out.push('Missed: ' + missed.slice(0, 3).map(defectName).join(', ') + (missed.length > 3 ? ` and ${missed.length - 3} more` : '') + '.');
+  const c = centerPct(inst.dx, inst.dy);
+  if (!e.measured && c.worst > 55.5) out.push(`Centering was never measured. It was ${Math.round(Math.max(c.lr, 100 - c.lr))}/${Math.round(Math.min(c.lr, 100 - c.lr))}.`);
+  return out.join(' ');
+}
+
+function citationSlip(e) {
+  const wrap = $('#wrap');
+  if (!wrap || !D || D.ended) return;
+  const old = $('.citation', wrap); if (old) old.remove();
+  const el = document.createElement('button');
+  el.className = 'citation';
+  el.innerHTML = `<span class="ch">CITATION · ${esc(cardTitle(e.sub.inst))}</span><b>${esc(e.why)}</b>${e.detail ? `<span>${esc(e.detail)}</span>` : ''}<small>Tap to dismiss</small>`;
+  el.onclick = () => el.remove();
+  wrap.appendChild(el);
+  setTimeout(() => el.remove(), 9000);
+  updateTop();
+}
+
 // ------------------------------------------------------------------ payday
 function citeReason(e) {
   const ok = e.truth.ok, v = e.verdict;
@@ -558,11 +644,10 @@ function showPayday() {
     const tierPay = TIERS[e.sub.form.tier].pay;
     pay += tierPay;
     const r = { name: cardTitle(e.sub.inst), verdict: e.verdict, grade: e.grade, pay: tierPay, story: e.sub.story };
-    const walkIn = e.sub.story && e.sub.story !== 'tutorial';
-    if (walkIn) r.res = 'story';
-    else if (!e.truth.ok.includes(e.verdict)) { r.res = 'cite'; r.why = citeReason(e); cites++; }
-    else if (e.grade != null && Math.abs(e.grade - e.truth.grade) >= 1) { r.res = 'cite'; r.why = `Graded ${fmtG(e.grade)}. It was a ${fmtG(e.truth.grade)}.`; cites++; }
-    else { r.res = 'ok'; r.exact = e.grade == null || e.grade === e.truth.grade; if (r.exact) { bonus += 4; } }
+    const walkIn = e.res === 'story';
+    r.res = e.res; r.why = e.why; r.exact = e.exact;
+    if (e.res === 'cite') cites++;
+    if (e.res === 'ok' && e.exact) bonus += 4;
     rows.push(r);
     S.history.push({ day: S.day, name: r.name, verdict: e.verdict, grade: e.grade, truth: e.truth.grade, ok: r.res === 'ok', story: walkIn ? e.sub.story : null });
   });
@@ -620,35 +705,72 @@ function afterPayday() {
 // ------------------------------------------------------------------ evening city
 function collectionValue() { return S.collection.reduce((s, i) => s + cardValue(i), 0); }
 
+// The evening clock: each stop takes a couple of hours.
+function eveClock() {
+  const m = 17 * 60 + 40 + (2 - S.actions) * 130;
+  const h = Math.floor(m / 60) % 24, mm = m % 60;
+  return `${h > 12 ? h - 12 : h}:${String(mm).padStart(2, '0')} ${h >= 12 && h < 24 ? 'pm' : 'am'}`;
+}
+
+function travel(text, then, ms = 1100) {
+  const t = document.createElement('div');
+  t.className = 'travel';
+  t.innerHTML = `<div class="travel-rain"></div><p>${esc(text)}</p><div class="steps"><span></span><span></span><span></span></div>`;
+  document.body.appendChild(t);
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  setTimeout(() => { then(); t.classList.add('out'); setTimeout(() => t.remove(), 350); }, reduce ? 250 : ms);
+}
+
+const PLACES = {
+  shop: { name: 'Brick & Mortar Cards', blurb: 'Packs, singles, and Lou, who doesn\'t always know what he has.', walk: 'Walking two blocks to Brick & Mortar Cards…' },
+  market: { name: 'The night market', blurb: 'Bulk bins under a tarp. $3 a dig, keep two.', walk: 'Cutting through the alley to the night market…' },
+  diner: { name: 'Last Stop Diner', blurb: 'Four hours, cash in hand. People talk while you pour coffee.', walk: 'Catching the 41 bus to the Last Stop Diner…' },
+  home: { name: 'Home', blurb: 'Theo, your binder, and bed.', walk: 'Climbing three flights of stairs…' },
+};
+
 function showCity() {
   closeAllModals();
   $('#toasts').innerHTML = '';
+  S.phase = 'evening';
+  save();
   const a = S.actions;
-  app.innerHTML = `<div class="screen city scroll"><div class="city-body">
-    <div class="mono" style="color:var(--lamp);font-size:12px;letter-spacing:.14em">EVENING · ${dayName(S.day).toUpperCase()}</div>
-    <h2>After five</h2>
-    <p class="sub">${a ? `Time for ${a} more ${a === 1 ? 'thing' : 'things'} tonight.` : 'It\'s late.'} Cash ${money(S.money)}. Rent ${money(S.rent)} due Friday.</p>
-    <div class="places">
-      <button class="place" data-p="shop" ${a ? '' : 'disabled'}><b>Brick &amp; Mortar Cards</b><small>Packs, singles, and an owner who doesn't always know what he has.</small><span class="cost">1 action</span></button>
-      <button class="place" data-p="bins" ${a ? '' : 'disabled'}><b>Night market bulk bins</b><small>$3 a dig, keep two. Mostly junk. Mostly.</small><span class="cost">1 action</span></button>
-      <button class="place" data-p="diner" ${a ? '' : 'disabled'}><b>Extra shift at the Last Stop Diner</b><small>Cash in hand, no questions.</small><span class="cost">1 action · +$30</span></button>
-      <button class="place" data-p="binder"><b>Your binder</b><small>${S.collection.length} cards · worth about ${money(collectionValue())}</small><span class="cost">free</span></button>
-      <button class="place" data-p="sleep"><b>Go to bed</b><small>Theo is already asleep. Tomorrow is ${dayName(S.day + 1)}.</small><span class="cost">end the day</span></button>
+  const open = { shop: a > 0, market: a > 0, diner: a > 0 };
+  app.innerHTML = `<div class="screen street-screen">
+    <div class="street-scene">${streetSVG(open, S.flags, S.day)}</div>
+    <div class="street-panel scroll">
+      <div class="loc-head"><div><div class="kicker">${eveClock()} · ${dayName(S.day).toUpperCase()} NIGHT</div><h2>Outside Gemline</h2></div><span class="chip mono">${money(S.money)}</span></div>
+      <p class="sub">${a ? `Rain. You have time for ${a} more ${a === 1 ? 'stop' : 'stops'} tonight.` : 'Everything is closing. Time to go home.'} Rent ${money(S.rent)} is due Friday.</p>
+      <div class="places compact">${Object.entries(PLACES).map(([k, p]) => `<button class="place" data-p="${k}" ${k !== 'home' && !a ? 'disabled' : ''}><b>${esc(p.name)}</b><small>${esc(p.blurb)}</small><span class="cost">${k === 'home' ? 'free' : a ? 'uses one stop' : 'closed'}</span></button>`).join('')}</div>
+      <button class="btn small" id="quit">Save and quit to title</button>
     </div>
-    <button class="btn small" id="quit">Save and quit to title</button>
-  </div></div>`;
-  $$('[data-p]').forEach((b) => b.onclick = () => {
-    const p = b.dataset.p;
-    if (p === 'shop') { S.actions--; save(); openShop(); }
-    if (p === 'bins') { S.actions--; save(); openBins(); }
-    if (p === 'diner') {
-      S.actions--; S.money += 30; save();
-      runEvents([{ from: 'Last Stop Diner', body: ['Six hours of fryer grease and regulars who tip in coins. The cook pays you thirty in cash and says you look like you haven\'t slept in a week.', 'He isn\'t wrong.'] }], showCity);
-    }
-    if (p === 'binder') openBinder();
-    if (p === 'sleep') { S.day++; S.phase = 'morning'; S.eve = null; save(); showMorning(); }
-  });
+  </div>`;
+  $$('[data-p]').forEach((b) => b.onclick = () => go(b.dataset.p));
+  $$('.street .hot').forEach((g) => g.addEventListener('click', () => go(g.dataset.place)));
   $('#quit').onclick = () => { save(); showTitle(); };
+}
+
+function go(p) {
+  if (p !== 'home' && !S.actions) { toast('It\'s too late for that tonight.'); return; }
+  travel(PLACES[p].walk, () => {
+    if (p !== 'home') { S.actions--; save(); }
+    ({ shop: showShop, market: showMarket, diner: showDiner, home: showHome })[p]();
+  });
+}
+
+function leaveTo(text = 'Back out into the rain…') { travel(text, showCity, 650); }
+
+function locScreen(cls, svg, kicker, title, speaker, line, leaveLabel = 'Leave') {
+  closeAllModals();
+  $('#toasts').innerHTML = '';
+  app.innerHTML = `<div class="screen loc ${cls}">
+    <div class="scene">${svg}</div>
+    <div class="loc-body scroll">
+      <div class="loc-head"><div><div class="kicker">${kicker}</div><h2>${title}</h2></div><button class="btn small" id="leave">${leaveLabel}</button></div>
+      ${line ? `<p class="speech">${speaker ? `<b>${esc(speaker)}</b>` : ''}${esc(line)}</p>` : ''}
+      <div id="locbody"></div>
+    </div>
+  </div>`;
+  return $('#locbody');
 }
 
 // Cards that never get flagged in the city: you have to recognise them yourself.
@@ -678,27 +800,27 @@ function cellHTML(inst, extra = '', cls = '') {
   return `<button class="cardcell ${cls}" ${extra}>${cardSVG(inst)}</button>`;
 }
 
-function openShop() {
+function showShop() {
   const stock = eveStock();
   let tab = 'packs';
-  const m = modal(`<div class="row" style="justify-content:space-between;align-items:center"><h2>Brick &amp; Mortar Cards</h2><button class="btn small" data-close>Leave</button></div>
-    <p style="margin:0;color:var(--muted)" id="shopcash"></p>
-    <div class="shop-tabs"><button data-t="packs">Packs</button><button data-t="singles">Singles</button><button data-t="sell">Sell</button></div>
-    <div id="sbody"></div>`, { wide: true, onClose: () => { save(); showCity(); } });
-  $('[data-close]', m).onclick = () => m.close();
+  const root = locScreen('loc-shop', shopSVG(), `${eveClock()} · BRICK & MORTAR CARDS`, 'Lou\'s counter', 'Lou', louLine(S.flags, S.day));
+  root.innerHTML = `<p style="margin:0;color:var(--muted)" id="shopcash"></p>
+    <div class="shop-tabs"><button data-t="packs">Packs</button><button data-t="singles">Under the glass</button><button data-t="sell">Sell to Lou</button></div>
+    <div id="sbody"></div>`;
+  $('#leave').onclick = () => { save(); leaveTo(); };
   const draw = () => {
-    $('#shopcash', m).textContent = `Cash ${money(S.money)}. The owner, Lou, watches the door more than the counter.`;
-    $$('[data-t]', m).forEach((b) => b.setAttribute('aria-selected', b.dataset.t === tab ? 'true' : 'false'));
-    const body = $('#sbody', m);
+    $('#shopcash').textContent = `Cash ${money(S.money)}.`;
+    $$('[data-t]', root).forEach((b) => b.setAttribute('aria-selected', b.dataset.t === tab ? 'true' : 'false'));
+    const body = $('#sbody');
     if (tab === 'packs') {
       body.innerHTML = `<div class="packs">${Object.entries(PACKS).map(([l, p]) => `<button class="packbtn" data-pack="${l}" ${S.money < p.price ? 'disabled' : ''}>${packSVG(l)}<b>${p.label}</b><span style="color:var(--muted)">${p.sub}</span><span class="mono" style="color:var(--lamp)">${money(p.price)}</span></button>`).join('')}</div>
         <p style="color:var(--muted);font-size:13px;margin:0">Five cards a pack: three commons, an uncommon, and a shot at a rare.</p>`;
       $$('[data-pack]', body).forEach((b) => b.onclick = () => { const l = b.dataset.pack; S.money -= PACKS[l].price; save(); openPack(l, draw); });
     }
     if (tab === 'singles') {
-      body.innerHTML = `<p style="color:var(--muted);font-size:13px;margin:0">Lou prices by eye. Tap a card for a closer look.</p>
-        <div class="cardgrid">${stock.singles.map((s, i) => s.sold ? '' : `<div class="cardcell" style="cursor:default"><button class="cardcell" data-look="${i}">${cardSVG(s.inst)}</button><span>${esc(cardTitle(s.inst))}</span><span class="price">${esc(s.label)} · ${money(s.price)}</span><button class="btn small primary" data-buy="${i}" ${S.money < s.price ? 'disabled' : ''}>Buy</button></div>`).join('') || '<p>Sold out.</p>'}</div>`;
-      $$('[data-buy]', body).forEach((b) => b.onclick = () => { const s = stock.singles[+b.dataset.buy]; S.money -= s.price; s.sold = true; S.collection.push(s.inst); toast('Added to your binder', 'good'); save(); draw(); });
+      body.innerHTML = `<p style="color:var(--muted);font-size:13px;margin:0">Lou prices by eye, and his eyes are tired. Tap a card for a closer look.</p>
+        <div class="cardgrid">${stock.singles.map((x, i) => x.sold ? '' : `<div class="cardcell" style="cursor:default"><button class="cardcell" data-look="${i}">${cardSVG(x.inst)}</button><span>${esc(cardTitle(x.inst))}</span><span class="price">${esc(x.label)} · ${money(x.price)}</span><button class="btn small primary" data-buy="${i}" ${S.money < x.price ? 'disabled' : ''}>Buy</button></div>`).join('') || '<p>Sold out.</p>'}</div>`;
+      $$('[data-buy]', body).forEach((b) => b.onclick = () => { const x = stock.singles[+b.dataset.buy]; S.money -= x.price; x.sold = true; S.collection.push(x.inst); toast('Added to your binder', 'good'); save(); draw(); });
       $$('[data-look]', body).forEach((b) => b.onclick = () => viewer(stock.singles[+b.dataset.look].inst, { hideInfo: true }));
     }
     if (tab === 'sell') {
@@ -712,7 +834,7 @@ function openShop() {
       $$('[data-look]', body).forEach((b) => b.onclick = () => viewer(S.collection[+b.dataset.look]));
     }
   };
-  $$('[data-t]', m).forEach((b) => b.onclick = () => { tab = b.dataset.t; draw(); });
+  $$('[data-t]', root).forEach((b) => b.onclick = () => { tab = b.dataset.t; draw(); });
   draw();
 }
 
@@ -787,12 +909,11 @@ function revealPack(m, cards, line) {
   show();
 }
 
-function openBins() {
+function showMarket() {
   let digs = 0, cards = [], picked = new Set();
-  const m = modal(`<div class="row" style="justify-content:space-between;align-items:center"><h2>Night market bulk bins</h2><button class="btn small" data-close>Leave</button></div>
-    <p style="margin:0;color:var(--muted)">A folding table under a tarp. Shoeboxes of loose cards, $3 a dig, keep two. The seller doesn't look at what you take.</p>
-    <div id="bbody"></div>`, { wide: true, onClose: () => { save(); showCity(); } });
-  $('[data-close]', m).onclick = () => m.close();
+  const root = locScreen('loc-market', marketSVG(), `${eveClock()} · THE NIGHT MARKET`, 'Under the tarp', '', sellerLine());
+  const keep = () => { picked.forEach((k) => S.collection.push(cards[k])); if (picked.size) toast(`${picked.size} added to your binder`, 'good'); picked = new Set(); };
+  $('#leave').onclick = () => { keep(); save(); leaveTo(); };
   const dig = () => {
     const R = cityRng();
     cards = [];
@@ -813,25 +934,61 @@ function openBins() {
     draw();
   };
   const draw = () => {
-    const body = $('#bbody', m);
     if (!cards.length) {
-      body.innerHTML = `<button class="btn primary" data-dig ${S.money < 3 ? 'disabled' : ''}>Dig ($3)</button>`;
-      $('[data-dig]', body).onclick = () => { S.money -= 3; dig(); };
+      root.innerHTML = `<p style="margin:0;color:var(--muted)">Cash ${money(S.money)}. Shoeboxes of loose cards, most of them soft at the corners. Somebody's childhood, sold by the pound.</p>
+        <button class="btn primary" data-dig ${S.money < 3 ? 'disabled' : ''}>Dig through a box ($3)</button>`;
+      $('[data-dig]', root).onclick = () => { S.money -= 3; dig(); };
       return;
     }
-    body.innerHTML = `<p style="margin:0">Tap a card to look closer. Picked ${picked.size}/2.</p>
+    root.innerHTML = `<p style="margin:0">Tap a card to look closer. Kept ${picked.size}/2.</p>
       <div class="cardgrid">${cards.map((c, k) => `<button class="cardcell ${picked.has(k) ? 'picked' : ''}" data-k="${k}">${cardSVG(c)}</button>`).join('')}</div>
-      <div class="row"><button class="btn primary" data-keep ${picked.size ? '' : 'disabled'}>Keep ${picked.size || ''} and finish</button>${digs < 2 ? `<button class="btn" data-again ${S.money < 3 ? 'disabled' : ''}>Keep and dig again ($3)</button>` : ''}</div>`;
-    $$('[data-k]', body).forEach((b) => b.onclick = () => {
+      <div class="row"><button class="btn primary" data-keep ${picked.size ? '' : 'disabled'}>Take ${picked.size || ''} and stop digging</button>${digs < 2 ? `<button class="btn" data-again ${S.money < 3 ? 'disabled' : ''}>Take them and dig again ($3)</button>` : ''}</div>`;
+    $$('[data-k]', root).forEach((b) => b.onclick = () => {
       const k = +b.dataset.k;
       viewer(cards[k], { hideInfo: true, action: { label: picked.has(k) ? 'Put it back' : 'Keep this one', disabled: !picked.has(k) && picked.size >= 2, run: () => { picked.has(k) ? picked.delete(k) : picked.add(k); draw(); } } });
     });
-    const keep = () => { picked.forEach((k) => S.collection.push(cards[k])); if (picked.size) toast(`${picked.size} added to your binder`, 'good'); };
-    $('[data-keep]', body).onclick = () => { keep(); save(); m.close(); };
-    const again = $('[data-again]', body);
+    $('[data-keep]', root).onclick = () => { keep(); cards = []; save(); root.innerHTML = '<p style="margin:0;color:var(--muted)">You tuck the cards inside your jacket, away from the rain.</p>'; };
+    const again = $('[data-again]', root);
     if (again) again.onclick = () => { keep(); S.money -= 3; dig(); };
   };
   draw();
+}
+
+function showDiner() {
+  const root = locScreen('loc-diner', dinerSVG(), `${eveClock()} · LAST STOP DINER`, 'Behind the counter', 'Sal', salLine());
+  let worked = false;
+  $('#leave').onclick = () => { if (!worked) toast('You leave without working. The bus fare was for nothing.'); save(); leaveTo(); };
+  root.innerHTML = `<p style="margin:0;color:var(--muted)">Four hours. Thirty dollars cash, plus whatever the regulars leave on the counter. People talk around a waiter like he isn't there.</p>
+    <button class="btn primary" id="work">Put on the apron</button>`;
+  $('#work').onclick = () => {
+    root.innerHTML = `<div class="shiftbar"><div class="fill"></div></div><p class="mono" id="orders" style="margin:0;color:var(--muted)">Coffee for table six…</p>`;
+    const msgs = ['Coffee for table six…', 'Two eggs, burnt on purpose…', 'Mopping up after a fight about a parking spot…', 'Refilling the ketchup nobody asked for…', 'Last orders…'];
+    let k = 0;
+    const iv = setInterval(() => { k++; const o = $('#orders'); if (o) o.textContent = msgs[Math.min(k, msgs.length - 1)]; }, 420);
+    setTimeout(() => {
+      clearInterval(iv);
+      worked = true;
+      const tips = Math.floor(Math.random() * 11);
+      S.money += 30 + tips;
+      save();
+      root.innerHTML = `<div class="paper letter"><div class="from">Overheard while pouring coffee</div><p>${esc(rumor(S.day, S.flags))}</p></div>
+        <p style="margin:0">Sal counts out <b>${money(30)}</b> and pushes the tip jar across: <b>${money(tips)}</b>. Cash ${money(S.money)}.</p>
+        <button class="btn primary" id="out">Hang up the apron</button>`;
+      $('#out').onclick = () => leaveTo('Waiting for the last bus home…');
+    }, 2200);
+  };
+}
+
+function showHome() {
+  const root = locScreen('loc-home', homeSVG(S.flags, S.day), `${eveClock()} · APARTMENT 3F`, 'Home', '', theoLine(S.flags, S.day), 'Head back out');
+  $('#leave').onclick = () => { if (!S.actions) { toast('Everything is closed.'); return; } leaveTo('Back down the stairs…'); };
+  root.innerHTML = `<div class="places compact">
+      <button class="place" id="binder"><b>Your binder</b><small>${S.collection.length} cards · worth about ${money(collectionValue())}</small><span class="cost">free</span></button>
+      <button class="place" id="sleep"><b>Go to sleep</b><small>Tomorrow is ${dayName(S.day + 1)}.${S.actions ? ` You still have time for ${S.actions} more ${S.actions === 1 ? 'stop' : 'stops'}.` : ''}</small><span class="cost">end the day</span></button>
+    </div>`;
+  if (!S.actions) $('#leave').disabled = true;
+  $('#binder').onclick = openBinder;
+  $('#sleep').onclick = () => travel('Lights out. The rain doesn\'t stop.', () => { S.day++; S.phase = 'morning'; S.eve = null; save(); showMorning(); }, 1400);
 }
 
 // Big card viewer with flip. In the city you only see the card, not its labels.

@@ -1,5 +1,17 @@
 # Mint Condition changelog
 
+## v0.2.0
+
+Evenings are now places you go, and the desk teaches you as you work.
+
+- After your shift you step out onto a rainy street. Tap a building to walk there: Brick & Mortar Cards, the night market, the Last Stop Diner, or home.
+- Every location has its own illustrated scene and someone to talk to: Lou behind the counter, the hooded seller at the bins, Sal at the diner, and Theo asleep at home. What they say changes with your choices.
+- Working a diner shift now pays tips and lets you overhear gossip that hints at tomorrow's tricks.
+- Home is where you open your binder and go to sleep. The evening clock shows how late it's getting.
+- Wrong verdicts now print a citation slip immediately, explaining exactly what you missed: which flaw, which counterfeit tell, which form mismatch.
+- The reference binder has a Rules tab with every standing rule.
+- Each new day opens with a tip about that day's new tool or rule.
+
 ## v0.1.0
 
 The first slice: one working week at Gemline Authentication.
