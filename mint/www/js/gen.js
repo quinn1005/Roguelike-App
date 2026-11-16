@@ -245,7 +245,7 @@ export function cardValueRaw(inst) {
   const c = cardDef(inst);
   let v = BASE_VALUE[c.r] * (c.r === 'r' && ['gg', 'hp', 'cf'].includes(inst.line) ? 1.4 : 1);
   const V = inst.v;
-  if (V.holo) v *= 4;
+  if (V.holo) v *= 3;
   if (V.fullart) v *= 4;
   if (V.shadowless) v *= V.first ? 10 : 4;
   else if (V.first) v *= 3;
@@ -258,7 +258,7 @@ export function cardValueRaw(inst) {
   if (V.run1) v *= 3;
   if (V.serial) v *= 6;
   if (V.inverted) v *= 40;
-  if (V.ghost) v *= 250;
+  if (V.ghost) v *= 1500;
   return v;
 }
 export function cardValue(inst) {

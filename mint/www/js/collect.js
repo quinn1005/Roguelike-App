@@ -152,7 +152,7 @@ export function showAuction() {
 function bidLot(lot, back) {
   const S = X.S();
   const inst = lot.inst;
-  const real = lot.mystery ? 600 : (inst.fake ? cardValue({ ...inst, fake: null }) : cardValue(inst));
+  const real = lot.mystery ? 150 : (inst.fake ? cardValue({ ...inst, fake: null }) : cardValue(inst));
   const R = makeRng(Date.now() % 1e9);
   const est = Math.max(5, Math.round(real));
   const rivals = [0, 1, 2].map(() => ({ name: R.pick(BIDDERS), max: Math.round(est * R.range(0.55, lot.mystery ? 0.9 : 1.3)) }));

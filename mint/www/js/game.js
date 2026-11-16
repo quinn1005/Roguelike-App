@@ -9,6 +9,7 @@ import { VERSION } from './version.js';
 import { unlockAudio, setScene, sfx, toggleMute, isMuted, duck, setVolumes } from './audio.js';
 import { streetSVG, shopSVG, marketSVG, dinerSVG, homeSVG, louLine, sellerLine, salLine, rumor, theoLine } from './scenes.js';
 import { slabHTML } from './slab.js';
+import { packSVG } from './packs.js';
 import { initCollect, showApex, showAuction } from './collect.js';
 import { CODEX, ACHIEVEMENTS, achievements, unlockAch, getSettings, setSetting, SPEEDS } from './extras.js';
 
@@ -1168,9 +1169,14 @@ function showShop() {
     const body = $('#sbody');
     if (tab === 'packs') {
       const price = (l) => Math.max(3, Math.round(PACKS[l].price * (0.6 + weekOf(S.day).market * 0.4)));
-      body.innerHTML = `<div class="packs">${unlockedLines().map((l) => `<button class="packbtn" data-pack="${l}" ${S.money < price(l) ? 'disabled' : ''}>${packSVG(l)}<b>${PACKS[l].label}</b><span style="color:var(--muted)">${PACKS[l].sub}</span><span class="mono" style="color:var(--lamp)">${money(price(l))}</span></button>`).join('')}</div>
+      const left = packsLeft();
+      const ration = left > 0
+        ? `"${packLimit() === 2 ? 'Two' : 'Three'} packs a customer, a night. Everybody wants them, and the distributor's shorting me." <span class="mono" style="color:var(--lamp)">${left} left tonight</span>`
+        : `"That's your lot for tonight. Come back tomorrow." <span class="mono" style="color:var(--stamp)">0 left tonight</span>`;
+      body.innerHTML = `<p class="speech" style="margin:0">${ration}</p>
+        <div class="packs">${unlockedLines().map((l) => `<button class="packbtn" data-pack="${l}" ${S.money < price(l) || left <= 0 ? 'disabled' : ''}>${packSVG(l)}<b>${PACKS[l].label}</b><span style="color:var(--muted)">${PACKS[l].sub}</span><span class="mono" style="color:var(--lamp)">${money(price(l))}</span></button>`).join('')}</div>
         <p style="color:var(--muted);font-size:13px;margin:0">Five cards a pack: three commons, an uncommon, and a shot at a rare (or, rarely, a mythic). Any card can come holo.</p>`;
-      $$('[data-pack]', body).forEach((b) => b.onclick = () => { const l = b.dataset.pack; S.money -= price(l); save(); openPack(l, draw); });
+      $$('[data-pack]', body).forEach((b) => b.onclick = () => { if (packsLeft() <= 0) return; const l = b.dataset.pack; S.money -= price(l); S.eve.packs = (S.eve.packs || 0) + 1; save(); openPack(l, draw); });
     }
     if (tab === 'singles') {
       body.innerHTML = `<p style="color:var(--muted);font-size:13px;margin:0">Lou prices by eye, and his eyes are tired. Tap a card for a closer look.</p>
@@ -1180,10 +1186,11 @@ function showShop() {
     }
     if (tab === 'sell') {
       const list = S.collection.filter((i) => !i.atApex).map((inst) => ({ inst, v: Math.floor(cardValue(inst) * 0.5) })).sort((a, b) => b.v - a.v);
-      body.innerHTML = `<p style="color:var(--muted);font-size:13px;margin:0">Lou pays half of what a card is worth. Slabs sell better at the Saturday auction.</p>
-        <div class="cardgrid">${list.map((x) => `<div class="cardcell" style="cursor:default"><button class="cardcell" data-look="${x.inst.uid}">${thumb(x.inst)}</button><span>${esc(cardTitle(x.inst))}</span><button class="btn small" data-sell="${x.inst.uid}" ${x.v < 1 ? 'disabled' : ''}>${x.v < 1 ? 'No offer' : 'Sell ' + money(x.v)}</button></div>`).join('') || '<p>Your binder is empty.</p>'}</div>`;
+      const till = tillCash();
+      body.innerHTML = `<p style="color:var(--muted);font-size:13px;margin:0">Lou pays half of what a card is worth, and only out of what's in the till. <span class="mono" style="color:var(--lamp)">Till: ${money(till)}</span>. Big cards and slabs belong at the Saturday auction.</p>
+        <div class="cardgrid">${list.map((x) => `<div class="cardcell" style="cursor:default"><button class="cardcell" data-look="${x.inst.uid}">${thumb(x.inst)}</button><span>${esc(cardTitle(x.inst))}</span><button class="btn small" data-sell="${x.inst.uid}" ${x.v < 1 || x.v > till ? 'disabled' : ''}>${x.v < 1 ? 'No offer' : x.v > till ? 'Too rich for the till' : 'Sell ' + money(x.v)}</button></div>`).join('') || '<p>Your binder is empty.</p>'}</div>`;
       $$('[data-sell]', body).forEach((b) => b.onclick = () => {
-        if (b.dataset.armed) { const inst = S.collection.find((i) => i.uid === b.dataset.sell); S.money += Math.floor(cardValue(inst) * 0.5); S.collection.splice(S.collection.indexOf(inst), 1); sfx('cash'); toast('Sold', 'good'); save(); draw(); return; }
+        if (b.dataset.armed) { const inst = S.collection.find((i) => i.uid === b.dataset.sell); const pay = Math.floor(cardValue(inst) * 0.5); if (pay > tillCash()) return; S.eve.paid = (S.eve.paid || 0) + pay; S.money += pay; S.collection.splice(S.collection.indexOf(inst), 1); sfx('cash'); toast('Sold', 'good'); save(); draw(); return; }
         b.dataset.armed = '1'; b.textContent = 'Tap again to sell'; b.classList.add('danger');
       });
       $$('[data-look]', body).forEach((b) => b.onclick = () => viewer(S.collection.find((i) => i.uid === b.dataset.look)));
@@ -1195,18 +1202,11 @@ function showShop() {
 const marketNowLabel = () => { const m = weekOf(S.day).market; return m > 1.2 ? ' Prices are wild this week.' : m < 0.9 ? ' Prices have collapsed.' : ''; };
 const thumb = (inst) => (inst.slab ? slabHTML(inst, { grade: inst.slab.grade, by: inst.slab.by }) : cardSVG(inst));
 
-function packSVG(line) {
-  const col = { gg: ['#ffd400', '#6b3fa0', '#1a1a1a'], ns: ['#ff4fd8', '#12002b', '#2ee6ff'], bl: ['#4fb3e8', '#1d4e75', '#ffffff'], ml: ['#c9a96b', '#2a1a33', '#ecd9a8'], tb: ['#2a8c8f', '#0e3b43', '#e9f5ef'], rd: ['#ff3fa4', '#1b0f2a', '#c9a0ff'], ga: ['#cf7149', '#1f2e26', '#d9b86a'], hp: ['#f7e08a', '#0f0d0b', '#d9b86a'], ic: ['#c68a4a', '#3a2616', '#f1d9a6'], cf: ['#e6dcc3', '#6a5a3a', '#2a2418'], sp: ['#2a3d8f', '#f3ead2', '#c0392b'] }[line];
-  const name = LINES[line].name.toUpperCase();
-  return `<svg viewBox="0 0 120 180" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="pk${line}${Math.floor(Math.random() * 1e6)}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${col[0]}"/><stop offset=".5" stop-color="${col[1]}"/><stop offset="1" stop-color="${col[0]}"/></linearGradient></defs>
-    <path d="M6 14L114 14L114 168L6 168Z" fill="${col[0]}"/><path d="M6 14L114 14L114 168L6 168Z" fill="${col[1]}" opacity=".45"/>
-    <path d="M6 14L12 6L18 14L24 6L30 14L36 6L42 14L48 6L54 14L60 6L66 14L72 6L78 14L84 6L90 14L96 6L102 14L108 6L114 14Z" fill="${col[1]}"/>
-    <path d="M6 168L12 176L18 168L24 176L30 168L36 176L42 168L48 176L54 168L60 176L66 168L72 176L78 168L84 176L90 168L96 176L102 168L108 176L114 168Z" fill="${col[1]}"/>
-    <rect x="6" y="14" width="108" height="14" fill="#000" opacity=".25"/>
-    <rect x="12" y="70" width="96" height="34" rx="6" fill="${col[1]}" stroke="${col[2]}" stroke-width="2"/>
-    <text x="60" y="91" text-anchor="middle" font-family="'Bricolage Grotesque',sans-serif" font-weight="800" font-size="${Math.min(11, 150 / name.length)}" fill="${col[2]}">${esc(name)}</text>
-    <text x="60" y="150" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="7" fill="#ffffff" opacity=".85">5 CARDS</text></svg>`;
-}
+// Lou rations packs (three a night, two in the boom) and only has so much cash in the till.
+const packLimit = () => (weekOf(S.day).market >= 1.5 ? 2 : 3);
+const packsLeft = () => packLimit() - ((S.eve && S.eve.packs) || 0);
+const tillCash = () => { const base = Math.round(25 + 25 * weekOf(S.day).market); return Math.max(0, base - ((S.eve && S.eve.paid) || 0)); };
+
 
 function rollPack(line) {
   const R = cityRng();

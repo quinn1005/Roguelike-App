@@ -228,6 +228,6 @@ export function pickEndingChoices(S, flags, collectionValue) {
   const out = [{ id: 'standing', label: 'Keep your head down and come back Monday' }];
   const clean = flags.vince1 !== 'took' && !flags.carrowPassed && flags.vip !== 'obeyed' && flags.ringDeal !== 'yes';
   if (clean && S.rep >= 60) out.unshift({ id: 'honest', label: 'Take the Head Grader job the Board is offering' });
-  if (S.collection.some((i) => i.v.ghost) || collectionValue >= 2500) out.unshift({ id: 'collector', label: 'Sell up and retire on the binder' });
+  if (S.collection.some((i) => i.v.ghost) || collectionValue >= 400) out.unshift({ id: 'collector', label: 'Sell up and retire on the binder' });
   return out;
 }

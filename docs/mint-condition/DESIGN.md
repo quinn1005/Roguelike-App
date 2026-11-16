@@ -1,4 +1,4 @@
-# Mint Condition: design (v1.1)
+# Mint Condition: design (v1.3)
 
 A dark card-grading game. You're a new grader at **Gemline Authentication**, in a city
 caught in a card-collecting craze. By day you inspect submissions, catch fakes and assign
@@ -64,12 +64,12 @@ Generic tells: smeared print, wrong copyright, modern paper (UV), wrong back, wr
 - **Reputation** (0–100): +1 per correct call, −3 per citation, +2 clean quota day, +5 per completed set. Zero means fired.
 - **Suspicion** (0–100): bribes, passing Carrow's fakes, inflating grades, the ring deal. 100 means arrested.
 - **Integrity** (hidden): honest and dishonest choices; shapes which endings are offered.
-- **Sets:** every line has 30 cards: 14 common, 9 uncommon, 5 rare, 2 mythic rare. Any card can be holo (×4); mythics also come as full art (×4) and full art holo (×16).
-- **Value** = base (c $2, u $6, r $30, m $60) × variant × condition (raw) or grade (slab) × market. Slabs are worth more than raw cards. Every 10 you hand out raises the population count and lowers what 10s are worth.
+- **Sets:** every line has 30 cards: 14 common, 9 uncommon, 5 rare, 2 mythic rare. Any card can be holo (×3); mythics also come as full art (×4) and full art holo (×12).
+- **Value** = base (c $0.25, u $0.75, r $3, m $10) × variant × condition (raw) or grade (slab) × market. Slabs are worth more than raw cards. Every 10 you hand out raises the population count and lowers what 10s are worth.
 
 ## Collecting
 
-- **Lou's shop:** packs for every unlocked line, priced with the market; one misjudged chase card under the glass each night; sell at half value.
+- **Lou's shop:** packs for every unlocked line, priced with the market, three a night (two in the boom); a typical pack is worth about half its price; one misjudged chase card under the glass each night; sell at half value, paid out of a nightly till (about $50).
 - **Pack opening:** tear the seam (too fast creases a card), flip cards one by one, rares charge and land with rays, sparks and fanfare.
 - **Night market bins:** $3 a dig, keep two; hidden chase versions and the odd fake.
 - **Apex Grading:** $12–15 a card, back in two days in an Apex slab. They make mistakes (more in the boom). Dispute for $8.

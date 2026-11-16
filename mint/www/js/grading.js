@@ -55,7 +55,7 @@ export function trueSubs(inst) {
 }
 export const trueGrade = (inst) => finalGrade(trueSubs(inst));
 
-const COND = [[10, 6], [9.5, 3.5], [9, 2.2], [8.5, 1.6], [8, 1.3], [7, 1], [6, 0.7], [5, 0.5], [0, 0.35]];
+const COND = [[10, 2.4], [9.5, 1.9], [9, 1.6], [8.5, 1.35], [8, 1.2], [7, 1], [6, 0.75], [5, 0.55], [0, 0.4]];
 export function conditionFactor(g) {
   for (const [min, f] of COND) if (g >= min) return f;
   return 0.35;

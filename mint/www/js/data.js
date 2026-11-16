@@ -175,7 +175,7 @@ Object.assign(CARDS, {
 expandSets(LINES, CARDS);
 
 export const RARITY_NAME = { c: 'Common', u: 'Uncommon', r: 'Rare', m: 'Mythic Rare' };
-export const BASE_VALUE = { c: 2, u: 6, r: 30, m: 60 };
+export const BASE_VALUE = { c: 0.25, u: 0.75, r: 3, m: 10 };
 
 // Lines that exist on a given day.
 export const linesOn = (day) => Object.keys(LINES).filter((l) => LINES[l].unlock <= day);

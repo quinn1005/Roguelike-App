@@ -1,5 +1,15 @@
 # Mint Condition changelog
 
+## v1.3.0
+
+Money is tight again, and packs look the part.
+
+- **Cards are worth far less.** A pack's cards are now worth about half its price on a typical pull, so packs are a gamble rather than an investment. Raw card prices no longer balloon for mint copies (slabs still carry the big grade premiums), and holos are worth 3× instead of 4×. The best pulls (mythic full art holos) top out at a few hundred dollars instead of thousands.
+- **Lou rations packs.** Three packs a customer a night, two during the boom.
+- **Lou's till.** Lou only pays out of the cash in his register each night (about $50, more in the boom, less in the crash). Cards worth more than that have to go to the Saturday auction.
+- **New pack art.** Every booster is now a crimped foil wrapper with the line's logo in its own lettering, a window showing the set's mythic, a holo "Mythics inside" seal and a foil sheen. The new packs are used in the shop and when you tear one open.
+- The Collector ending now needs a binder worth $400 (or the Ghost Print).
+
 ## v1.2.0
 
 Every card is its own card.
