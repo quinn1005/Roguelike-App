@@ -1,4 +1,5 @@
 // Static game data for Mint Condition: 11 card lines, 25 working days.
+import { expandSets } from './sets.js';
 
 export const LINES = {
   gg: {
@@ -170,8 +171,11 @@ Object.assign(CARDS, {
   ],
 });
 
-export const RARITY_NAME = { c: 'Common', u: 'Uncommon', r: 'Rare' };
-export const BASE_VALUE = { c: 2, u: 6, r: 30 };
+// Every line grows to 30 cards (see sets.js).
+expandSets(LINES, CARDS);
+
+export const RARITY_NAME = { c: 'Common', u: 'Uncommon', r: 'Rare', m: 'Mythic Rare' };
+export const BASE_VALUE = { c: 2, u: 6, r: 30, m: 60 };
 
 // Lines that exist on a given day.
 export const linesOn = (day) => Object.keys(LINES).filter((l) => LINES[l].unlock <= day);

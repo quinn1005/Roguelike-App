@@ -1,5 +1,17 @@
 # Mint Condition changelog
 
+## v1.1.0
+
+A visual overhaul and a much bigger card pool.
+
+- **A grimier world.** Film grain, dirt and a dark vignette over every screen, drained and dirtier city scenes, worn buttons, yellowed coffee-stained paper and a flickering ceiling light. The cards are left untouched and glow faintly: they are the only bright, happy thing in the room.
+- **30 cards in every set.** All eleven lines now have 30 cards: 14 common, 9 uncommon, 5 rare and 2 mythic rare (marked ✦). That makes 330 cards to collect.
+- **Redrawn card art.** Every card now has its own design. Neon Saints wrestlers have real bodies (heavy, muscle, lanky, small and giant), poses, outfits, props and arenas. Bloomlings come in eleven body plans (pups, birds, serpents, toads, slimes, beetles, drakes, fish, sprouts, bats) and three new elements: storm, frost and shadow. Every other line gained new creatures, figures, vehicles and scenes.
+- **Holo for every card.** Any card can now turn up holo, with a rainbow sheen and fine glitter. Rarer cards are holo more often.
+- **Full art mythics.** Mythic rares also come as Full Art prints, where the illustration spills across the whole card, and as Full Art Holo, the rarest pull in the game. Packs have a small chance of a mythic in the rare slot.
+- New codex entry and two new achievements: Mythic pull and Full shine.
+- Fixed: submissions could favor the first card in each set.
+
 ## v1.0.0
 
 The full game: five weeks at Gemline Authentication.

@@ -107,14 +107,14 @@ function makeLots(S, week) {
     const line = R.pick(lines);
     const c = pickCard(R, line, { c: 1, u: 3, r: 4 });
     const inst = makeInst(R, line, c.n, 'nice');
-    rollVariants(R, inst, { scale: 3 });
+    rollVariants(R, inst, { scale: 3, fullart: 0.03 });
     inst.slab = { grade: Math.min(10, trueGrade(inst) + R.pick([0, 0, 0.5])), by: 'apex' };
     lots.push({ inst });
   }
   // A counterfeit that fooled Apex.
   const fl = R.pick(lines);
   const fake = makeInst(R, fl, pickCard(R, fl, { c: 1, u: 2, r: 4 }).n, 'gem');
-  rollVariants(R, fake, { scale: 3 });
+  rollVariants(R, fake, { scale: 3, fullart: 0.03 });
   makeFake(R, fake, { fakeKinds: ['print', 'uv', 'copyright'] }, [R.pick(['print', 'uv', 'copyright'])]);
   fake.slab = { grade: 9, by: 'apex' };
   lots.push({ inst: fake });

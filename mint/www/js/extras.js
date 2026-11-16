@@ -31,10 +31,13 @@ export const CODEX = {
   vintage: { cat: 'Chase versions', name: '1987 first print', tool: 'Eye', text: 'Tarnished Hollow Pantheon leaf. Bright leaf is the 2003 reprint.' },
   run1: { cat: 'Chase versions', name: 'Run 1 Derby', tool: 'Reference', text: 'Ironclad Derby first print run, with the original stats.' },
   inverted: { cat: 'Chase versions', name: 'Inverted center', tool: 'Eye', text: 'Starpost printed with the center upside down. Grade as an Authentic Error.' },
+  fullart: { cat: 'Chase versions', name: 'Full art', tool: 'Eye', text: 'Mythic rares only: the illustration spills over the whole card. Full art holos are the rarest pulls in any pack.' },
   ghost: { cat: 'Chase versions', name: 'Ghost Print', tool: '?', text: 'One-of-one proofs by Ellis Marsh, Halloway Print Works.' },
 };
 
 export const ACHIEVEMENTS = [
+  ['mythic', 'Mythic pull', 'Pull a mythic rare from a pack.'],
+  ['fullart_holo', 'Full shine', 'Pull a full art holo.'],
   ['first_slab', 'First slab', 'Seal your first graded card.'],
   ['pristine', 'Pristine', 'Grade a Pristine 10 correctly.'],
   ['clean_day', 'Clean shift', 'Meet quota with no citations.'],

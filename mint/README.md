@@ -15,8 +15,9 @@ you decide what your honesty is worth.
 - **Five weeks, 25 working days:** Onboarding, Expansion, The Boom, The Crash, Reckoning.
   Rent is due every Friday. Pay and card prices follow the market. Weekends have three
   stops and the Saturday auction.
-- **Eleven card lines,** all drawn in code from data, each with chase versions and its
-  own tell: Grim Grocers, Neon Saints, Bloomlings, Moth & Lantern, Tidebound, Rift
+- **Eleven card lines of 30 cards each** (common, uncommon, rare, mythic rare), all drawn
+  in code from data. Every card has a holo version, and mythics come as full art and full
+  art holo. Each line has chase versions and its own tell: Grim Grocers, Neon Saints, Bloomlings, Moth & Lantern, Tidebound, Rift
   Duelists, Grimoire Accord, Hollow Pantheon, Ironclad Derby, Cryptid Field Notes, Starpost.
 - **Eleven tools:** hand, loupe, microscope, ruler, UV lamp, tilt stand, light box,
   dropper, scale, registry terminal and the reference binder (with rules and codex).
@@ -36,7 +37,7 @@ you decide what your honesty is worth.
 - **Story:** Vince Carrow and his envelopes, Director Pike's cut, Mina's counterfeit
   heirloom, Theo, a VIP who wants a 10, a reporter who needs evidence, and Ellis Marsh's
   Ghost Print. Eight endings.
-- **Extras:** codex of learned tells, 24 achievements kept across runs, music and effects
+- **Extras:** codex of learned tells, 26 achievements kept across runs, music and effects
   volume, shift speed, and mid-shift saves.
 
 ## Controls
@@ -73,8 +74,10 @@ same stable key as Neon Bastion, so updates install over older versions.
 
 | File | What it does |
 |---|---|
-| `www/js/data.js` | Card lines, set lists, tools, weeks, days, rules, prices |
-| `www/js/cardsvg.js` | Card renderer: the first three lines, flaws, loupe and microscope detail, UV, tilt, light box, water and ruler views |
+| `www/js/data.js` | Card lines, hand-written cards, tools, weeks, days, rules, prices |
+| `www/js/sets.js` | Grows every line to 30 cards with names, text and art specs |
+| `www/js/art.js` | Card illustrations for all eleven lines |
+| `www/js/cardsvg.js` | Card renderer: the first three lines, holo and full art, flaws, loupe and microscope detail, UV, tilt, light box, water and ruler views |
 | `www/js/cardsvg2.js` | Faces and backs for the eight later lines, copyright and microprint text |
 | `www/js/grading.js` | Sub-grades, final grade, centering, condition multipliers |
 | `www/js/gen.js` | Card instances, flaws, variants, counterfeits, alterations, submissions, values |

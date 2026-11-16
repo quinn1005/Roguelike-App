@@ -25,9 +25,10 @@ export const cardDef = (inst) => CARDS[inst.line].find((x) => x.n === inst.n);
 
 export function pickCard(R, line, weights = { c: 6, u: 3, r: 1 }) {
   const list = CARDS[line];
-  const tot = list.reduce((s, c) => s + weights[c.r], 0);
+  const w = (r) => weights[r] ?? (r === 'm' ? (weights.r || 1) * 0.2 : 0);
+  const tot = list.reduce((s, c) => s + w(c.r), 0);
   let x = R() * tot;
-  for (const c of list) { x -= weights[c.r]; if (x <= 0) return c; }
+  for (const c of list) { x -= w(c.r); if (x <= 0) return c; }
   return list[0];
 }
 
@@ -97,22 +98,26 @@ export function rollVariants(R, inst, odds = {}) {
   const roll = (p) => R() < p * k;
   switch (inst.line) {
     case 'gg': if (roll(odds.noYellow ?? 0.05)) v.noYellow = true; break;
-    case 'ns': if ((c.r === 'r' && roll(0.5)) || (c.r === 'u' && roll(0.2))) v.holo = true; break;
-    case 'bl': if (c.r === 'r' && roll(0.5)) v.holo = true; if (roll(odds.shadowless ?? 0.15)) { v.shadowless = true; if (R() < 0.45) v.first = true; } break;
+    case 'bl': if (roll(odds.shadowless ?? 0.15)) { v.shadowless = true; if (R() < 0.45) v.first = true; } break;
     case 'ml': if (roll(0.12)) v.hidden = true; break;
-    case 'tb': if (roll(0.2)) v.first = true; if (c.r === 'r' && roll(0.5)) v.holo = true; break;
+    case 'tb': if (roll(0.2)) v.first = true; break;
     case 'rd': if (c.r === 'r' && roll(0.06)) v.secret = true; else if (c.r !== 'c' && roll(0.2)) v.gold = true; break;
-    case 'ga': if (roll(0.1)) v.alpha = true; if (c.r === 'r' && roll(0.3)) v.holo = true; break;
+    case 'ga': if (roll(0.1)) v.alpha = true; break;
     case 'hp': if (roll(0.35)) v.vintage = true; break;
     case 'ic': if (roll(0.3)) v.run1 = true; break;
     case 'cf': if (roll(0.25)) v.serial = R.int(1, 50); break;
     case 'sp': if (roll(0.03)) v.inverted = true; break;
     default: break;
   }
+  // Every card has a holo version; mythic rares also come as full art (and full art holo).
+  if (roll((odds.holo ?? HOLO_P)[c.r] * (inst.line === 'ns' ? 1.5 : 1))) v.holo = true;
+  if (c.r === 'm' && roll(odds.fullart ?? 0.14)) v.fullart = true;
   return inst;
 }
 
+const HOLO_P = { c: 0.05, u: 0.1, r: 0.28, m: 0.35 };
 const VLABEL = {
+  fullart: 'Full art',
   first: '1st Edition', shadowless: 'Shadowless', holo: 'Holo', noYellow: 'Misprint: no yellow', hidden: 'Print Run A',
   gold: 'Gold name', secret: 'Secret rare', alpha: 'Alpha', vintage: '1987 first print', run1: 'Run 1', inverted: 'Error: inverted center', ghost: 'Ghost Print',
 };
@@ -123,7 +128,7 @@ export function variantLabels(v, line) {
   return out;
 }
 // Variant claims that could be made for a line (for form mismatches).
-const CLAIMABLE = { gg: ['noYellow'], ns: ['holo'], bl: ['first', 'holo'], ml: ['hidden'], tb: ['first', 'holo'], rd: ['gold', 'secret'], ga: ['alpha', 'holo'], hp: ['vintage'], ic: ['run1'], cf: ['serial'], sp: ['inverted'] };
+const CLAIMABLE = { gg: ['noYellow', 'holo'], ns: ['holo'], bl: ['first', 'holo'], ml: ['hidden', 'holo'], tb: ['first', 'holo'], rd: ['gold', 'secret', 'holo'], ga: ['alpha', 'holo'], hp: ['vintage', 'holo'], ic: ['run1', 'holo'], cf: ['serial', 'holo'], sp: ['inverted', 'holo'] };
 
 // ------------------------------------------------------------- counterfeits and alterations
 export function makeFake(R, inst, day, kinds) {
@@ -186,7 +191,7 @@ export function makeMismatch(R, sub) {
   if (kind === 'name') { const o = R.pick(others); form.name = o.full || o.name; form.n = o.n; }
   if (kind === 'number') form.n = R.pick(others).n;
   if (kind === 'variant') {
-    const missing = (CLAIMABLE[inst.line] || []).filter((k) => !inst.v[k]);
+    const missing = [...(CLAIMABLE[inst.line] || []), ...(cardDef(inst).r === 'm' ? ['fullart'] : [])].filter((k) => !inst.v[k]);
     if (!missing.length) form.n = R.pick(others).n;
     else {
       const k = R.pick(missing);
@@ -241,6 +246,7 @@ export function cardValueRaw(inst) {
   let v = BASE_VALUE[c.r] * (c.r === 'r' && ['gg', 'hp', 'cf'].includes(inst.line) ? 1.4 : 1);
   const V = inst.v;
   if (V.holo) v *= 4;
+  if (V.fullart) v *= 4;
   if (V.shadowless) v *= V.first ? 10 : 4;
   else if (V.first) v *= 3;
   if (V.noYellow) v *= 25;

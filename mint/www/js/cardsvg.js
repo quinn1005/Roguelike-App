@@ -4,7 +4,8 @@
 //     fake:{kinds:[]}|null, alt:{kind, corner?}|null }
 import { LINES, CARDS } from './data.js';
 import { centerPct } from './grading.js';
-import { FRONT2, BACK2, STOCK2, copyrightText, microText, mlHidden, spPerfs } from './cardsvg2.js';
+import { FRONT2, BACK2, STOCK2, RSYM, copyrightText, microText, mlHidden, spPerfs } from './cardsvg2.js';
+import { ggArt, nsArt, blArt, EL, WEAK, RES, mlArt, tbArt, rdArt, gaArt, hpSym, icArt, cfPhoto, spArt } from './art.js';
 export { copyrightText, icStats, spPerfs } from './cardsvg2.js';
 
 let uidc = 0;
@@ -24,6 +25,7 @@ export function cardSVG(inst, o = {}) {
   const dy = o.clean ? 0 : inst.dy || 0;
   const fakePrint = !o.clean && inst.fake && inst.fake.kinds.includes('print');
   let printed = face === 'front' ? FRONT[inst.line](inst, p, o) : BACK[inst.line](inst, p, o);
+  if (face === 'front' && inst.v && inst.v.fullart) printed += fullArtLayer(inst, p);
   if (inst.v && inst.v.ghost) printed = face === 'front' ? `<g filter="url(#${p}ghost)">${printed}</g><text x="200" y="300" font-family="'Special Elite',monospace" font-size="11" fill="#5a5a5a" transform="rotate(-8 200 300)">E.M. 1/1</text>` : ghostBack();
   if (o.microprint) printed += `<text x="125" y="343.6" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="2.3" letter-spacing=".2" fill="${MICROCOL[inst.line] || '#555'}">${microText(inst)}</text>`;
   const stock = STOCK[inst.line];
@@ -121,64 +123,9 @@ function ggFront(inst, p) {
   <text x="125" y="299" text-anchor="middle" font-family="Fredoka,sans-serif" font-weight="700" font-size="10.5" fill="#e6372e">${esc(c.stats)}</text>
   <text x="22" y="329" font-family="'JetBrains Mono',monospace" font-size="8" fill="#1a1a1a">${L.setCode} · ${pad3(c.n)}/${pad3(L.total)}</text>
   <text x="228" y="329" text-anchor="end" font-family="'JetBrains Mono',monospace" font-size="5.6" fill="#1a1a1a">${esc(cr)}</text>
-  ${c.r === 'r' ? '<path d="M120 334l5-5 5 5-5 5z" fill="#1a1a1a"/>' : c.r === 'u' ? '<circle cx="125" cy="334" r="3.5" fill="none" stroke="#1a1a1a" stroke-width="1.5"/>' : '<circle cx="125" cy="334" r="2.5" fill="#1a1a1a"/>'}`;
+  ${c.r === 'm' ? '<path d="M125 327l2 5 5 .5-4 3 1.5 5-4.5-3-4.5 3 1.5-5-4-3 5-.5z" fill="#e6372e" stroke="#1a1a1a" stroke-width=".8"/>' : c.r === 'r' ? '<path d="M120 334l5-5 5 5-5 5z" fill="#1a1a1a"/>' : c.r === 'u' ? '<circle cx="125" cy="334" r="3.5" fill="none" stroke="#1a1a1a" stroke-width="1.5"/>' : '<circle cx="125" cy="334" r="2.5" fill="#1a1a1a"/>'}`;
 }
 
-function ggArt(a) {
-  let s = `<rect x="22" y="52" width="206" height="162" fill="${a.sky}"/>
-  <circle cx="192" cy="84" r="18" fill="#ffe14d"/>
-  <g fill="#1a1a1a"><path d="M52 82q6-6 10 0q4-6 10 0q-4 0-10 5q-6-5-10-5z"/><path d="M80 66q5-5 8 0q3-5 8 0q-3 0-8 4q-5-4-8-4z"/></g>
-  <path d="M22 214V196Q70 180 125 192T228 188V214Z" fill="#2e7d32"/>`;
-  const B = a.body, V = a.vein, C = a.cc, K = '#1a1a1a';
-  let face = { x: 125, y: 140 };
-  // costume pieces behind the body
-  if (a.costume === 'cape') s += `<path d="M80 210C70 162 95 122 125 120C155 122 180 162 170 210Z" fill="${C}" stroke="${K}" stroke-width="2"/>
-    <path d="M90 142L70 112L106 130Z" fill="#b0201b" stroke="${K}" stroke-width="2" stroke-linejoin="round"/><path d="M160 142L180 112L144 130Z" fill="#b0201b" stroke="${K}" stroke-width="2" stroke-linejoin="round"/>`;
-  if (a.costume === 'hood' || a.costume === 'reaper') s += `<path d="M70 214C66 150 88 86 125 82C162 86 184 150 180 214Z" fill="${C}" stroke="${K}" stroke-width="2"/>`;
-  if (a.costume === 'reaper') s += `<line x1="186" y1="210" x2="176" y2="70" stroke="#6b4a2a" stroke-width="5" stroke-linecap="round"/><path d="M176 72C150 60 126 66 112 84C134 74 156 74 176 86Z" fill="#c8ccd2" stroke="${K}" stroke-width="2"/>`;
-  if (a.costume === 'fur') s += `<g fill="${C}" stroke="${K}" stroke-width="1.5">${[[92,120],[88,150],[92,180],[158,120],[162,150],[158,180]].map(([x,y],i)=>`<path d="M${x} ${y-10}L${x + (i<3?-14:14)} ${y}L${x} ${y+10}Z"/>`).join('')}</g>`;
-  // body
-  if (a.shape === 'round') {
-    s += `<circle cx="125" cy="140" r="40" fill="${B}" stroke="${K}" stroke-width="3"/>
-      <g fill="none" stroke="${V}" stroke-width="2" stroke-linecap="round"><path d="M125 102Q112 128 122 176"/><path d="M96 118Q118 134 108 172"/><path d="M154 118Q132 134 142 172"/></g>
-      <path d="M125 101C119 88 133 84 135 93" fill="#6cc04a" stroke="${K}" stroke-width="2"/>`;
-  } else if (a.shape === 'tall') {
-    face = { x: 125, y: 122 };
-    s += `<g stroke="#3f9a3a" stroke-width="5" stroke-linecap="round"><path d="M118 76L108 54"/><path d="M125 74L125 50"/><path d="M132 76L142 54"/></g>
-      <path d="M95 104Q125 64 155 104L137 204Q125 216 113 204Z" fill="${B}" stroke="${K}" stroke-width="3" stroke-linejoin="round"/>
-      <g stroke="${V}" stroke-width="2" stroke-linecap="round"><line x1="112" y1="160" x2="122" y2="158"/><line x1="128" y1="176" x2="136" y2="174"/><line x1="116" y1="188" x2="124" y2="187"/></g>`;
-  } else if (a.shape === 'long') {
-    face = { x: 124, y: 138 };
-    s += `<g transform="rotate(-14 125 140)"><rect x="118" y="66" width="10" height="16" rx="3" fill="#6b4a2a" stroke="${K}" stroke-width="2"/>
-      <path d="M100 204Q84 140 110 84Q118 72 130 76Q156 136 150 204Q124 218 100 204Z" fill="${B}" stroke="${K}" stroke-width="3" stroke-linejoin="round"/>
-      <path d="M140 92Q152 150 144 196" fill="none" stroke="${V}" stroke-width="2"/></g>`;
-  } else if (a.shape === 'bunch') {
-    face = { x: 125, y: 138 };
-    const circ = [[105,108,20],[145,108,20],[125,92,22],[98,138,20],[152,138,20],[110,170,20],[140,170,20],[125,140,30]];
-    s += `<rect x="120" y="62" width="10" height="20" rx="3" fill="#6b4a2a" stroke="${K}" stroke-width="2"/>`;
-    s += circ.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${B}" stroke="${K}" stroke-width="2.5"/>`).join('');
-    s += circ.slice(0, 7).map(([x, y, r]) => `<circle cx="${x - r * 0.3}" cy="${y - r * 0.35}" r="${r * 0.25}" fill="#ffffff" opacity=".25"/>`).join('');
-  }
-  // costume pieces in front
-  if (a.costume === 'wraps') s += `<g stroke="${C}" stroke-width="6" stroke-linecap="round" opacity=".95"><line x1="90" y1="118" x2="160" y2="106"/><line x1="86" y1="152" x2="164" y2="164"/><line x1="96" y1="172" x2="154" y2="160"/></g><g stroke="#c9bf9f" stroke-width="1"><line x1="90" y1="118" x2="160" y2="106"/><line x1="86" y1="152" x2="164" y2="164"/></g>`;
-  if (a.costume === 'stitches') s += `<path d="M100 160L106 154L112 160L118 154L124 160L130 154L136 160L142 154L148 160" fill="none" stroke="${C}" stroke-width="2"/>`;
-  if (a.costume === 'bolts') s += `<rect x="83" y="128" width="12" height="9" fill="${C}" stroke="${K}" stroke-width="1.5"/><rect x="155" y="128" width="12" height="9" fill="${C}" stroke="${K}" stroke-width="1.5"/><path d="M100 92H150V100H100Z" fill="#2a2a2a"/>`;
-  if (a.costume === 'hood' || a.costume === 'reaper') s += `<path d="M86 118C88 92 104 80 125 80C146 80 162 92 164 118C150 104 100 104 86 118Z" fill="${C}" stroke="${K}" stroke-width="2"/>`;
-  if (a.costume === 'sheet') {
-    s += `<path d="M78 200C76 140 92 84 125 82C158 84 174 140 172 200Q160 190 150 202Q138 190 125 202Q112 190 100 202Q90 190 78 200Z" fill="${C}" stroke="${K}" stroke-width="2.5" opacity=".96"/>`;
-    s += `<ellipse cx="${face.x - 13}" cy="${face.y - 6}" rx="7" ry="9" fill="${K}"/><ellipse cx="${face.x + 13}" cy="${face.y - 6}" rx="7" ry="9" fill="${K}"/><ellipse cx="${face.x}" cy="${face.y + 18}" rx="6" ry="8" fill="${K}"/>`;
-    return s;
-  }
-  const { x, y } = face;
-  s += `<ellipse cx="${x - 15}" cy="${y - 7}" rx="9" ry="10" fill="#fff" stroke="${K}" stroke-width="2"/><ellipse cx="${x + 15}" cy="${y - 7}" rx="9" ry="10" fill="#fff" stroke="${K}" stroke-width="2"/>
-    <circle cx="${x - 13}" cy="${y - 5}" r="4" fill="#e6372e"/><circle cx="${x + 13}" cy="${y - 5}" r="4" fill="#e6372e"/>
-    <circle cx="${x - 13}" cy="${y - 5}" r="1.8" fill="${K}"/><circle cx="${x + 13}" cy="${y - 5}" r="1.8" fill="${K}"/>
-    <g stroke="${K}" stroke-width="3" stroke-linecap="round"><line x1="${x - 25}" y1="${y - 21}" x2="${x - 8}" y2="${y - 15}"/><line x1="${x + 25}" y1="${y - 21}" x2="${x + 8}" y2="${y - 15}"/></g>
-    <path d="M${x - 19} ${y + 15}Q${x} ${y + 27} ${x + 19} ${y + 15}" fill="none" stroke="${K}" stroke-width="3" stroke-linecap="round"/>
-    <path d="M${x - 12} ${y + 18}L${x - 8} ${y + 30}L${x - 4} ${y + 21}Z" fill="#fff" stroke="${K}" stroke-width="1.2"/>
-    <path d="M${x + 12} ${y + 18}L${x + 8} ${y + 30}L${x + 4} ${y + 21}Z" fill="#fff" stroke="${K}" stroke-width="1.2"/>`;
-  return s;
-}
 
 function ggBack(inst, p) {
   const wrongYear = inst.fake && inst.fake.kinds.includes('back');
@@ -213,38 +160,9 @@ function nsFront(inst, p) {
   <text x="125" y="294" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#ff4fd8">FINISHER: ${esc(c.finisher)}</text>
   <text x="22" y="329" font-family="'JetBrains Mono',monospace" font-size="8" fill="#2ee6ff">${L.setCode} · ${pad3(c.n)}/${pad3(L.total)}</text>
   <text x="228" y="329" text-anchor="end" font-family="'JetBrains Mono',monospace" font-size="5.2" fill="#2ee6ff">${esc(cr)}</text>
-  <text x="125" y="330" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#ff4fd8">${c.r === 'r' ? '★' : c.r === 'u' ? '◆' : '●'}</text>`;
+  <text x="125" y="330" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#ff4fd8">${RSYM[c.r]}</text>`;
 }
 
-function nsArt(a, p) {
-  const D = '#0b0618', R = a.b;
-  let s = `<rect x="22" y="46" width="206" height="130" fill="url(#${p}sky)"/>
-  <circle cx="125" cy="140" r="54" fill="url(#${p}sun)"/>
-  <g fill="#7a0f72"><rect x="60" y="140" width="130" height="3"/><rect x="60" y="150" width="130" height="4"/><rect x="60" y="160" width="130" height="5"/><rect x="60" y="170" width="130" height="6"/></g>
-  <rect x="22" y="174" width="206" height="42" fill="#12002b"/>
-  <g stroke="#2ee6ff" stroke-width=".8" opacity=".75"><line x1="22" y1="174" x2="228" y2="174"/><line x1="22" y1="179" x2="228" y2="179"/><line x1="22" y1="186" x2="228" y2="186"/><line x1="22" y1="196" x2="228" y2="196"/><line x1="22" y1="210" x2="228" y2="210"/>
-  <line x1="125" y1="174" x2="125" y2="216"/><line x1="119" y1="174" x2="85" y2="216"/><line x1="131" y1="174" x2="165" y2="216"/><line x1="113" y1="174" x2="45" y2="216"/><line x1="137" y1="174" x2="205" y2="216"/><line x1="107" y1="174" x2="5" y2="216"/><line x1="143" y1="174" x2="245" y2="216"/></g>`;
-  const arms = a.pose === 'flex' ? ['104,118 78,116 74,88', '146,118 172,116 176,88']
-    : a.pose === 'point' ? ['104,118 78,116 74,88', '146,118 178,108 204,98']
-    : ['104,118 112,140 148,132', '146,118 138,140 102,132'];
-  const fists = a.pose === 'flex' ? [[74, 83], [176, 83]] : a.pose === 'point' ? [[74, 83], [207, 97]] : [];
-  const armStroke = (col, w) => `<g stroke-linecap="round" stroke-linejoin="round" fill="none">${arms.map((pt) => `<polyline points="${pt}" stroke="${col}" stroke-width="${w}"/>`).join('')}</g>`;
-  if (a.hair === 'long') s += `<path d="M110 88Q104 120 100 134L150 134Q146 120 140 88Z" fill="${a.a}"/>`;
-  if (a.hair === 'afro') s += `<circle cx="125" cy="90" r="20" fill="#2a1a12" stroke="${R}" stroke-width="1.2"/>`;
-  if (a.pose !== 'cross') s += armStroke(R, 15);
-  s += `<path d="M104 150L98 212L116 212L123 162L127 162L134 212L152 212L146 150Z" fill="${D}" stroke="${R}" stroke-width="1.2"/>
-  <path d="M100 112Q125 104 150 112L147 152L103 152Z" fill="${D}" stroke="${R}" stroke-width="1.2"/>`;
-  if (a.pose === 'cross') s += armStroke(R, 15);
-  s += armStroke(D, 12);
-  s += fists.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="8" fill="${D}" stroke="${R}" stroke-width="1.2"/>`).join('');
-  if (a.hair === 'mohawk') s += `<path d="M119 84L120 68L124 79L128 66L131 83Z" fill="${a.a}"/>`;
-  s += `<circle cx="125" cy="95" r="12" fill="${a.hair === 'mask' ? a.a : D}" stroke="${R}" stroke-width="1.2"/>`;
-  if (a.hair === 'mask') s += `<path d="M116 93Q120 89 124 93Q120 96 116 93ZM126 93Q130 89 134 93Q130 96 126 93Z" fill="#ffffff"/><path d="M125 83V107" stroke="${D}" stroke-width="1.5"/>`;
-  if (a.hair === 'bald') s += `<circle cx="120" cy="90" r="3" fill="#ffffff" opacity=".5"/>`;
-  if (a.hair === 'crown') s += `<path d="M113 86L113 74L119 80L125 69L131 80L137 74L137 86Z" fill="#ffd23f" stroke="#b8860b"/>`;
-  if (a.belt) s += `<rect x="102" y="140" width="46" height="11" rx="2" fill="#ffd23f"/><ellipse cx="125" cy="145.5" rx="9" ry="7" fill="#fff0a6" stroke="#b8860b"/>`;
-  return s;
-}
 
 function nsBack(inst, p) {
   const wrong = inst.fake && inst.fake.kinds.includes('back');
@@ -263,14 +181,6 @@ function nsBack(inst, p) {
 }
 
 // ---------------------------------------------------------------- BLOOMLINGS
-const EL = {
-  water: { c: '#2f8fd8', sky: '#bfe9ff', ground: '#8fd18b', glyph: (x, y, s = 1) => `<path d="M${x} ${y - 7 * s}C${x - 3.5 * s} ${y - 2 * s} ${x - 4 * s} ${y + 2 * s} ${x} ${y + 4.5 * s}C${x + 4 * s} ${y + 2 * s} ${x + 3.5 * s} ${y - 2 * s} ${x} ${y - 7 * s}Z" fill="#fff"/>` },
-  leaf: { c: '#4caf50', sky: '#dff4c8', ground: '#7cc46a', glyph: (x, y, s = 1) => `<path d="M${x - 5 * s} ${y + 5 * s}C${x - 5 * s} ${y - 4 * s} ${x + 1 * s} ${y - 7 * s} ${x + 5 * s} ${y - 6 * s}C${x + 5 * s} ${y + 2 * s} ${x} ${y + 5 * s} ${x - 5 * s} ${y + 5 * s}Z" fill="#fff"/>` },
-  ember: { c: '#e2572b', sky: '#ffe3cc', ground: '#c9b07a', glyph: (x, y, s = 1) => `<path d="M${x} ${y - 7 * s}C${x - 4 * s} ${y - 2 * s} ${x - 5 * s} ${y + 2 * s} ${x - 2 * s} ${y + 5 * s}C${x - 1 * s} ${y + 2 * s} ${x} ${y + 1 * s} ${x} ${y}C${x + 1 * s} ${y + 2 * s} ${x + 3 * s} ${y + 3 * s} ${x + 2 * s} ${y + 5 * s}C${x + 5 * s} ${y + 1 * s} ${x + 4 * s} ${y - 3 * s} ${x} ${y - 7 * s}Z" fill="#fff"/>` },
-  stone: { c: '#8a7a6a', sky: '#ece4d8', ground: '#b9a98f', glyph: (x, y, s = 1) => `<path d="M${x - 5 * s} ${y + 4 * s}L${x - 3 * s} ${y - 4 * s}L${x + 3 * s} ${y - 6 * s}L${x + 6 * s} ${y + 1 * s}L${x + 2 * s} ${y + 5 * s}Z" fill="#fff"/>` },
-};
-const WEAK = { water: 'Leaf', leaf: 'Ember', ember: 'Water', stone: 'Water' };
-const RES = { water: 'Ember', leaf: 'Water', ember: 'Leaf', stone: 'Ember' };
 
 function blFront(inst, p) {
   const c = def(inst), a = c.art, L = LINES.bl, e = EL[c.el];
@@ -290,12 +200,12 @@ function blFront(inst, p) {
   <clipPath id="${p}bw"><rect x="22" y="48" width="206" height="138"/></clipPath>
   <rect x="8" y="8" width="234" height="334" rx="8" fill="url(#${p}face)" stroke="#8aa2b8" stroke-width="1"/>
   <rect x="16" y="15" width="44" height="11" rx="5.5" fill="#1d4e75"/>
-  <text x="38" y="23.5" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="6.5" fill="#ffffff">STAGE ${c.r === 'r' ? 2 : c.r === 'u' ? 1 : 0}</text>
+  <text x="38" y="23.5" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="6.5" fill="#ffffff">${{ c: 'BASIC', u: 'STAGE 1', r: 'STAGE 2', m: 'ANCIENT' }[c.r]}</text>
   <text x="18" y="42" font-family="Fredoka,sans-serif" font-weight="700" font-size="${fit(c.name, 130, 17, 0.56)}" fill="#13283d">${esc(c.name)}</text>
   <text x="204" y="35" text-anchor="end" font-family="Fredoka,sans-serif" font-weight="700" font-size="12" fill="#13283d"><tspan font-size="7" font-family="'JetBrains Mono',monospace">VIGOR </tspan>${c.vigor}</text>
   ${badge(222, 31, c.el, 9)}
   ${showShadow ? '<rect x="25.5" y="51.5" width="206" height="138" fill="#2b3a4a" opacity=".38"/>' : ''}
-  <g clip-path="url(#${p}bw)">${blArt(c, e)}</g>
+  <g clip-path="url(#${p}bw)">${blArt(c)}</g>
   <rect x="22" y="48" width="206" height="138" fill="none" stroke="#8aa2b8" stroke-width="3"/>
   <rect x="40" y="191" width="170" height="11" rx="5.5" fill="#d6eef8"/>
   <text x="125" y="199" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="6.8" fill="#4a6075">${esc(c.kind)} · ${c.el.toUpperCase()} TYPE</text>
@@ -304,42 +214,9 @@ function blFront(inst, p) {
   <text x="125" y="307" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="6.6" fill="#4a6075">WEAK: ${WEAK[c.el]} ×2 · RESIST: ${RES[c.el]} −20 · RETREAT: ${Math.ceil(c.vigor / 50)}</text>
   <text x="20" y="330" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="#4a6075">${L.setCode} · ${pad3(c.n)}/${pad3(L.total)}</text>
   <text x="230" y="330" text-anchor="end" font-family="'JetBrains Mono',monospace" font-size="5.4" fill="#4a6075">${esc(cr)}</text>
-  <text x="125" y="331" text-anchor="middle" font-family="sans-serif" font-size="8" fill="#13283d">${c.r === 'r' ? '★' : c.r === 'u' ? '◆' : '●'}</text>`;
+  <text x="125" y="331" text-anchor="middle" font-family="sans-serif" font-size="8" fill="#13283d">${RSYM[c.r]}</text>`;
 }
 
-function blArt(c, e) {
-  const a = c.art, B = a.body, K = '#13283d', cream = '#fff4e0';
-  let s = `<rect x="22" y="48" width="206" height="138" fill="${e.sky}"/>
-    <circle cx="196" cy="70" r="12" fill="#fff6c9"/>
-    <path d="M22 150Q70 126 120 142T228 136V186H22Z" fill="${e.ground}"/>
-    <g fill="#ffffff" opacity=".9"><path d="M188 104l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/><path d="M58 92l1.5 4 4 1.5-4 1.5-1.5 4-1.5-4-4-1.5 4-1.5z"/></g>`;
-  if (c.el === 'water') s += `<ellipse cx="70" cy="176" rx="60" ry="12" fill="#5ab7e8"/>`;
-  if (a.extra === 'petals') s += `<g fill="#ffb3d1" stroke="${K}" stroke-width="1">${[0, 60, 120, 180, 240, 300].map((r) => `<ellipse cx="125" cy="84" rx="9" ry="16" transform="rotate(${r} 125 118)"/>`).join('')}</g>`;
-  if (a.extra === 'wings') s += `<g fill="${B}" stroke="${K}" stroke-width="1.8" opacity=".9"><path d="M104 152Q66 118 74 166Q88 160 104 166Z"/><path d="M146 152Q184 118 176 166Q162 160 146 166Z"/></g>`;
-  // tail
-  const tip = { water: `<path d="M170 100C164 110 164 118 170 120C176 118 176 110 170 100Z" fill="#dff4ff" stroke="${K}" stroke-width="1.5"/>`,
-    leaf: `<path d="M170 98Q184 110 170 124Q156 110 170 98Z" fill="#6cc04a" stroke="${K}" stroke-width="1.5"/>`,
-    ember: `<path d="M170 96C164 106 163 114 168 120C168 115 170 113 171 111C172 114 175 116 174 120C179 114 177 106 170 96Z" fill="#ffb347" stroke="${K}" stroke-width="1.5"/>`,
-    stone: `<path d="M162 108L168 98L178 102L180 114L170 120Z" fill="#b8ada2" stroke="${K}" stroke-width="1.5"/>` }[c.el];
-  s += `<path d="M148 166C175 160 182 132 170 118C166 136 158 148 146 152Z" fill="${B}" stroke="${K}" stroke-width="2" stroke-linejoin="round"/>${tip}`;
-  s += `<ellipse cx="125" cy="162" rx="25" ry="18" fill="${B}" stroke="${K}" stroke-width="2"/><ellipse cx="125" cy="166" rx="13" ry="11" fill="${cream}"/>`;
-  if (a.extra === 'spots') s += `<g fill="#000" opacity=".16"><circle cx="110" cy="156" r="4"/><circle cx="141" cy="160" r="3"/></g>`;
-  s += `<ellipse cx="111" cy="179" rx="7" ry="4.5" fill="${B}" stroke="${K}" stroke-width="1.5"/><ellipse cx="139" cy="179" rx="7" ry="4.5" fill="${B}" stroke="${K}" stroke-width="1.5"/>`;
-  if (a.extra === 'spikes') s += `<g fill="#3f6a2a" stroke="${K}" stroke-width="1.2">${[[96, 104], [104, 92], [116, 86], [134, 86], [146, 92], [154, 104]].map(([x, y]) => `<path d="M${x - 6} ${y + 6}L${x + (x - 125) * 0.25} ${y - 10}L${x + 6} ${y + 6}Z"/>`).join('')}</g>`;
-  if (a.ears === 'fox') s += `<path d="M101 104L95 72L120 94Z" fill="${B}" stroke="${K}" stroke-width="2" stroke-linejoin="round"/><path d="M149 104L155 72L130 94Z" fill="${B}" stroke="${K}" stroke-width="2" stroke-linejoin="round"/><path d="M103 98L99 80L113 93Z" fill="${cream}"/><path d="M147 98L151 80L137 93Z" fill="${cream}"/>`;
-  if (a.ears === 'round') s += `<circle cx="102" cy="96" r="11" fill="${B}" stroke="${K}" stroke-width="2"/><circle cx="148" cy="96" r="11" fill="${B}" stroke="${K}" stroke-width="2"/><circle cx="102" cy="96" r="5" fill="${cream}"/><circle cx="148" cy="96" r="5" fill="${cream}"/>`;
-  if (a.ears === 'tuft') s += `<path d="M104 98L98 76L116 90Z" fill="${B}" stroke="${K}" stroke-width="2" stroke-linejoin="round"/><path d="M146 98L152 76L134 90Z" fill="${B}" stroke="${K}" stroke-width="2" stroke-linejoin="round"/>`;
-  if (a.ears === 'horn') s += `<path d="M108 96Q98 76 108 64Q112 80 118 90Z" fill="#f3ead2" stroke="${K}" stroke-width="1.6"/><path d="M142 96Q152 76 142 64Q138 80 132 90Z" fill="#f3ead2" stroke="${K}" stroke-width="1.6"/>`;
-  s += `<circle cx="125" cy="118" r="30" fill="${B}" stroke="${K}" stroke-width="2"/>`;
-  if (a.extra === 'stripe') s += `<path d="M117 90Q125 104 133 90Z" fill="#000" opacity=".18"/>`;
-  s += `<ellipse cx="125" cy="131" rx="16" ry="11" fill="${cream}"/>
-    <ellipse cx="112" cy="115" rx="5" ry="7" fill="${K}"/><ellipse cx="138" cy="115" rx="5" ry="7" fill="${K}"/>
-    <circle cx="114" cy="112" r="2" fill="#fff"/><circle cx="140" cy="112" r="2" fill="#fff"/>
-    <ellipse cx="125" cy="126" rx="3" ry="2" fill="${K}"/>
-    <path d="M120 131Q125 135 130 131" fill="none" stroke="${K}" stroke-width="1.5" stroke-linecap="round"/>
-    <circle cx="104" cy="126" r="4" fill="#ff8fb1" opacity=".55"/><circle cx="146" cy="126" r="4" fill="#ff8fb1" opacity=".55"/>`;
-  return s;
-}
 
 function blBack(inst, p) {
   const wrong = inst.fake && inst.fake.kinds.includes('back');
@@ -358,10 +235,70 @@ const FRONT = { gg: ggFront, ns: nsFront, bl: blFront, ...FRONT2 };
 const BACK = { gg: ggBack, ns: nsBack, bl: blBack, ...BACK2 };
 
 // ---------------------------------------------------------------- layers
+// Where each line's art window sits, and the parts of the front a full-art print keeps
+// (name header and info panel), so every tell on the card still reads.
+export const ART_BOX = {
+  gg: [22, 52, 206, 162], ns: [22, 46, 206, 170], bl: [22, 48, 206, 138], ml: [22, 46, 206, 170], tb: [22, 46, 206, 170], rd: [30, 64, 190, 152],
+  ga: [24, 46, 202, 150], hp: [22, 46, 206, 170], ic: [22, 46, 206, 170], cf: [38, 62, 174, 128], sp: [24, 70, 202, 170],
+};
+const FA_KEEP = {
+  gg: [[14, 13, 222, 34], 220], ns: [[14, 14, 222, 30], 222], bl: [[12, 12, 226, 36], 188], ml: [[14, 14, 222, 30], 222], tb: [[14, 14, 222, 30], 222],
+  rd: [[12, 12, 226, 47], 222], ga: [[18, 18, 214, 26], 198], hp: [[14, 14, 222, 30], 222], ic: [[14, 14, 222, 30], 222], cf: [[14, 14, 222, 28], 226], sp: [[16, 16, 218, 46], 246],
+};
+function artOnly(inst, p) {
+  const c = def(inst), a = c.art;
+  switch (inst.line) {
+    case 'gg': return ggArt(a);
+    case 'ns': return nsArt(a, p);
+    case 'bl': return blArt(c);
+    case 'ml': return mlArt(a);
+    case 'tb': return tbArt(a, p);
+    case 'rd': return rdArt(a, p);
+    case 'ga': return gaArt(c);
+    case 'hp': { const G = inst.v.vintage ? `url(#${p}tarn)` : `url(#${p}gold)`; return `<rect x="22" y="46" width="206" height="170" fill="#15110c"/><circle cx="125" cy="140" r="82" fill="none" stroke="${G}" stroke-width="40" stroke-dasharray="1.2 5" opacity=".4"/><circle cx="125" cy="140" r="60" fill="#15110c"/>${hpSym(a.sym, G)}`; }
+    case 'ic': return icArt(c, p);
+    case 'cf': return cfPhoto(a, p);
+    case 'sp': return `<rect x="24" y="70" width="202" height="170" fill="url(#${p}ss)"/><g ${inst.v.inverted ? 'transform="rotate(180 125 155)"' : ''}>${spArt(a.subj)}</g>`;
+    default: return '';
+  }
+}
+// Full art: the illustration spills over the whole card. A soft, enlarged copy fills the
+// edges; the sharp art sits above it, and the original name and info panels show through.
+function fullArtLayer(inst, p) {
+  const [x, y, w, h] = ART_BOX[inst.line];
+  const [top, bot] = FA_KEEP[inst.line];
+  const cx = x + w / 2, cy = y + h / 2;
+  const art = artOnly(inst, p);
+  const cover = Math.max(250 / w, 350 / h) * 1.04;
+  const main = Math.max(250 / w, (bot - 6) / h);
+  const mainCy = 6 + (h * main) / 2;
+  const r = 6;
+  return `<clipPath id="${p}faw"><rect x="${x}" y="${y}" width="${w}" height="${h}"/></clipPath>
+  <filter id="${p}fab" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="2.4"/></filter>
+  <linearGradient id="${p}fam" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff"/><stop offset=".86" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  <linearGradient id="${p}fafoil" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff2b8"/><stop offset=".25" stop-color="#ff9ad8"/><stop offset=".5" stop-color="#9af0ff"/><stop offset=".75" stop-color="#ffe27a"/><stop offset="1" stop-color="#fff2b8"/></linearGradient>
+  <mask id="${p}fak" maskUnits="userSpaceOnUse" x="0" y="0" width="250" height="350"><rect width="250" height="350" fill="#fff"/>
+    <rect x="${top[0]}" y="${top[1]}" width="${top[2]}" height="${top[3]}" rx="${r}" fill="#000"/><rect x="14" y="${bot}" width="222" height="${342 - bot}" rx="${r}" fill="#000"/></mask>
+  <mask id="${p}fam2" maskUnits="userSpaceOnUse" x="0" y="0" width="250" height="350"><rect width="250" height="${bot + 8}" fill="url(#${p}fam)"/></mask>
+  <g mask="url(#${p}fak)">
+    <g filter="url(#${p}fab)" transform="translate(125 175) scale(${cover.toFixed(3)}) translate(${-cx} ${-cy})"><g clip-path="url(#${p}faw)">${art}</g></g>
+    <g mask="url(#${p}fam2)"><g transform="translate(125 ${mainCy.toFixed(1)}) scale(${main.toFixed(3)}) translate(${-cx} ${-cy})"><g clip-path="url(#${p}faw)">${art}</g></g></g>
+  </g>
+  <g fill="none" stroke="url(#${p}fafoil)">
+    <rect x="${top[0] - 1}" y="${top[1] - 1}" width="${top[2] + 2}" height="${top[3] + 2}" rx="${r + 1}" stroke-width="1.6"/>
+    <rect x="13" y="${bot - 1}" width="224" height="${344 - bot}" rx="${r + 1}" stroke-width="1.6"/>
+    <rect x="3" y="3" width="244" height="344" rx="10" stroke-width="4"/>
+  </g>`;
+}
+
+// Holo: a rainbow sheen and fine glitter over the art window (the whole card on full art).
 function holoLayer(inst, p, o, dx, dy) {
-  const box = inst.line === 'bl' ? [22, 48, 206, 138] : [22, 46, 206, 170];
-  return `<linearGradient id="${p}holo" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff50dc" stop-opacity="0"/><stop offset=".3" stop-color="#ff50dc" stop-opacity=".55"/><stop offset=".5" stop-color="#50f0ff" stop-opacity=".55"/><stop offset=".7" stop-color="#fff56e" stop-opacity=".5"/><stop offset="1" stop-color="#fff56e" stop-opacity="0"/></linearGradient>
-  <rect class="holo-sheen" x="${box[0] + dx}" y="${box[1] + dy}" width="${box[2]}" height="${box[3]}" fill="url(#${p}holo)" style="mix-blend-mode:screen"/>`;
+  const box = inst.v && inst.v.fullart ? [0, 0, 250, 350] : ART_BOX[inst.line] || [22, 46, 206, 170];
+  const id = p + 'holo' + (o.tilt && dx !== (inst.dx || 0) ? 't' : '');
+  return `<linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff50dc" stop-opacity="0"/><stop offset=".3" stop-color="#ff50dc" stop-opacity=".5"/><stop offset=".5" stop-color="#50f0ff" stop-opacity=".5"/><stop offset=".7" stop-color="#fff56e" stop-opacity=".45"/><stop offset="1" stop-color="#fff56e" stop-opacity="0"/></linearGradient>
+  <pattern id="${id}g" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(30)"><circle cx="2" cy="2" r=".7" fill="#ffffff"/><circle cx="6.5" cy="6" r=".45" fill="#bff8ff"/></pattern>
+  <rect x="${box[0] + dx}" y="${box[1] + dy}" width="${box[2]}" height="${box[3]}" fill="url(#${id}g)" opacity=".5" style="mix-blend-mode:screen"/>
+  <rect class="holo-sheen" x="${box[0] + dx}" y="${box[1] + dy}" width="${box[2]}" height="${box[3]}" fill="url(#${id})" opacity="${inst.v.fullart ? 0.6 : 1}" style="mix-blend-mode:screen"/>`;
 }
 
 // Defects: corner/edge/surface marks. Severity 1 marks only show under the loupe.
@@ -433,7 +370,7 @@ function microLayer(inst, p, fakePrint, o = {}, face = 'front', dx = 0, dy = 0) 
   else s += `<rect width="250" height="350" fill="url(#${p}ros)" opacity=".22" style="mix-blend-mode:multiply"/>`;
   if (face === 'front' && inst.v && inst.v.holo) {
     const ccw = inst.fake && inst.fake.kinds.includes('swirl');
-    const box = inst.line === 'bl' ? [22, 48, 206, 138] : inst.line === 'rd' ? [30, 64, 190, 152] : inst.line === 'ga' ? [24, 46, 202, 150] : [22, 46, 206, 170];
+    const box = inst.v.fullart ? [8, 8, 234, 334] : ART_BOX[inst.line];
     s += `<clipPath id="${p}sw"><rect x="${box[0] + dx}" y="${box[1] + dy}" width="${box[2]}" height="${box[3]}"/></clipPath><g clip-path="url(#${p}sw)">${swirl(box[0] + box[2] / 2 + dx, box[1] + box[3] / 2 + dy, ccw ? -1 : 1)}</g>`;
   }
   // Gold leaf flakes on genuine Hollow Pantheon, under the microscope only.

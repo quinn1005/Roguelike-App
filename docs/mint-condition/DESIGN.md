@@ -1,4 +1,4 @@
-# Mint Condition: design (v1.0)
+# Mint Condition: design (v1.1)
 
 A dark card-grading game. You're a new grader at **Gemline Authentication**, in a city
 caught in a card-collecting craze. By day you inspect submissions, catch fakes and assign
@@ -7,6 +7,9 @@ Your choices at the desk decide how the story ends.
 
 **Tone:** properly dark. Debt, intimidation, desperate clients and a boss who profits
 from corruption. The crooked paths have real victims, including you.
+
+**Look:** the world is grimy, grainy and underlit. The cards are the exception: bright,
+cheerful and untouched by the grime, the only happy thing in it.
 
 **Pillars**
 1. Every card is a small puzzle (30–90 seconds) with a clear answer.
@@ -61,7 +64,8 @@ Generic tells: smeared print, wrong copyright, modern paper (UV), wrong back, wr
 - **Reputation** (0–100): +1 per correct call, −3 per citation, +2 clean quota day, +5 per completed set. Zero means fired.
 - **Suspicion** (0–100): bribes, passing Carrow's fakes, inflating grades, the ring deal. 100 means arrested.
 - **Integrity** (hidden): honest and dishonest choices; shapes which endings are offered.
-- **Value** = base (c $2, u $6, r $30) × variant × condition (raw) or grade (slab) × market. Slabs are worth more than raw cards. Every 10 you hand out raises the population count and lowers what 10s are worth.
+- **Sets:** every line has 30 cards: 14 common, 9 uncommon, 5 rare, 2 mythic rare. Any card can be holo (×4); mythics also come as full art (×4) and full art holo (×16).
+- **Value** = base (c $2, u $6, r $30, m $60) × variant × condition (raw) or grade (slab) × market. Slabs are worth more than raw cards. Every 10 you hand out raises the population count and lowers what 10s are worth.
 
 ## Collecting
 
@@ -89,4 +93,4 @@ Generic tells: smeared print, wrong copyright, modern paper (UV), wrong back, wr
 
 ## Extras
 
-Codex of 28 tells and versions (unlocked by catching, being cited, or finding them), 24 achievements kept across runs, music and effects volume, and three shift speeds.
+Codex of 29 tells and versions (unlocked by catching, being cited, or finding them), 26 achievements kept across runs, music and effects volume, and three shift speeds.

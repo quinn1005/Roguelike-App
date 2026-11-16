@@ -1169,7 +1169,7 @@ function showShop() {
     if (tab === 'packs') {
       const price = (l) => Math.max(3, Math.round(PACKS[l].price * (0.6 + weekOf(S.day).market * 0.4)));
       body.innerHTML = `<div class="packs">${unlockedLines().map((l) => `<button class="packbtn" data-pack="${l}" ${S.money < price(l) ? 'disabled' : ''}>${packSVG(l)}<b>${PACKS[l].label}</b><span style="color:var(--muted)">${PACKS[l].sub}</span><span class="mono" style="color:var(--lamp)">${money(price(l))}</span></button>`).join('')}</div>
-        <p style="color:var(--muted);font-size:13px;margin:0">Five cards a pack: three commons, an uncommon, and a shot at a rare.</p>`;
+        <p style="color:var(--muted);font-size:13px;margin:0">Five cards a pack: three commons, an uncommon, and a shot at a rare (or, rarely, a mythic). Any card can come holo.</p>`;
       $$('[data-pack]', body).forEach((b) => b.onclick = () => { const l = b.dataset.pack; S.money -= price(l); save(); openPack(l, draw); });
     }
     if (tab === 'singles') {
@@ -1210,7 +1210,8 @@ function packSVG(line) {
 
 function rollPack(line) {
   const R = cityRng();
-  const slots = ['c', 'c', 'c', 'u', R() < 0.32 ? 'r' : 'u'];
+  const last = R();
+  const slots = ['c', 'c', 'c', 'u', last < 0.045 ? 'm' : last < 0.32 ? 'r' : 'u'];
   return slots.map((r) => {
     const opts = CARDS[line].filter((c) => c.r === r);
     const c = R.pick(opts.length ? opts : CARDS[line]);
@@ -1226,14 +1227,15 @@ function rollPack(line) {
 // 1 common · 2 uncommon · 3 rare or holo · 4 chase version
 function rank(inst) {
   const r = CARDS[inst.line].find((x) => x.n === inst.n).r;
-  let k = r === 'r' ? 3 : r === 'u' ? 2 : 1;
+  let k = r === 'm' ? 4 : r === 'r' ? 3 : r === 'u' ? 2 : 1;
   const v = inst.v;
   if (v.holo || v.gold) k = Math.max(k, 3);
-  if (v.noYellow || v.first || v.shadowless || v.hidden || v.secret || v.alpha || v.serial || v.inverted || v.vintage || v.run1) k = 4;
+  if (v.fullart || v.noYellow || v.first || v.shadowless || v.hidden || v.secret || v.alpha || v.serial || v.inverted || v.vintage || v.run1) k = 4;
   return k;
 }
 function rankLabel(inst) {
   const v = inst.v;
+  if (v.fullart) return v.holo ? 'FULL ART HOLO!!' : 'FULL ART!';
   if (v.noYellow || v.inverted) return 'MISPRINT!';
   if (v.secret) return 'SECRET RARE!';
   if (v.first) return '1ST EDITION!';
@@ -1243,8 +1245,8 @@ function rankLabel(inst) {
   if (v.serial) return 'SERIALIZED!';
   if (v.gold) return 'GOLD NAME!';
   const r = CARDS[inst.line].find((x) => x.n === inst.n).r;
-  if (v.holo) return r === 'r' ? 'HOLO RARE!' : 'HOLO!';
-  return r === 'r' ? 'RARE!' : r === 'u' ? 'Uncommon' : 'Common';
+  if (v.holo) return r === 'm' ? 'MYTHIC HOLO!' : r === 'r' ? 'HOLO RARE!' : 'HOLO!';
+  return r === 'm' ? 'MYTHIC RARE!' : r === 'r' ? 'RARE!' : r === 'u' ? 'Uncommon' : 'Common';
 }
 
 function particles(host, k) {
@@ -1352,6 +1354,7 @@ function revealPack(ov, cards, owned, after) {
       if (k >= 3) {
         sfx('impact'); setTimeout(() => sfx('sparkle'), 120);
         if (c.v.holo) setTimeout(() => sfx('holo'), 250);
+        if (CARDS[c.line].find((x) => x.n === c.n).r === 'm') { achieve('mythic'); if (c.v.fullart) learn('fullart'); if (c.v.fullart && c.v.holo) achieve('fullart_holo'); }
         if (k >= 4) setTimeout(() => sfx('fanfare'), 380);
         ov.classList.add('rays-on', k >= 4 ? 'r4' : 'r3');
         particles(stage, k);
