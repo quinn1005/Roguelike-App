@@ -294,7 +294,7 @@ function spFront(inst, p) {
   <text x="${c.val > 9 ? 66 : 46}" y="44" font-family="${MONO}" font-size="7" letter-spacing="1" fill="#1b2a6b">LUMENS</text>
   <text x="226" y="34" text-anchor="end" font-family="${MONO}" font-size="8.5" letter-spacing="3" fill="#1b2a6b">STARPOST</text>
   <text x="226" y="46" text-anchor="end" font-family="${MONO}" font-size="6" letter-spacing="2" fill="#1b2a6b">GALACTIC MAIL · YR 3012</text>
-  <g clip-path="url(#${p}sw)"><rect x="24" y="70" width="202" height="170" fill="url(#${p}ss)"/><g ${inv ? 'transform="rotate(180 125 155)"' : ''}>${spArt(c.art.subj)}</g></g>
+  <g clip-path="url(#${p}sw)"><rect x="24" y="70" width="202" height="170" fill="url(#${p}ss)"/><g ${inv ? 'transform="rotate(180 125 155)"' : ''}>${spArt(c.art.subj, c.art.comp)}</g></g>
   <rect x="24" y="70" width="202" height="170" fill="none" stroke="#1b2a6b" stroke-width="1.2"/>
   <text x="125" y="266" text-anchor="middle" font-family="Righteous,sans-serif" font-size="${fit(c.name.toUpperCase(), 196, 18, 0.62)}" fill="#1b2a6b">${esc(c.name.toUpperCase())}</text>
   <text x="125" y="284" text-anchor="middle" font-family="Georgia,serif" font-style="italic" font-size="10" fill="#3a3a3a">${esc(c.sub)}</text>

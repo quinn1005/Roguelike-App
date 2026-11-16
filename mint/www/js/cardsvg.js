@@ -258,7 +258,7 @@ function artOnly(inst, p) {
     case 'hp': { const G = inst.v.vintage ? `url(#${p}tarn)` : `url(#${p}gold)`; return `<rect x="22" y="46" width="206" height="170" fill="#15110c"/><circle cx="125" cy="140" r="82" fill="none" stroke="${G}" stroke-width="40" stroke-dasharray="1.2 5" opacity=".4"/><circle cx="125" cy="140" r="60" fill="#15110c"/>${hpSym(a.sym, G)}`; }
     case 'ic': return icArt(c, p);
     case 'cf': return cfPhoto(a, p);
-    case 'sp': return `<rect x="24" y="70" width="202" height="170" fill="url(#${p}ss)"/><g ${inst.v.inverted ? 'transform="rotate(180 125 155)"' : ''}>${spArt(a.subj)}</g>`;
+    case 'sp': return `<rect x="24" y="70" width="202" height="170" fill="url(#${p}ss)"/><g ${inst.v.inverted ? 'transform="rotate(180 125 155)"' : ''}>${spArt(a.subj, a.comp)}</g>`;
     default: return '';
   }
 }

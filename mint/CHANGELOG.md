@@ -1,5 +1,13 @@
 # Mint Condition changelog
 
+## v1.2.0
+
+Every card is its own card.
+
+- **Grim Grocers redrawn by hand.** All 30 cards now have their own produce and a costume that fits the name: Ghoulash is a pot of stew, The Corn Reaper is an ear of corn with a scythe, Sir Squashalot wears a helmet and carries a shield, Radish Ripper carries a knife, Plague Plum wears a beak mask, and the ghosts (Banshee Banana, Poltergrape, Ghostato, Haunted Parsnip) are the produce itself turned see-through, not a sheet thrown over fruit. Fifteen new produce shapes, new costumes, held props and three new backdrops (lab, cornfield, cellar).
+- **No more repeats in the other sets.** Each set has a long list of subjects, and every card gets its own until the list runs out. Names come from the subject, so a card called Space Pigeon shows a pigeon. Where a subject does come back, it is drawn as a pair, a close-up, a group or from far off, in a different setting and colors.
+- **New subjects:** Bloomlings turtles, fawns, jellies and golems; Moth & Lantern ladybirds, scorpions, grasshoppers, stick insects, snails and chrysalises; Tidebound rays, nautiluses, starfish and squid; Rift Duelists liches, chimeras, harpies and titans; Grimoire Accord imps, owl familiars, giants and shades; six new Hollow Pantheon gods (30 symbols, one per card); Ironclad Derby motorbikes, sleds, walkers, boats, balloons and drills racing through deserts, cities, snow, bridges and canyons; Cryptid Field Notes worms, dog men, robed visitors, lizard men, blobs and the Hat Man; Starpost moons, telescopes, aliens, galaxies, suns and a space pigeon.
+
 ## v1.1.0
 
 A visual overhaul and a much bigger card pool.
