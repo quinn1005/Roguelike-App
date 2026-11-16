@@ -40,7 +40,7 @@ This folder holds the **first slice**: 5 in-game days, 3 card lines, 4 tools.
 
 ## Controls
 
-- **Hand:** tap the card to flip it.
+- **Hand:** tap the card to flip it. Fronts and backs have their own flaws.
 - **Loupe:** drag over the card to magnify it. Tap a flaw to tag it (a tap on nothing
   costs a minute). On a phone, the lens floats above your finger; lifting your finger
   after a drag tags only if the crosshair is on a flaw.
@@ -76,6 +76,7 @@ same stable key as Neon Bastion, so updates install over older versions.
 | `www/js/gen.js` | Card instances, flaws, variants, fakes, altered cards, submissions |
 | `www/js/story.js` | Story submissions, letters, evening events |
 | `www/js/scenes.js` | Street and location illustrations, and what Lou, Sal, the seller and Theo say |
+| `www/js/audio.js` | Procedural music and ambience for each screen, and all sound effects (Web Audio, no files) |
 | `www/js/game.js` | Screens: title, bulletin, desk, payday, city, shop, packs, bins, binder, endings |
 
 Fonts are bundled in `www/fonts` (SIL Open Font License, except Special Elite: Apache 2.0).

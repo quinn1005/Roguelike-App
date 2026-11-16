@@ -55,7 +55,13 @@ export function makeInst(R, line, n, quality) {
   return inst;
 }
 
-export function addDefect(R, inst, cat, sev) {
+export function addDefect(R, inst, cat, sev, faceArg) {
+  const r = addDefectRaw(R, inst, cat, sev);
+  if (r) r.face = faceArg || (R() < (cat === 'surface' ? 0.3 : 0.4) ? 'back' : 'front');
+  return r;
+}
+
+function addDefectRaw(R, inst, cat, sev) {
   const id = inst.defects.length ? Math.max(...inst.defects.map((d) => d.id)) + 1 : 1;
   if (cat === 'corner') {
     const used = inst.defects.filter((d) => d.cat === 'corner').map((d) => d.pos);

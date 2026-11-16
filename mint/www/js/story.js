@@ -13,6 +13,7 @@ export function storySubs(R, dayNum, flags) {
     inst.defects = [
       { id: 1, cat: 'corner', sev: 2, pos: 'tl' },
       { id: 2, cat: 'surface', sev: 1, kind: 'scratch', x: 160, y: 120, ang: 30 },
+      { id: 3, cat: 'corner', sev: 1, pos: 'br', face: 'back' },
     ];
     const sub = { inst, mismatch: null, story: 'tutorial' };
     sub.form = makeForm(R, inst, { client: 'Gemline intake (training)', tier: 'standard', declared: '$15' });

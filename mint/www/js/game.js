@@ -5,6 +5,7 @@ import { subsFrom, finalGrade, centerPct, gradeName, trueGrade } from './grading
 import { makeRng, makeSubmission, truthOf, makeInst, rollVariants, pickCard, pickQuality, cardValue, cardValueRaw, cardTitle, variantLabels, rarityName, blankInst, makeFake } from './gen.js';
 import { storySubs, onStoryStamp, morningLetters, eveningEvents, dayName } from './story.js';
 import { VERSION } from './version.js';
+import { unlockAudio, setScene, sfx, toggleMute, isMuted, duck } from './audio.js';
 import { streetSVG, shopSVG, marketSVG, dinerSVG, homeSVG, louLine, sellerLine, salLine, rumor, theoLine } from './scenes.js';
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -49,6 +50,7 @@ function letterHTML(l) {
 
 // Show a queue of letters/events one by one, then call done.
 function runEvents(list, done) {
+  setScene('story');
   if (!list.length) return done();
   const ev = list.shift();
   const choices = ev.choices || [{ id: 'ok', label: 'Continue' }];
@@ -69,6 +71,7 @@ function runEvents(list, done) {
 
 // ------------------------------------------------------------------ title
 function showTitle() {
+  setScene('title');
   closeAllModals();
   const saved = loadSave();
   const t = (l, n, v = {}) => { const i = blankInst(l, n); Object.assign(i.v, v); return cardSVG(i, { clean: true }); };
@@ -109,6 +112,7 @@ function newGame() {
 
 // ------------------------------------------------------------------ morning
 function showMorning() {
+  setScene('morning');
   closeAllModals();
   S.phase = 'morning';
   save();
@@ -164,25 +168,31 @@ function startShift() {
       <button class="btn small" id="clockout" hidden>Clock out</button>
     </div>
     <div class="desk-main">
+      <div class="panels" id="side" data-tab="form">
+        <div class="side-tabs" role="tablist"><button data-tab="form" aria-selected="true">Form</button><button data-tab="sheet" aria-selected="false">Worksheet</button><button class="close" id="sideClose" aria-label="Close">✕</button></div>
+        <div class="paper form" id="form"></div>
+        <div class="sheet" id="sheet"></div>
+      </div>
       <div class="stage-wrap" id="wrap">
         <div class="stage" id="stage"><div id="cardview" style="width:100%;height:100%"></div><div id="marks"></div>
           <div class="lens" id="lens" hidden><div class="inner" id="lensInner"></div><div class="cross"></div></div></div>
+        <div class="facetag" id="facetag">FRONT</div>
         <div class="coach" id="coach" hidden></div>
       </div>
-      <aside class="side" id="side" data-tab="form">
-        <div class="side-tabs" role="tablist"><button data-tab="form" aria-selected="true">Form</button><button data-tab="sheet" aria-selected="false">Worksheet</button></div>
-        <div class="side-body"><div class="paper form" id="form"></div><div class="sheet-wrap"><div class="sheet" id="sheet"></div></div></div>
-      </aside>
     </div>
+    <button class="infostrip" id="strip" aria-label="Show the form and worksheet"></button>
     <div class="toolbar" id="toolbar">
       ${['hand', 'loupe', 'ruler', 'uv', 'binder'].map((t) => `<button class="tool" data-tool="${t}" ${cfg.tools.includes(t) ? '' : 'disabled title="Not issued yet"'}>${ICONS[t]}<span>${TOOLS[t].name}</span></button>`).join('')}
       <button class="verdict-btn" id="verdictBtn">VERDICT</button>
     </div>
   </div>`;
-  $$('.side-tabs button').forEach((b) => b.onclick = () => {
+  $$('.side-tabs button[data-tab]').forEach((b) => b.onclick = () => {
     $('#side').dataset.tab = b.dataset.tab;
-    $$('.side-tabs button').forEach((x) => x.setAttribute('aria-selected', x === b ? 'true' : 'false'));
+    $$('.side-tabs button[data-tab]').forEach((x) => x.setAttribute('aria-selected', x === b ? 'true' : 'false'));
   });
+  $('#strip').onclick = () => { $('#side').classList.toggle('open'); sfx('ui'); };
+  $('#sideClose').onclick = () => $('#side').classList.remove('open');
+  setScene('desk');
   $$('.tool').forEach((b) => b.onclick = () => useTool(b.dataset.tool));
   $('#verdictBtn').onclick = openVerdict;
   $('#clockout').onclick = () => {
@@ -224,7 +234,9 @@ function updateTop() {
   const c = $('#clock');
   c.textContent = clockStr(Math.min(D.minute, 480));
   c.classList.toggle('late', D.minute >= 420);
-  $('#quota').textContent = `${D.served}/${D.cfg.quota} cards`;
+  if (D.minute >= 420 && !D.ended) setScene('deskLate');
+  $('#quota').textContent = `${D.served}/${D.cfg.quota}`;
+  $('#quota').title = 'Cards graded / quota';
   $('#cash').textContent = money(S.money);
   $('#cites').textContent = `⚠ ${S.citations + D.cites}/${MAX_CITATIONS}`;
   $('#clockout').hidden = D.served < D.cfg.quota;
@@ -251,6 +263,8 @@ function fitStage() {
   const H = Math.max(120, Math.min(h, (w * 350) / 250));
   stage.style.height = H + 'px';
   stage.style.width = (H * 250) / 350 + 'px';
+  const tb = $('#toolbar');
+  if (tb) document.documentElement.style.setProperty('--tbh', tb.offsetHeight + 'px');
   renderMarks();
 }
 
@@ -265,9 +279,14 @@ function renderCard(slideIn) {
 function renderMarks() {
   const marks = $('#marks'), stage = $('#stage');
   if (!marks || !D || !D.sub) return;
-  if (D.face !== 'front') { marks.innerHTML = ''; return; }
   const list = D.sub.inst.defects.filter((d) => D.found.has(d.id));
-  marks.innerHTML = list.map((d, i) => { const [x, y] = hitPoint(d); return `<div class="tagmark" style="left:${(x / 250) * 100}%;top:${(y / 350) * 100}%">${i + 1}</div>`; }).join('');
+  marks.innerHTML = list.map((d, i) => {
+    if ((d.face || 'front') !== D.face) return '';
+    const [x, y] = hitPoint(d);
+    return `<div class="tagmark" style="left:${(x / 250) * 100}%;top:${(y / 350) * 100}%">${i + 1}</div>`;
+  }).join('');
+  const ft = $('#facetag');
+  if (ft) ft.textContent = D.face === 'front' ? 'FRONT' : 'BACK';
 }
 
 function renderForm() {
@@ -282,6 +301,16 @@ function renderForm() {
       <dt>Variant</dt><dd>${f.claims.length ? esc(f.claims.join(', ')) : 'None claimed'}</dd>
       <dt>Declared</dt><dd>${esc(f.declared)}</dd>
     </dl>${f.note ? `<div class="note">${esc(f.note)}</div>` : ''}`;
+  renderStrip();
+}
+
+// Phone-sized summary of the form and the worksheet, under the card.
+function renderStrip() {
+  const el = $('#strip');
+  if (!el || !D || !D.sub) return;
+  const f = D.sub.form, L = LINES[f.line], w = worksheet();
+  el.innerHTML = `<span class="s-main"><b>${esc(f.name)}</b><span>${L.setCode} ${pad3(f.n)} · ${f.claims.length ? esc(f.claims.join(', ')) : 'No variant claimed'}${f.note ? ' · <i>note attached</i>' : ''}</span></span>
+    <span class="s-grade"><b>${fmtG(w.grade)}</b><small>${D.measured ? '' : 'ctr? · '}${w.found.length} tagged</small></span><span class="s-chev" aria-hidden="true">⌃</span>`;
 }
 
 function worksheet() {
@@ -302,7 +331,8 @@ function renderSheet() {
       ${cats.map(([n, k]) => `<span>${n}</span><span class="v">${fmtG(w.subs[k])}</span>`).join('')}
     </div>
     <div class="grade-big"><span class="num">${fmtG(w.grade)}</span><span class="nm">${gradeName(w.grade, w.subs)}</span></div>
-    <ul class="taglist">${w.found.length ? w.found.map((d, i) => `<li>${i + 1}. <b>${defectName(d)}</b></li>`).join('') : '<li>No flaws tagged yet.</li>'}</ul>`;
+    <ul class="taglist">${w.found.length ? w.found.map((d, i) => `<li>${i + 1}. <b>${defectName(d)}</b></li>`).join('') : '<li>No flaws tagged yet. Check both sides.</li>'}</ul>`;
+  renderStrip();
 }
 
 function updateTools() {
@@ -318,6 +348,7 @@ function updateTools() {
 
 function useTool(t) {
   if (!D || D.ended || D.busy) return;
+  sfx('tool');
   if (t === 'hand' || t === 'loupe') { D.tool = t; $('#lens').hidden = true; }
   if (t === 'ruler') {
     if (!D.paid.ruler) { D.paid.ruler = true; addMinutes(3); }
@@ -338,6 +369,7 @@ function useTool(t) {
 }
 
 function flip() {
+  sfx('flip');
   const cv = $('#cardview');
   cv.classList.remove('flipping'); void cv.offsetWidth; cv.classList.add('flipping');
   setTimeout(() => { D.face = D.face === 'front' ? 'back' : 'front'; renderCard(); }, 170);
@@ -347,11 +379,17 @@ function bindStage() {
   const stage = $('#stage'), lens = $('#lens');
   let st = null;
   const pt = (e) => { const r = stage.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top, w: r.width, h: r.height }; };
+  // The lens floats above a finger. Near the top of the screen it moves to the
+  // side instead, and it is always kept fully on screen.
   const showLens = (p, touch) => {
-    const Z = 3.2, R = 75;
+    const Z = 3.2, R = 75, r = stage.getBoundingClientRect();
     lens.hidden = false;
-    lens.style.left = p.x - R + 'px';
-    lens.style.top = p.y - R - (touch ? 95 : 0) + 'px';
+    let cx = p.x, cy = touch ? p.y - 95 : p.y;
+    if (touch && r.top + cy - R < 6) { cy = p.y; cx = p.x + (p.x > p.w / 2 ? -110 : 110); }
+    const vx = Math.min(Math.max(r.left + cx, R + 4), window.innerWidth - R - 4);
+    const vy = Math.min(Math.max(r.top + cy, R + 4), window.innerHeight - R - 4);
+    lens.style.left = vx - r.left - R + 'px';
+    lens.style.top = vy - r.top - R + 'px';
     const inner = $('#lensInner');
     inner.style.width = p.w * Z + 'px'; inner.style.height = p.h * Z + 'px';
     inner.style.left = -(p.x * Z) + R + 'px'; inner.style.top = -(p.y * Z) + R + 'px';
@@ -396,26 +434,28 @@ function segDist(px, py, d) {
 }
 
 function tagAt(p, quiet) {
-  if (D.face !== 'front') { toast('Tag flaws on the front. Flip the card back with the Hand.'); return; }
   const x = (p.x / p.w) * 250, y = (p.y / p.h) * 350;
   const inst = D.sub.inst;
   const R = { 1: 12, 2: 16, 3: 20 };
+  const onFace = (d) => (d.face || 'front') === D.face;
   let best = null, bd = 1e9;
   inst.defects.forEach((d) => {
-    if (D.found.has(d.id)) return;
+    if (D.found.has(d.id) || !onFace(d)) return;
     if (inst.alt && inst.alt.kind === 'recolor' && inst.alt.hidden === d.id) return;
     const dist = d.kind === 'crease' ? segDist(x, y, d) : Math.hypot(x - hitPoint(d)[0], y - hitPoint(d)[1]);
     if (dist < R[d.sev] && dist < bd) { best = d; bd = dist; }
   });
   if (best) {
     D.found.add(best.id);
+    sfx('tag');
     toast(defectName(best) + ' tagged', 'good');
     renderMarks(); renderSheet();
     coach();
   } else {
-    const already = inst.defects.some((d) => D.found.has(d.id) && Math.hypot(x - hitPoint(d)[0], y - hitPoint(d)[1]) < 16);
+    const already = inst.defects.some((d) => D.found.has(d.id) && onFace(d) && Math.hypot(x - hitPoint(d)[0], y - hitPoint(d)[1]) < 16);
     if (already) { if (!quiet) toast('Already tagged.'); return; }
     if (quiet) return;
+    sfx('miss');
     const mm = document.createElement('div');
     mm.className = 'missmark';
     mm.style.left = (x / 250) * 100 + '%'; mm.style.top = (y / 350) * 100 + '%';
@@ -442,7 +482,7 @@ function coach() {
   const steps = [
     '<b>1.</b> Read the submission form, then compare it with the card: name, number and claimed variant must all match. <button class="btn small primary" id="cnext">Got it</button>',
     '<b>2.</b> Pick the <b>Loupe</b>. Drag across the card to magnify it, and tap a flaw to tag it. Check all four corners, the edges and the surface. Misses cost a minute.',
-    '<b>3.</b> Good. Keep hunting if you like, then use the <b>Ruler</b> to measure centering.',
+    '<b>3.</b> Good. Now flip the card with the <b>Hand</b>: the back has its own flaws. Then measure centering with the <b>Ruler</b>.',
     '<b>4.</b> Your <b>Worksheet</b> builds a grade from what you\'ve tagged and measured. When you\'re happy, press <b>Verdict</b>.',
   ];
   el.innerHTML = steps[D.coach];
@@ -531,6 +571,7 @@ function stamp(verdict, grade) {
   const label = { grade: 'GRADE ' + fmtG(grade), error: 'ERROR · ' + fmtG(grade), altered: 'ALTERED', counterfeit: 'COUNTERFEIT', return: 'RETURNED' }[verdict];
   const sa = document.createElement('div');
   sa.className = 'stamp-anim';
+  sfx('stamp');
   sa.innerHTML = `<span>${label}</span>`;
   $('#stage').appendChild(sa);
   $('#lens').hidden = true;
@@ -610,6 +651,7 @@ function gradeDetail(e) {
 }
 
 function citationSlip(e) {
+  sfx('citation');
   const wrap = $('#wrap');
   if (!wrap || !D || D.ended) return;
   const old = $('.citation', wrap); if (old) old.remove();
@@ -637,6 +679,7 @@ function citeReason(e) {
 }
 
 function showPayday() {
+  setScene('payday');
   $('#toasts').innerHTML = '';
   const rows = [];
   let pay = 0, bonus = 0, cites = 0;
@@ -713,6 +756,7 @@ function eveClock() {
 }
 
 function travel(text, then, ms = 1100) {
+  sfx('step');
   const t = document.createElement('div');
   t.className = 'travel';
   t.innerHTML = `<div class="travel-rain"></div><p>${esc(text)}</p><div class="steps"><span></span><span></span><span></span></div>`;
@@ -729,6 +773,7 @@ const PLACES = {
 };
 
 function showCity() {
+  setScene('street');
   closeAllModals();
   $('#toasts').innerHTML = '';
   S.phase = 'evening';
@@ -801,6 +846,8 @@ function cellHTML(inst, extra = '', cls = '') {
 }
 
 function showShop() {
+  setScene('shop');
+  sfx('bell');
   const stock = eveStock();
   let tab = 'packs';
   const root = locScreen('loc-shop', shopSVG(), `${eveClock()} · BRICK & MORTAR CARDS`, 'Lou\'s counter', 'Lou', louLine(S.flags, S.day));
@@ -820,7 +867,7 @@ function showShop() {
     if (tab === 'singles') {
       body.innerHTML = `<p style="color:var(--muted);font-size:13px;margin:0">Lou prices by eye, and his eyes are tired. Tap a card for a closer look.</p>
         <div class="cardgrid">${stock.singles.map((x, i) => x.sold ? '' : `<div class="cardcell" style="cursor:default"><button class="cardcell" data-look="${i}">${cardSVG(x.inst)}</button><span>${esc(cardTitle(x.inst))}</span><span class="price">${esc(x.label)} · ${money(x.price)}</span><button class="btn small primary" data-buy="${i}" ${S.money < x.price ? 'disabled' : ''}>Buy</button></div>`).join('') || '<p>Sold out.</p>'}</div>`;
-      $$('[data-buy]', body).forEach((b) => b.onclick = () => { const x = stock.singles[+b.dataset.buy]; S.money -= x.price; x.sold = true; S.collection.push(x.inst); toast('Added to your binder', 'good'); save(); draw(); });
+      $$('[data-buy]', body).forEach((b) => b.onclick = () => { const x = stock.singles[+b.dataset.buy]; S.money -= x.price; x.sold = true; S.collection.push(x.inst); sfx('cash'); toast('Added to your binder', 'good'); save(); draw(); });
       $$('[data-look]', body).forEach((b) => b.onclick = () => viewer(stock.singles[+b.dataset.look].inst, { hideInfo: true }));
     }
     if (tab === 'sell') {
@@ -828,7 +875,7 @@ function showShop() {
       body.innerHTML = `<p style="color:var(--muted);font-size:13px;margin:0">Lou pays half of what a card is worth. Cheap cards aren't worth his time.</p>
         <div class="cardgrid">${list.map((x) => `<div class="cardcell" style="cursor:default"><button class="cardcell" data-look="${x.i}">${cardSVG(x.inst)}</button><span>${esc(cardTitle(x.inst))}</span><button class="btn small" data-sell="${x.i}" ${x.v < 1 ? 'disabled' : ''}>${x.v < 1 ? 'No offer' : 'Sell ' + money(x.v)}</button></div>`).join('') || '<p>Your binder is empty.</p>'}</div>`;
       $$('[data-sell]', body).forEach((b) => b.onclick = () => {
-        if (b.dataset.armed) { const idx = +b.dataset.sell; const inst = S.collection[idx]; S.money += Math.floor(cardValue(inst) * 0.5); S.collection.splice(idx, 1); toast('Sold', 'good'); save(); draw(); return; }
+        if (b.dataset.armed) { const idx = +b.dataset.sell; const inst = S.collection[idx]; S.money += Math.floor(cardValue(inst) * 0.5); S.collection.splice(idx, 1); sfx('cash'); toast('Sold', 'good'); save(); draw(); return; }
         b.dataset.armed = '1'; b.textContent = 'Tap again to sell'; b.classList.add('danger');
       });
       $$('[data-look]', body).forEach((b) => b.onclick = () => viewer(S.collection[+b.dataset.look]));
@@ -863,53 +910,194 @@ function rollPack(line) {
   });
 }
 
-function openPack(line, after) {
-  const cards = rollPack(line);
-  const m = modal(`<h2>${PACKS[line].label}</h2><div class="pack-stage" id="pstage">
-      <p class="tear-hint">Drag across the top of the pack to tear it open. Go slowly.</p>
-      <div class="pack-wrap" id="pack">${packSVG(line)}</div></div>`, { dismiss: false, onClose: after });
-  const pack = $('#pack', m);
-  let st = null;
-  pack.addEventListener('pointerdown', (e) => {
-    const r = pack.getBoundingClientRect();
-    if (e.clientY - r.top > r.height * 0.3) return;
-    st = { x: e.clientX, t: Date.now(), w: r.width };
-    try { pack.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
-  });
-  pack.addEventListener('pointerup', (e) => {
-    if (!st) return;
-    const dist = Math.abs(e.clientX - st.x), dt = Date.now() - st.t;
-    if (dist < st.w * 0.55) { st = null; toast('Drag all the way across.'); return; }
-    if (dt < 260) {
-      const front = cards[0];
-      front.defects.push({ id: 90, cat: 'surface', sev: 3, kind: 'crease', x: 125, y: 175, ang: 12 });
-      toast('Too fast. You creased the front card.', 'bad');
-    }
-    st = null;
-    revealPack(m, cards, line);
-  });
+// ------------------------------------------------------------------ pack opening
+// 1 common · 2 uncommon · 3 rare or holo · 4 chase variant
+function rank(inst) {
+  const r = CARDS[inst.line].find((x) => x.n === inst.n).r;
+  let k = r === 'r' ? 3 : r === 'u' ? 2 : 1;
+  if (inst.v.holo) k = Math.max(k, 3);
+  if (inst.v.noYellow || inst.v.first || inst.v.shadowless) k = 4;
+  return k;
+}
+function rankLabel(inst) {
+  if (inst.v.noYellow) return 'MISPRINT!';
+  if (inst.v.first) return '1ST EDITION!';
+  if (inst.v.shadowless) return 'SHADOWLESS!';
+  const r = CARDS[inst.line].find((x) => x.n === inst.n).r;
+  if (inst.v.holo) return r === 'r' ? 'HOLO RARE!' : 'HOLO!';
+  return r === 'r' ? 'RARE!' : r === 'u' ? 'Uncommon' : 'Common';
 }
 
-function revealPack(m, cards, line) {
-  let i = 0;
-  const body = $('#pstage', m);
+function particles(host, k) {
+  const cols = k >= 4 ? ['#ff4fd8', '#2ee6ff', '#ffe45c', '#3fe08a', '#ffffff'] : k === 3 ? ['#f2c46d', '#fff3c4', '#ffffff'] : ['#9fd4ff', '#ffffff'];
+  const n = k >= 4 ? 70 : k === 3 ? 44 : 16;
+  for (let i = 0; i < n; i++) {
+    const p = document.createElement('span');
+    p.className = 'pt';
+    const a = Math.random() * Math.PI * 2, d = 120 + Math.random() * (k >= 3 ? 260 : 120);
+    p.style.setProperty('--dx', Math.cos(a) * d + 'px');
+    p.style.setProperty('--dy', Math.sin(a) * d + 'px');
+    p.style.setProperty('--c', cols[i % cols.length]);
+    p.style.setProperty('--s', (3 + Math.random() * 6) + 'px');
+    p.style.animationDelay = Math.random() * 0.12 + 's';
+    host.appendChild(p);
+    setTimeout(() => p.remove(), 1600);
+  }
+}
+
+function openPack(line, after) {
+  duck(true);
+  const cards = rollPack(line).sort((a, b) => rank(a) - rank(b));
+  const owned = new Set(S.collection.map((x) => x.line + ':' + x.n));
+  const ov = document.createElement('div');
+  ov.className = 'packopen';
+  ov.innerHTML = `<div class="po-rays"></div>
+    <div class="po-top"><span class="kicker">${esc(PACKS[line].label)}</span><span class="mono" id="poCount"></span><button class="btn small" id="poSkip" hidden>Reveal all</button></div>
+    <div class="po-stage" id="poStage">
+      <div class="po-pack" id="poPack">
+        <div class="po-body">${packSVG(line)}</div>
+        <div class="po-strip">${packSVG(line)}</div>
+        <div class="po-seam"><div class="po-cut" id="poCut"></div></div>
+        <div class="po-light"></div>
+      </div>
+    </div>
+    <p class="po-hint" id="poHint">Drag along the top seam to tear it open. <span>Slowly.</span></p>
+    <div class="po-tray" id="poTray"></div>`;
+  document.body.appendChild(ov);
+  const pack = $('#poPack', ov), cut = $('#poCut', ov);
+  let st = null, done = false, last = 0;
+  pack.addEventListener('pointerdown', (e) => {
+    if (done) return;
+    const r = pack.getBoundingClientRect();
+    if (e.clientY - r.top > r.height * 0.4) { pack.classList.remove('wiggle'); void pack.offsetWidth; pack.classList.add('wiggle'); sfx('rustle'); return; }
+    st = { x0: e.clientX, t0: Date.now(), w: r.width, max: 0 };
+    try { pack.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    sfx('rustle');
+  });
+  pack.addEventListener('pointermove', (e) => {
+    if (!st || done) return;
+    const prog = Math.min(1, Math.abs(e.clientX - st.x0) / (st.w * 0.8));
+    if (prog > st.max) {
+      const now = Date.now();
+      if (now - last > 35) { sfx('tear', { v: Math.min(1, (prog - st.max) * 8) }); last = now; }
+      st.max = prog;
+      cut.style.transform = `scaleX(${prog})`;
+      cut.style.transformOrigin = e.clientX >= st.x0 ? 'left' : 'right';
+      pack.style.setProperty('--tilt', (prog * 4 * (e.clientX >= st.x0 ? 1 : -1)) + 'deg');
+    }
+    if (st.max >= 1) finishTear();
+  });
+  pack.addEventListener('pointerup', () => { if (!done && st && st.max < 1) { cut.style.transform = 'scaleX(0)'; pack.style.setProperty('--tilt', '0deg'); toast('Drag all the way along the seam.'); } st = null; });
+  const finishTear = () => {
+    done = true;
+    const fast = Date.now() - st.t0 < 260;
+    st = null;
+    if (fast) {
+      cards[0].defects.push({ id: 90, cat: 'surface', sev: 3, kind: 'crease', x: 125, y: 175, ang: 12, face: 'front' });
+      sfx('crunch');
+      toast('Too fast. You creased a card.', 'bad');
+    }
+    sfx('rip');
+    pack.classList.add('torn');
+    $('#poHint', ov).textContent = '';
+    setTimeout(() => { sfx('whoosh'); revealPack(ov, cards, owned, after); }, 900);
+  };
+}
+
+function revealPack(ov, cards, owned, after) {
+  const stage = $('#poStage', ov), tray = $('#poTray', ov), hint = $('#poHint', ov), count = $('#poCount', ov);
+  let i = 0, phase = 'ready', busy = false;
+  const skip = $('#poSkip', ov);
+  skip.hidden = false;
   const show = () => {
-    if (i >= cards.length) {
-      body.innerHTML = `<div class="cardgrid" style="width:100%">${cards.map((c, k) => `<button class="cardcell" data-k="${k}">${cardSVG(c)}<span>${esc(cardTitle(c))}</span></button>`).join('')}</div>
-        <button class="btn primary" data-done>Add all to binder</button>`;
-      $$('[data-k]', body).forEach((b) => b.onclick = () => viewer(cards[+b.dataset.k]));
-      $('[data-done]', body).onclick = () => { S.collection.push(...cards); save(); m.close(); };
+    count.textContent = `${i + 1} / ${cards.length}`;
+    const c = cards[i], k = rank(c);
+    stage.innerHTML = `<div class="po-stack">${cards.slice(i + 1).map((_, n) => `<div class="po-under" style="--n:${n + 1}"></div>`).join('')}</div>
+      <div class="po-card enter k${k}" id="poCard"><div class="po-flip"><div class="po-face back">${cardSVG(c, { face: 'back' })}</div><div class="po-face front">${cardSVG(c)}${c.v.holo || k >= 4 ? '<div class="po-holo"></div>' : ''}</div></div></div>
+      <div class="po-banner" id="poBanner"></div>`;
+    hint.textContent = 'Tap to flip';
+    phase = 'ready';
+    ov.classList.remove('rays-on', 'r3', 'r4');
+    $('#poCard', ov).onclick = tapCard;
+  };
+  const flipNow = () => {
+    const c = cards[i], k = rank(c), card = $('#poCard', ov);
+    card.classList.remove('charging');
+    card.classList.add('flipped');
+    sfx('whoosh');
+    const isNew = !owned.has(c.line + ':' + c.n);
+    if (isNew) owned.add(c.line + ':' + c.n);
+    setTimeout(() => {
+      const b = $('#poBanner', ov);
+      b.innerHTML = `<b>${esc(rankLabel(c))}</b><span>${esc(cardTitle(c))}${isNew ? ' <em>NEW</em>' : ''}</span>`;
+      b.className = `po-banner show k${k}`;
+      if (k === 1) sfx('common');
+      if (k === 2) { sfx('uncommon'); particles(stage, 2); }
+      if (k >= 3) {
+        sfx('impact'); setTimeout(() => sfx('sparkle'), 120);
+        if (c.v.holo) setTimeout(() => sfx('holo'), 250);
+        if (k >= 4) setTimeout(() => sfx('fanfare'), 380);
+        ov.classList.add('rays-on', k >= 4 ? 'r4' : 'r3');
+        particles(stage, k);
+        ov.classList.remove('shake'); void ov.offsetWidth; ov.classList.add('shake');
+      }
+      phase = 'shown'; busy = false;
+      hint.textContent = i < cards.length - 1 ? 'Tap for the next card' : 'Tap to see your pull';
+    }, 330);
+  };
+  function tapCard() {
+    if (busy) return;
+    const c = cards[i], k = rank(c), card = $('#poCard', ov);
+    if (phase === 'ready') {
+      busy = true;
+      if (k >= 3) {
+        card.classList.add('charging', 'c' + k);
+        hint.textContent = k >= 4 ? 'Something is very wrong with this card…' : 'This one feels different…';
+        sfx('riser');
+        setTimeout(flipNow, 1050);
+      } else flipNow();
       return;
     }
-    const c = cards[i];
-    const special = c.v.holo || c.v.noYellow || CARDS[line].find((x) => x.n === c.n).r === 'r';
-    body.innerHTML = `<p class="tear-hint">${i + 1} of ${cards.length} · tap to flip the next card</p><div class="reveal ${special ? 'rare' : ''}">${cardSVG(c)}</div><p>${esc(cardTitle(c))}${variantLabels(c.v).length ? ' · ' + variantLabels(c.v).join(', ') : ''}</p>`;
-    $('.reveal', body).onclick = () => { i++; show(); };
+    if (phase === 'shown') {
+      const t = document.createElement('div');
+      t.className = 'po-thumb k' + k;
+      t.innerHTML = cardSVG(c);
+      tray.appendChild(t);
+      card.classList.add('leave');
+      sfx('ui');
+      busy = true;
+      setTimeout(() => { busy = false; i++; if (i < cards.length) show(); else summary(); }, 260);
+    }
+  }
+  const summary = () => {
+    skip.hidden = true;
+    ov.classList.remove('rays-on', 'r3', 'r4');
+    count.textContent = '';
+    tray.innerHTML = '';
+    const total = cards.reduce((a, c) => a + cardValue(c), 0);
+    const best = cards[cards.length - 1];
+    stage.innerHTML = `<div class="po-fan">${cards.map((c, n) => `<button class="po-fcard k${rank(c)}" style="--i:${n};--r:${(n - (cards.length - 1) / 2) * 9}deg;--y:${Math.abs(n - (cards.length - 1) / 2) * 12}px" data-k="${n}">${cardSVG(c)}</button>`).join('')}</div>`;
+    hint.innerHTML = `Worth about <b>${money(total)}</b>. Best pull: ${esc(cardTitle(best))}${variantLabels(best.v).length ? ' (' + esc(variantLabels(best.v).join(', ')) + ')' : ''}.`;
+    const btn = document.createElement('button');
+    btn.className = 'btn primary po-done';
+    btn.textContent = 'Add to binder';
+    hint.after(btn);
+    $$('[data-k]', stage).forEach((b) => b.onclick = () => viewer(cards[+b.dataset.k]));
+    btn.onclick = () => {
+      S.collection.push(...cards);
+      save();
+      sfx('collect');
+      ov.classList.add('closing');
+      duck(false);
+      setTimeout(() => { ov.remove(); if (after) after(); }, 300);
+    };
   };
+  skip.onclick = () => { if (busy) return; summary(); };
   show();
 }
 
 function showMarket() {
+  setScene('market');
   let digs = 0, cards = [], picked = new Set();
   const root = locScreen('loc-market', marketSVG(), `${eveClock()} · THE NIGHT MARKET`, 'Under the tarp', '', sellerLine());
   const keep = () => { picked.forEach((k) => S.collection.push(cards[k])); if (picked.size) toast(`${picked.size} added to your binder`, 'good'); picked = new Set(); };
@@ -955,6 +1143,7 @@ function showMarket() {
 }
 
 function showDiner() {
+  setScene('diner');
   const root = locScreen('loc-diner', dinerSVG(), `${eveClock()} · LAST STOP DINER`, 'Behind the counter', 'Sal', salLine());
   let worked = false;
   $('#leave').onclick = () => { if (!worked) toast('You leave without working. The bus fare was for nothing.'); save(); leaveTo(); };
@@ -970,6 +1159,7 @@ function showDiner() {
       worked = true;
       const tips = Math.floor(Math.random() * 11);
       S.money += 30 + tips;
+      sfx('cash');
       save();
       root.innerHTML = `<div class="paper letter"><div class="from">Overheard while pouring coffee</div><p>${esc(rumor(S.day, S.flags))}</p></div>
         <p style="margin:0">Sal counts out <b>${money(30)}</b> and pushes the tip jar across: <b>${money(tips)}</b>. Cash ${money(S.money)}.</p>
@@ -980,6 +1170,7 @@ function showDiner() {
 }
 
 function showHome() {
+  setScene('home');
   const root = locScreen('loc-home', homeSVG(S.flags, S.day), `${eveClock()} · APARTMENT 3F`, 'Home', '', theoLine(S.flags, S.day), 'Head back out');
   $('#leave').onclick = () => { if (!S.actions) { toast('Everything is closed.'); return; } leaveTo('Back down the stairs…'); };
   root.innerHTML = `<div class="places compact">
@@ -1088,6 +1279,7 @@ function finale() {
 }
 
 function endScreen() {
+  setScene('end');
   const f = S.flags;
   let title = 'Still Standing', line = 'You made it through your first week at Gemline. Barely, and not cleanly, but you made it.';
   if (f.rent === 'evicted') { title = 'Out on the Street'; line = 'You graded cards all week and still couldn\'t make rent. Gemline doesn\'t care where you sleep, as long as you\'re at your desk by nine.'; }
@@ -1118,6 +1310,7 @@ function endScreen() {
 }
 
 function gameOver(kind) {
+  setScene('end');
   S.phase = 'end';
   save();
   app.innerHTML = `<div class="screen end scroll">
@@ -1128,5 +1321,20 @@ function gameOver(kind) {
   </div>`;
   $('#again').onclick = () => { clearSave(); showTitle(); };
 }
+
+// Sound starts on the first tap (browsers block audio until then).
+document.addEventListener('pointerdown', unlockAudio, true);
+document.addEventListener('keydown', unlockAudio, true);
+const soundBtn = document.createElement('button');
+soundBtn.id = 'sound';
+const drawSound = () => {
+  soundBtn.setAttribute('aria-label', isMuted() ? 'Turn sound on' : 'Turn sound off');
+  soundBtn.innerHTML = isMuted()
+    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M17 9l5 6M22 9l-5 6"/></svg>'
+    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>';
+};
+soundBtn.onclick = () => { unlockAudio(); toggleMute(); drawSound(); };
+drawSound();
+document.body.appendChild(soundBtn);
 
 showTitle();

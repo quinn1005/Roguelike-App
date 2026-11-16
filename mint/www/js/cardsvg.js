@@ -326,8 +326,9 @@ function holoLayer(inst, p, o, dx, dy) {
 }
 
 // Defects: corner/edge/surface marks. Severity 1 marks only show under the loupe.
-export function defectsSVG(inst, o) {
+export function defectsSVG(inst, o, face = 'front') {
   return (inst.defects || []).map((d) => {
+    if ((d.face || 'front') !== face) return '';
     if (d.sev === 1 && !o.micro) return '';
     if (inst.alt && inst.alt.kind === 'recolor' && d.id === inst.alt.hidden) return '';
     return defectShape(d);
@@ -394,7 +395,7 @@ function uvLayer(inst, p, face) {
   if (inst.fake && inst.fake.kinds.includes('uv')) s += `<rect width="250" height="350" fill="#cfe6ff" opacity=".58" style="mix-blend-mode:screen"/>`;
   if (inst.alt && inst.alt.kind === 'recolor') {
     const d = inst.defects.find((x) => x.id === inst.alt.hidden);
-    if (d) {
+    if (d && (d.face || 'front') === face) {
       const [x, y] = hitPoint(d);
       s += `<circle cx="${x}" cy="${y}" r="16" fill="#c8fff0" opacity=".95" filter="url(#${p}glow)"/>`;
     }
@@ -429,5 +430,5 @@ export function defectName(d) {
   const k = d.cat === 'corner' ? (d.sev === 3 ? 'Bent corner' : 'Corner whitening')
     : d.cat === 'edge' ? 'Edge chipping'
     : { scratch: 'Scratch', printline: 'Print line', dimple: 'Surface dimple', stain: 'Stain', crease: 'Crease' }[d.kind];
-  return `${k} (${sev})`;
+  return `${k} (${sev}${d.face === 'back' ? ', back' : ''})`;
 }

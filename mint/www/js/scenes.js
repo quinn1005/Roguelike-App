@@ -147,7 +147,8 @@ export function dinerSVG() {
   <rect width="400" height="220" fill="#2a4a4a"/>
   <rect y="0" width="400" height="12" fill="#c9e6e4"/>
   <rect x="20" y="30" width="120" height="70" fill="#0b0a12" stroke="#c9e6e4" stroke-width="3"/>
-  ${rainLines(16, 120, 70, 2).replace(/<g class="rain/g, '<g transform="translate(20 30)" class="rain')}
+  <clipPath id="dn-win"><rect x="20" y="30" width="120" height="70"/></clipPath>
+  <g clip-path="url(#dn-win)"><g transform="translate(20 30)">${rainLines(16, 120, 70, 2)}</g></g>
   <circle cx="60" cy="70" r="3" fill="#ff4f9a" opacity=".6"/><circle cx="100" cy="64" r="2" fill="#f2c46d" opacity=".6"/>
   <rect x="170" y="36" width="130" height="60" fill="#1a1a1a" stroke="#c9e6e4" stroke-width="3"/>
   <rect x="174" y="40" width="122" height="52" fill="#ffb347" opacity=".25"/>
@@ -176,7 +177,8 @@ export function homeSVG(flags, day) {
   <rect x="40" y="24" width="110" height="80" fill="#0b0a14" stroke="#4a4450" stroke-width="4"/>
   <line x1="95" y1="24" x2="95" y2="104" stroke="#4a4450" stroke-width="3"/>
   <g>${[[52, 70, '#f2c46d'], [70, 60, '#ff4f9a'], [120, 76, '#2ee6ff'], [134, 58, '#f2c46d'], [110, 50, '#f2c46d']].map(([x, y, c]) => `<rect x="${x}" y="${y}" width="3" height="4" fill="${c}" opacity=".6"/>`).join('')}</g>
-  ${rainLines(18, 110, 80, 5).replace(/<g class="rain/g, '<g transform="translate(40 24)" class="rain')}
+  <clipPath id="hm-win"><rect x="42" y="26" width="106" height="76"/></clipPath>
+  <g clip-path="url(#hm-win)"><g transform="translate(40 24)">${rainLines(18, 110, 80, 5)}</g></g>
   <rect x="330" y="30" width="44" height="110" fill="#2e2622" stroke="#3e3430"/>
   <circle cx="366" cy="88" r="2.5" fill="#9aa39c"/>
   ${scar ? '<text x="352" y="70" text-anchor="middle" font-family="\'Special Elite\',monospace" font-size="6" fill="#c0392b" opacity=".8" transform="rotate(-8 352 70)">GRADE RIGHT</text>' : ''}

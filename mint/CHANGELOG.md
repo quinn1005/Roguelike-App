@@ -1,5 +1,16 @@
 # Mint Condition changelog
 
+## v0.3.0
+
+Sound, a bigger desk, and pack openings worth opening.
+
+- Music and ambience on every screen, generated live: a noir title theme, office hum and typing at the bulletin, a ticking clock at the desk that turns tense after 4 pm, dread under the letters, rain and traffic on the street, an old jazz radio at Lou's, wind chimes at the night market, a jukebox at the diner, and a music box at home. Sound effects for tools, tags, stamps, citations and cash. Mute button in the top corner.
+- Pack openings are rebuilt: tear along the seam, watch the foil fly off, and flip cards one at a time. Rares shake and glow before they turn over, then hit with light rays, sparks and a fanfare. Holos shimmer, new cards get a NEW badge, and the pull fans out at the end.
+- Cards now have separate flaws on the front and the back. Flip every card and check both sides.
+- The card is bigger and centered at the desk. On phones the form and worksheet sit in a slim strip under the card that opens into a drawer; on wider screens they sit on either side.
+- The loupe no longer runs off the top of the screen.
+- Rain at home and at the diner stays outside the window.
+
 ## v0.2.0
 
 Evenings are now places you go, and the desk teaches you as you work.
