@@ -2,11 +2,12 @@ name: Publish web version
 
 # Publishes Neon Bastion (www/) to GitHub Pages, with Last Stop Diner
 # (diner/www/) under /diner/, so both can be played in any browser.
+# The Mint Condition card showcase (mint-condition-site/) is under /mint-condition/.
 
 on:
   push:
     branches: ['**']
-    paths: ['www/**', 'diner/www/**', '.github/workflows/pages.yml']
+    paths: ['www/**', 'diner/www/**', 'mint-condition-site/**', '.github/workflows/pages.yml']
   workflow_dispatch:
 
 permissions:
@@ -29,9 +30,10 @@ jobs:
       - uses: actions/configure-pages@v5
       - name: Assemble site
         run: |
-          mkdir -p _site/diner
+          mkdir -p _site/diner _site/mint-condition
           cp -r www/. _site/
           cp -r diner/www/. _site/diner/
+          cp -r mint-condition-site/. _site/mint-condition/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
