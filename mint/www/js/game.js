@@ -1093,7 +1093,7 @@ function showCity() {
     <div class="street-panel scroll">
       <div class="loc-head"><div><div class="kicker">${eveClock()} · ${S.weekend ? 'WEEKEND' : dayName(S.day).toUpperCase() + ' NIGHT'}</div><h2>${S.weekend ? 'The weekend' : 'Outside Gemline'}</h2></div><span class="chip mono">${money(S.money)}</span></div>
       <p class="sub">${a ? `You have time for ${a} more ${a === 1 ? 'stop' : 'stops'}.` : 'Everything is closing. Time to go home.'} Rent ${money(weekOf(S.day + (S.weekend ? 1 : 0)).rent)} on Friday.${weekOf(S.day).market !== 1 ? ` Market: ${weekOf(S.day).market > 1 ? 'booming' : 'crashed'}.` : ''}</p>
-      <div class="places compact">${places.map(([k, p]) => `<button class="place" data-p="${k}" ${k !== 'home' && !a ? 'disabled' : ''}><b>${esc(p.name)}</b><small>${esc(p.blurb)}</small><span class="cost">${k === 'home' ? 'free' : a ? 'uses one stop' : 'closed'}</span></button>`).join('')}</div>
+      <div class="places compact">${places.map(([k, p]) => `<button class="place" data-p="${k}" ${k !== 'home' && !a ? 'disabled' : ''}><b>${esc(p.name)}</b><small>${esc(k === 'diner' && !S.weekend && isThursday(S.day) ? 'Thursday: trade night in the back booth. Or four hours on the floor.' : p.blurb)}</small><span class="cost">${k === 'home' ? 'free' : a ? 'uses one stop' : 'closed'}</span></button>`).join('')}</div>
       <button class="btn small" id="quit">Save and quit to title</button>
     </div>
   </div>`;
@@ -1480,8 +1480,11 @@ function showDiner() {
   let worked = false;
   $('#leave').onclick = () => { if (!worked) toast('You leave without working. The bus fare was for nothing.'); save(); leaveTo(); };
   const wage = weekOf(S.day).market < 0.9 ? 25 : 30;
-  root.innerHTML = `<p style="margin:0;color:var(--muted)">Four hours. ${money(wage)} cash, plus whatever the regulars leave on the counter. People talk around a waiter like he isn't there.</p>
-    <button class="btn primary" id="work">Put on the apron</button>`;
+  const trade = isThursday(S.day) && !S.weekend;
+  root.innerHTML = `${trade ? `<div class="paper letter"><div class="from">Thursday · trade night</div><p>The collectors have the back booth again: binders out, coffee going cold. Sal lets them stay as long as somebody orders pie.</p></div>` : ''}
+    <p style="margin:0;color:var(--muted)">Four hours. ${money(wage)} cash, plus whatever the regulars leave on the counter. People talk around a waiter like he isn't there.</p>
+    <div class="row">${trade ? '<button class="btn primary" id="trade">Join the trade booth</button>' : ''}<button class="btn ${trade ? '' : 'primary'}" id="work">Put on the apron</button></div>`;
+  if (trade) $('#trade').onclick = () => { worked = true; setScene('diner'); showTradeNight(root, () => {}); };
   $('#work').onclick = () => {
     root.innerHTML = `<div class="shiftbar"><div class="fill"></div></div><p class="mono" id="orders" style="margin:0;color:var(--muted)">Coffee for table six…</p>`;
     const msgs = ['Coffee for table six…', 'Two eggs, burnt on purpose…', 'Mopping up after a fight about a parking spot…', 'Refilling the ketchup nobody asked for…', 'Last orders…'];
@@ -1500,6 +1503,133 @@ function showDiner() {
       $('#out').onclick = () => leaveTo('Waiting for the last bus home…');
     }, 2200);
   };
+}
+
+// ------------------------------------------------------------------ Thursday trade night
+// Collectors take over the back booth at the Last Stop on Thursdays. Each one trades once a
+// night, for your spare copies (duplicates; you always keep your best copy of each card).
+const isThursday = (d) => d % 5 === 4;
+const TRADERS = {
+  kid: { name: 'Mikey', who: 'a kid in a hockey jacket, two sizes too big', rule: 'holo', ratio: 0.8, say: 'Only shiny ones. My sister says the shiny ones are worth more. She\'s right about everything.', rulesLine: 'Only takes holos. Generous.' },
+  grump: { name: 'Mrs. Abernathy', who: 'retired, bifocals on a chain, a binder older than you', rule: 'mint', ratio: 1, say: 'I don\'t take beaters. Corners or nothing, dear.', rulesLine: 'Only takes clean cards (8 or better) and slabs. Fair.' },
+  shark: { name: 'Rook', who: 'gold tooth, calculator watch, a briefcase of toploaders', rule: 'any', ratio: null, say: 'Everything\'s for trade. Everything\'s got a price. Mine\'s higher.', rulesLine: 'Takes anything, at a markup. Better terms if your reputation is good.' },
+  blind: { name: 'The Stranger', who: 'hat low, never orders, never takes his coat off', rule: 'blind', say: 'Two of yours, face down, for one of mine, face down. No looking. No refunds.', rulesLine: 'Any two spares for one mystery card. Anything could be in there.' },
+};
+const traderRatio = (t) => (t.id === 'shark' ? 1.6 - 0.6 * (S.rep / 100) : TRADERS[t.id].ratio);
+
+// Every copy except your best one of each card.
+function spareCards() {
+  const groups = {};
+  S.collection.filter((i) => !i.atApex).forEach((i) => { (groups[i.line + ':' + i.n] ||= []).push(i); });
+  return Object.values(groups).flatMap((g) => g.sort((a, b) => cardValue(b) - cardValue(a)).slice(1));
+}
+const acceptsCard = (t, i) => (t.id === 'kid' ? !!i.v.holo : t.id === 'grump' ? !!i.slab || trueGrade(i) >= 8 : true);
+
+function tradeNight() {
+  if (!S.eve || S.eve.day !== S.day) S.eve = { day: S.day };
+  if (S.eve.trade) return S.eve.trade;
+  const R = cityRng();
+  const ids = Object.keys(TRADERS);
+  ids.splice(R.int(0, ids.length - 1), 1); // three of the four turn up
+  const owned = new Set(S.collection.map((i) => i.line + ':' + i.n));
+  const lines = unlockedLines();
+  const offer = (quality, scale) => {
+    let line = R.pick(lines), c = pickCard(R, line, { c: 3, u: 3, r: 1.5 });
+    for (let k = 0; k < 6 && owned.has(line + ':' + c.n); k++) { line = R.pick(lines); c = pickCard(R, line, { c: 3, u: 3, r: 1.5 }); }
+    const inst = makeInst(R, line, c.n, quality);
+    rollVariants(R, inst, { scale });
+    return inst;
+  };
+  S.eve.trade = ids.map((id) => ({
+    id, done: false,
+    offers: id === 'blind' ? [] : [0, 1, 2].map(() => offer(id === 'grump' ? 'gem' : 'nice', id === 'shark' ? 1.4 : id === 'kid' ? 1.6 : 0.8)),
+  }));
+  return S.eve.trade;
+}
+
+function showTradeNight(root, onTrade) {
+  const night = tradeNight();
+  const draw = () => {
+    root.innerHTML = `<p style="margin:0;color:var(--muted)">The back booth smells like coffee and plastic sleeves. Each collector trades once a night, and only takes your spares: you always keep your best copy of a card. ${spareCards().length} spare ${spareCards().length === 1 ? 'card' : 'cards'} in your binder.</p>
+      ${night.map((t, k) => {
+        const T = TRADERS[t.id];
+        const ratio = t.id === 'blind' ? 0 : traderRatio(t);
+        return `<div class="trader ${t.done ? 'done' : ''}">
+          <div class="trader-head"><b>${esc(T.name)}</b><small>${esc(T.who)}</small></div>
+          <p class="speech" style="margin:0">"${esc(T.say)}"</p>
+          <p class="mono trader-rule">${esc(T.rulesLine)}${t.id === 'shark' ? ` Wants ${Math.round(ratio * 100)}% of value tonight.` : ''}</p>
+          ${t.done ? '<p style="margin:0;color:var(--muted)">Done trading for tonight.</p>'
+            : t.id === 'blind' ? `<button class="btn" data-blind="${k}">Slide two spares across</button>`
+            : `<div class="cardgrid">${t.offers.map((o, j) => `<button class="cardcell" data-t="${k}" data-o="${j}">${cardSVG(o)}<span>${esc(cardTitle(o))}</span><span class="price">${esc(variantLabels(o.v, o.line).join(', ') || LINES[o.line].name)}</span><span class="mono" style="color:var(--lamp)">wants ~${money(Math.max(1, cardValue(o) * ratio))}</span></button>`).join('')}</div>`}
+        </div>`;
+      }).join('')}
+      <button class="btn primary" id="out">Leave the booth</button>`;
+    $('#out').onclick = () => leaveTo('Waiting for the last bus home…');
+    $$('[data-o]', root).forEach((b) => b.onclick = () => pickOffer(night[+b.dataset.t], +b.dataset.o));
+    $$('[data-blind]', root).forEach((b) => b.onclick = () => blindTrade(night[+b.dataset.blind]));
+  };
+
+  // Choose spares until they cover what the trader wants for one of their cards.
+  function pickOffer(t, j) {
+    const T = TRADERS[t.id], want = Math.max(1, cardValue(t.offers[j]) * traderRatio(t));
+    const list = spareCards().filter((i) => acceptsCard(t, i)).sort((a, b) => cardValue(b) - cardValue(a));
+    const picked = new Set();
+    const m = modal(`<h2>${esc(T.name)}: ${esc(cardTitle(t.offers[j]))}</h2>
+      <div style="display:flex;gap:12px;align-items:center"><div style="width:96px;flex:0 0 auto">${cardSVG(t.offers[j])}</div><p style="margin:0">${esc(T.name)} wants about <b>${money(want)}</b> in spares for this. <span id="tot" class="mono"></span></p></div>
+      ${list.length ? `<div class="cardgrid">${list.map((i) => `<button class="cardcell" data-u="${i.uid}">${thumb(i)}<span>${esc(cardTitle(i))}</span><span class="price">${money(cardValue(i))}</span></button>`).join('')}</div>` : `<p>You have no spares ${esc(T.name)} will take.</p>`}
+      <div class="row"><button class="btn primary" id="deal" disabled>Offer the trade</button><button class="btn" data-close>Never mind</button></div>`, { wide: true });
+    const total = () => [...picked].reduce((s, u) => s + cardValue(S.collection.find((i) => i.uid === u)), 0);
+    const upd = () => { const tv = total(); $('#tot', m).textContent = `Offering ${money(tv)}.`; $('#deal', m).disabled = !picked.size || tv < want; };
+    upd();
+    $$('[data-u]', m).forEach((b) => b.onclick = () => { const u = b.dataset.u; if (picked.has(u)) picked.delete(u); else picked.add(u); b.classList.toggle('picked', picked.has(u)); upd(); });
+    $('[data-close]', m).onclick = () => m.close();
+    $('#deal', m).onclick = () => {
+      const give = [...picked].map((u) => S.collection.find((i) => i.uid === u));
+      m.close();
+      const fake = give.find((i) => i.fake);
+      if (fake) {
+        // Collectors check what they're handed. A fake gets slid back, and it goes in your Fake Binder.
+        S.collection.splice(S.collection.indexOf(fake), 1);
+        S.fakes.push(JSON.parse(JSON.stringify(fake)));
+        t.done = true; save(); draw();
+        runEvents([{ from: T.name, body: [`${T.name} turns ${cardTitle(fake)} over twice, holds it to the light and slides it back across the table.`, '"That one\'s a fake. You of all people should know." The deal is off for tonight. You put the card in your Fake Binder.'] }], () => {});
+        return;
+      }
+      give.forEach((i) => S.collection.splice(S.collection.indexOf(i), 1));
+      const got = t.offers.splice(j, 1)[0];
+      S.collection.push(got);
+      t.done = true;
+      learnInst(got); sfx('cash'); onTrade(); checkSets(); save();
+      toast(`Traded ${give.length} ${give.length === 1 ? 'card' : 'cards'} for ${cardTitle(got)}`, 'good');
+      draw();
+    };
+  }
+
+  // The Stranger: two spares for one card you can't see until it's yours. It may be a fake.
+  function blindTrade(t) {
+    const list = spareCards().sort((a, b) => cardValue(a) - cardValue(b));
+    const picked = new Set();
+    const m = modal(`<h2>The Stranger</h2><p style="margin:0">Pick two spares to slide across the table.</p>
+      ${list.length >= 2 ? `<div class="cardgrid">${list.map((i) => `<button class="cardcell" data-u="${i.uid}">${thumb(i)}<span>${esc(cardTitle(i))}</span></button>`).join('')}</div>` : '<p>You need at least two spare cards.</p>'}
+      <div class="row"><button class="btn primary" id="deal" disabled>Slide them over</button><button class="btn" data-close>Never mind</button></div>`, { wide: true });
+    $$('[data-u]', m).forEach((b) => b.onclick = () => { const u = b.dataset.u; if (picked.has(u)) picked.delete(u); else if (picked.size < 2) picked.add(u); $$('[data-u]', m).forEach((x) => x.classList.toggle('picked', picked.has(x.dataset.u))); $('#deal', m).disabled = picked.size !== 2; });
+    $('[data-close]', m).onclick = () => m.close();
+    $('#deal', m).onclick = () => {
+      [...picked].forEach((u) => { const i = S.collection.find((x) => x.uid === u); S.collection.splice(S.collection.indexOf(i), 1); });
+      m.close();
+      const R = cityRng(), line = R.pick(unlockedLines());
+      const got = makeInst(R, line, pickCard(R, line, { c: 2, u: 3, r: 2.5 }).n, pickQuality(R, -0.1));
+      rollVariants(R, got, { scale: 2.2 });
+      if (R() < 0.18) makeFake(R, got, null, [R.pick(['print', 'copyright', 'uv', 'back'])]);
+      S.collection.push(got);
+      t.done = true; onTrade(); sfx('holo'); save();
+      const r = modal(`<h2>Face down, then face up</h2><div style="width:min(220px,60vw);margin:0 auto">${cardSVG(got)}</div>
+        <p style="margin:0;text-align:center">${esc(cardTitle(got))}${variantLabels(got.v, got.line).length ? ' · ' + esc(variantLabels(got.v, got.line).join(', ')) : ''}</p>
+        <p style="margin:0;color:var(--muted);text-align:center">The Stranger is already gone. Check it with your tools at home.</p><button class="btn primary" data-close>Into the binder</button>`);
+      $('[data-close]', r).onclick = () => { r.close(); checkSets(); draw(); };
+    };
+  }
+  draw();
 }
 
 function showHome() {

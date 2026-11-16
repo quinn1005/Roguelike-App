@@ -589,3 +589,12 @@ body::after { content: ''; position: fixed; inset: 0; z-index: 90; pointer-event
 /* cards: the only bright thing in the world */
 .stage svg { filter: saturate(1.08) drop-shadow(0 0 18px rgba(255,236,190,.12)) drop-shadow(0 14px 22px rgba(0,0,0,.75)); }
 .cardcell svg, .title-cards svg, .po-face svg { filter: saturate(1.08) drop-shadow(0 0 10px rgba(255,236,190,.14)) drop-shadow(0 6px 10px rgba(0,0,0,.7)); }
+
+/* ---------- Thursday trade night ---------- */
+.trader { border: 1px solid #2a2f27; border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 8px; background: var(--grain), linear-gradient(rgba(255,255,255,.02), rgba(0,0,0,.25)); }
+.trader.done { opacity: .55; }
+.trader-head { display: flex; flex-direction: column; gap: 2px; }
+.trader-head b { font-family: var(--f-display); font-size: 18px; }
+.trader-head small { color: var(--muted); }
+.trader-rule { margin: 0; font-size: 11.5px; color: var(--muted); }
+.trader .cardgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }

@@ -71,6 +71,7 @@ Generic tells: smeared print, wrong copyright, modern paper (UV), wrong back, wr
 
 - **Lou's shop:** packs for every unlocked line, priced with the market, three a night (two in the boom); a typical pack is worth about half its price; one misjudged chase card under the glass each night; sell at half value, paid out of a nightly till (about $50).
 - **Pack opening:** tear the seam (too fast creases a card), flip cards one by one, rares charge and land with rays, sparks and fanfare.
+- **Thursday trade night (Last Stop Diner):** trade spare copies with three of four collectors, once each a night: Mikey (holos only, generous), Mrs. Abernathy (8+ or slabs, fair), Rook (anything, 160% of value, falling to 100% with reputation), the Stranger (two spares for one face-down card, 18% fake).
 - **Night market bins:** $3 a dig, keep two; hidden chase versions and the odd fake.
 - **Apex Grading:** $12–15 a card, back in two days in an Apex slab. They make mistakes (more in the boom). Dispute for $8.
 - **Saturday auction:** live bidding against collectors. Lots include slabs you graded yourself, Apex-slabbed chase cards, an Apex-slabbed fake, and in week 4 a mystery proof card. Consign your own cards (10% fee).

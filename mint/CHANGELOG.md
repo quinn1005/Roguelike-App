@@ -9,6 +9,7 @@ Money is tight again, and packs look the part.
 - **Lou's till.** Lou only pays out of the cash in his register each night (about $50, more in the boom, less in the crash). Cards worth more than that have to go to the Saturday auction.
 - **New pack art.** Every booster is now a crimped foil wrapper with the line's logo in its own lettering, a window showing the set's mythic, a holo "Mythics inside" seal and a foil sheen. The new packs are used in the shop and when you tear one open.
 - The Collector ending now needs a binder worth $400 (or the Ghost Print).
+- **Thursday trade night.** On Thursdays the collectors take over the back booth at the Last Stop Diner. Join them instead of working a shift and trade your spare copies (you always keep your best copy of each card). Three of four turn up each week, and each trades once a night: Mikey only takes holos and is generous; Mrs. Abernathy only takes clean cards and slabs; Rook takes anything at a markup that shrinks as your reputation grows; and the Stranger swaps two spares for one face-down card that might be a chase version, or a fake. Collectors check what you hand them: try to trade a fake and it gets slid back into your Fake Binder.
 
 ## v1.2.0
 
