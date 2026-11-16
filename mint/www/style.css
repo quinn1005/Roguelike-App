@@ -36,7 +36,7 @@
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-l: env(safe-area-inset-left, 0px);
   --safe-r: env(safe-area-inset-right, 0px);
-  color-scheme: dark;
+  color-scheme: dark only; /* opt out of forced dark modes on phones */
 }
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; background: var(--bg); color: var(--text); font-family: var(--f-ui); font-size: 15px; line-height: 1.45; -webkit-text-size-adjust: 100%; overscroll-behavior: none; }

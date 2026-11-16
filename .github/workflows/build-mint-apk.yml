@@ -61,6 +61,14 @@ jobs:
           sed -i 's#<item name="windowNoTitle">true</item>#<item name="windowNoTitle">true</item>\n        <item name="android:windowFullscreen">true</item>#' android/app/src/main/res/values/styles.xml
           grep -n screenOrientation android/app/src/main/AndroidManifest.xml
 
+      - name: Keep the system's dark mode from repainting the game
+        working-directory: build-mint
+        run: |
+          # Phones with "dark mode for apps" (One UI and others) otherwise force-darken the web view,
+          # which turns light card faces navy and washes out the art.
+          sed -i 's#\(<style name="AppTheme[^>]*>\)#\1\n        <item name="android:forceDarkAllowed">false</item>#' android/app/src/main/res/values/styles.xml
+          grep -c forceDarkAllowed android/app/src/main/res/values/styles.xml
+
       - name: Set app version
         working-directory: build-mint
         run: |

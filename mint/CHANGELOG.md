@@ -1,5 +1,9 @@
 # Mint Condition changelog
 
+## v1.3.1
+
+- **Fixed: wrong colors on some phones.** Phones with a forced dark mode (for example Samsung's dark mode for apps and Samsung Internet) were repainting the game with their own dark theme, turning light card faces navy and washing out the art. The game now tells browsers and the Android app that it is already dark, so they leave its colors alone.
+
 ## v1.3.0
 
 Money is tight again, and packs look the part.
