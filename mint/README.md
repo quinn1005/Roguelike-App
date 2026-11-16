@@ -84,6 +84,8 @@ same stable key as Neon Bastion, so updates install over older versions.
 | `www/js/story.js` | Story cards, letters, evening and weekend events, clues, evidence, endings |
 | `www/js/scenes.js` | Street and location illustrations, and what people say there |
 | `www/js/collect.js` | Apex Grading and the Saturday auction |
+| `www/js/filters.js` | Search, filter and sort bar for picking cards to sell, trade, consign or grade |
+| `www/js/packs.js` | Booster pack wrappers |
 | `www/js/slab.js` | Slab (graded card holder) markup |
 | `www/js/extras.js` | Codex, achievements and settings |
 | `www/js/audio.js` | Procedural music and ambience for each screen, and all sound effects (Web Audio, no files) |

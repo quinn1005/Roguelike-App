@@ -4,6 +4,7 @@ import { cardSVG } from './cardsvg.js';
 import { makeRng, makeInst, pickCard, rollVariants, makeFake, cardValue, cardTitle, variantLabels, blankInst, marketNow } from './gen.js';
 import { trueGrade } from './grading.js';
 import { slabHTML } from './slab.js';
+import { cardFilter, spareUids } from './filters.js';
 import { apexSVG, auctionSVG } from './scenes.js';
 
 let X = null; // shared helpers from game.js
@@ -34,16 +35,19 @@ export function showApex() {
       <h3 class="sub-h">Your Apex slabs</h3>
       <div class="cardgrid slabgrid">${S.collection.filter((i) => i.slab && i.slab.by === 'apex').map((i) => `<button class="cardcell" data-sl="${i.uid}">${slabHTML(i, { grade: i.slab.grade, by: 'apex' })}<span>${i.slab.disputed ? 'Reviewed' : 'Dispute ' + X.money(8)}</span></button>`).join('') || '<p style="color:var(--muted)">None yet.</p>'}</div>
       <h3 class="sub-h">Send cards (up to 3)</h3>
-      <div class="cardgrid">${sendable.map((i) => `<button class="cardcell" data-send="${i.uid}">${cardSVG(i)}<span>${X.esc(cardTitle(i))}</span></button>`).join('') || '<p style="color:var(--muted)">No raw cards to send.</p>'}</div>
+      ${sendable.length ? '<div id="abar"></div><div class="cardgrid" id="agrid"></div>' : '<p style="color:var(--muted)">No raw cards to send.</p>'}
       <div class="row"><button class="btn primary" id="send" disabled>Send for grading</button></div>`;
     const sendBtn = $('#send');
-    $$('[data-send]', root).forEach((b) => b.onclick = () => {
-      const id = b.dataset.send;
-      if (picked.has(id)) picked.delete(id); else if (picked.size < 3) picked.add(id);
-      b.classList.toggle('picked', picked.has(id));
-      const cost = picked.size * apexFee();
-      sendBtn.disabled = !picked.size || S.money < cost;
-      sendBtn.textContent = picked.size ? `Send ${picked.size} for ${X.money(cost)}` : 'Send for grading';
+    if (sendable.length) cardFilter('apex', { spares: spareUids(S.collection) }).mount($('#abar', root), $('#agrid', root), sendable, {
+      render: (out) => out.map((i) => `<button class="cardcell ${picked.has(i.uid) ? 'picked' : ''}" data-send="${i.uid}">${cardSVG(i)}<span>${X.esc(cardTitle(i))}</span><span class="price">≈ ${X.money(cardValue(i))} raw</span></button>`).join(''),
+      wire: (g) => $$('[data-send]', g).forEach((b) => b.onclick = () => {
+        const id = b.dataset.send;
+        if (picked.has(id)) picked.delete(id); else if (picked.size < 3) picked.add(id);
+        b.classList.toggle('picked', picked.has(id));
+        const cost = picked.size * apexFee();
+        sendBtn.disabled = !picked.size || S.money < cost;
+        sendBtn.textContent = picked.size ? `Send ${picked.size} for ${X.money(cost)}` : 'Send for grading';
+      }),
     });
     sendBtn.onclick = () => {
       const cost = picked.size * apexFee();
@@ -205,17 +209,20 @@ function bidLot(lot, back) {
 
 function consign(back) {
   const S = X.S();
-  const list = S.collection.filter((i) => !i.atApex && cardValue(i) >= 2).sort((a, b) => cardValue(b) - cardValue(a));
-  const m = X.modal(`<h2>Consign a card</h2><div class="cardgrid">${list.map((i) => `<button class="cardcell" data-c="${i.uid}">${i.slab ? slabHTML(i, { grade: i.slab.grade, by: i.slab.by }) : cardSVG(i)}<span class="price">≈ ${X.money(cardValue(i))}</span></button>`).join('') || '<p>Nothing worth the room\'s time.</p>'}</div><button class="btn" data-x>Close</button>`, { wide: true });
+  const list = S.collection.filter((i) => !i.atApex && cardValue(i) >= 2);
+  const m = X.modal(`<h2>Consign a card</h2><p style="margin:0;color:var(--muted);font-size:13px">Only cards worth $2 or more. The room pays roughly what a card is worth, less the house cut.</p><div id="cbar"></div><div class="cardgrid" id="cgrid"></div><button class="btn" data-x>Close</button>`, { wide: true });
   $('[data-x]', m).onclick = () => m.close();
-  $$('[data-c]', m).forEach((b) => b.onclick = () => {
-    const i = S.collection.find((x) => x.uid === b.dataset.c);
-    const price = Math.round(cardValue(i) * (0.85 + Math.random() * 0.5) * 0.9);
-    S.collection.splice(S.collection.indexOf(i), 1);
-    S.money += price;
-    X.sfx('stamp'); setTimeout(() => X.sfx('cash'), 250);
-    X.toast(`"Sold!" ${cardTitle(i)} goes for ${X.money(price)} after the house cut.`, 'good');
-    X.save(); m.close(); back();
+  cardFilter('consign', { spares: spareUids(S.collection) }).mount($('#cbar', m), $('#cgrid', m), list, {
+    render: (out) => out.map((i) => `<button class="cardcell" data-c="${i.uid}">${i.slab ? slabHTML(i, { grade: i.slab.grade, by: i.slab.by }) : cardSVG(i)}<span>${X.esc(cardTitle(i))}</span><span class="price">≈ ${X.money(cardValue(i))}</span></button>`).join(''),
+    wire: (g) => $$('[data-c]', g).forEach((b) => b.onclick = () => {
+      const i = S.collection.find((x) => x.uid === b.dataset.c);
+      const price = Math.round(cardValue(i) * (0.85 + Math.random() * 0.5) * 0.9);
+      S.collection.splice(S.collection.indexOf(i), 1);
+      S.money += price;
+      X.sfx('stamp'); setTimeout(() => X.sfx('cash'), 250);
+      X.toast(`"Sold!" ${cardTitle(i)} goes for ${X.money(price)} after the house cut.`, 'good');
+      X.save(); m.close(); back();
+    }),
   });
 }
 

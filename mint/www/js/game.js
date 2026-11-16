@@ -10,6 +10,7 @@ import { unlockAudio, setScene, sfx, toggleMute, isMuted, duck, setVolumes } fro
 import { streetSVG, shopSVG, marketSVG, dinerSVG, homeSVG, louLine, sellerLine, salLine, rumor, theoLine } from './scenes.js';
 import { slabHTML } from './slab.js';
 import { packSVG } from './packs.js';
+import { cardFilter, spareUids } from './filters.js';
 import { initCollect, showApex, showAuction } from './collect.js';
 import { CODEX, ACHIEVEMENTS, achievements, unlockAch, getSettings, setSetting, SPEEDS } from './extras.js';
 
@@ -1185,15 +1186,20 @@ function showShop() {
       $$('[data-look]', body).forEach((b) => b.onclick = () => viewer(stock.singles[+b.dataset.look].inst, { hideInfo: true, tools: true }));
     }
     if (tab === 'sell') {
-      const list = S.collection.filter((i) => !i.atApex).map((inst) => ({ inst, v: Math.floor(cardValue(inst) * 0.5) })).sort((a, b) => b.v - a.v);
+      const list = S.collection.filter((i) => !i.atApex);
       const till = tillCash();
       body.innerHTML = `<p style="color:var(--muted);font-size:13px;margin:0">Lou pays half of what a card is worth, and only out of what's in the till. <span class="mono" style="color:var(--lamp)">Till: ${money(till)}</span>. Big cards and slabs belong at the Saturday auction.</p>
-        <div class="cardgrid">${list.map((x) => `<div class="cardcell" style="cursor:default"><button class="cardcell" data-look="${x.inst.uid}">${thumb(x.inst)}</button><span>${esc(cardTitle(x.inst))}</span><button class="btn small" data-sell="${x.inst.uid}" ${x.v < 1 || x.v > till ? 'disabled' : ''}>${x.v < 1 ? 'No offer' : x.v > till ? 'Too rich for the till' : 'Sell ' + money(x.v)}</button></div>`).join('') || '<p>Your binder is empty.</p>'}</div>`;
-      $$('[data-sell]', body).forEach((b) => b.onclick = () => {
-        if (b.dataset.armed) { const inst = S.collection.find((i) => i.uid === b.dataset.sell); const pay = Math.floor(cardValue(inst) * 0.5); if (pay > tillCash()) return; S.eve.paid = (S.eve.paid || 0) + pay; S.money += pay; S.collection.splice(S.collection.indexOf(inst), 1); sfx('cash'); toast('Sold', 'good'); save(); draw(); return; }
-        b.dataset.armed = '1'; b.textContent = 'Tap again to sell'; b.classList.add('danger');
+        <div id="sbar"></div><div class="cardgrid" id="sgrid"></div>`;
+      cardFilter('sell', { spares: spareUids(S.collection) }).mount($('#sbar', body), $('#sgrid', body), list, {
+        render: (out) => out.map((inst) => { const v = Math.floor(cardValue(inst) * 0.5); return `<div class="cardcell" style="cursor:default"><button class="cardcell" data-look="${inst.uid}">${thumb(inst)}</button><span>${esc(cardTitle(inst))}</span><button class="btn small" data-sell="${inst.uid}" ${v < 1 || v > till ? 'disabled' : ''}>${v < 1 ? 'No offer' : v > till ? 'Too rich for the till' : 'Sell ' + money(v)}</button></div>`; }).join(''),
+        wire: (g) => {
+          $$('[data-sell]', g).forEach((b) => b.onclick = () => {
+            if (b.dataset.armed) { const inst = S.collection.find((i) => i.uid === b.dataset.sell); const pay = Math.floor(cardValue(inst) * 0.5); if (pay > tillCash()) return; S.eve.paid = (S.eve.paid || 0) + pay; S.money += pay; S.collection.splice(S.collection.indexOf(inst), 1); sfx('cash'); toast('Sold', 'good'); save(); draw(); return; }
+            b.dataset.armed = '1'; b.textContent = 'Tap again to sell'; b.classList.add('danger');
+          });
+          $$('[data-look]', g).forEach((b) => b.onclick = () => viewer(S.collection.find((i) => i.uid === b.dataset.look)));
+        },
       });
-      $$('[data-look]', body).forEach((b) => b.onclick = () => viewer(S.collection.find((i) => i.uid === b.dataset.look)));
     }
   };
   $$('[data-t]', root).forEach((b) => b.onclick = () => { tab = b.dataset.t; draw(); });
@@ -1576,12 +1582,15 @@ function showTradeNight(root, onTrade) {
     const picked = new Set();
     const m = modal(`<h2>${esc(T.name)}: ${esc(cardTitle(t.offers[j]))}</h2>
       <div style="display:flex;gap:12px;align-items:center"><div style="width:96px;flex:0 0 auto">${cardSVG(t.offers[j])}</div><p style="margin:0">${esc(T.name)} wants about <b>${money(want)}</b> in spares for this. <span id="tot" class="mono"></span></p></div>
-      ${list.length ? `<div class="cardgrid">${list.map((i) => `<button class="cardcell" data-u="${i.uid}">${thumb(i)}<span>${esc(cardTitle(i))}</span><span class="price">${money(cardValue(i))}</span></button>`).join('')}</div>` : `<p>You have no spares ${esc(T.name)} will take.</p>`}
+      ${list.length ? '<div id="tbar"></div><div class="cardgrid" id="tgrid"></div>' : `<p>You have no spares ${esc(T.name)} will take.</p>`}
       <div class="row"><button class="btn primary" id="deal" disabled>Offer the trade</button><button class="btn" data-close>Never mind</button></div>`, { wide: true });
     const total = () => [...picked].reduce((s, u) => s + cardValue(S.collection.find((i) => i.uid === u)), 0);
     const upd = () => { const tv = total(); $('#tot', m).textContent = `Offering ${money(tv)}.`; $('#deal', m).disabled = !picked.size || tv < want; };
     upd();
-    $$('[data-u]', m).forEach((b) => b.onclick = () => { const u = b.dataset.u; if (picked.has(u)) picked.delete(u); else picked.add(u); b.classList.toggle('picked', picked.has(u)); upd(); });
+    if (list.length) cardFilter('trade', { sort: 'cheap' }).mount($('#tbar', m), $('#tgrid', m), list, {
+      render: (out) => out.map((i) => `<button class="cardcell ${picked.has(i.uid) ? 'picked' : ''}" data-u="${i.uid}">${thumb(i)}<span>${esc(cardTitle(i))}</span><span class="price">${money(cardValue(i))}</span></button>`).join(''),
+      wire: (g) => $$('[data-u]', g).forEach((b) => b.onclick = () => { const u = b.dataset.u; if (picked.has(u)) picked.delete(u); else picked.add(u); b.classList.toggle('picked', picked.has(u)); upd(); }),
+    });
     $('[data-close]', m).onclick = () => m.close();
     $('#deal', m).onclick = () => {
       const give = [...picked].map((u) => S.collection.find((i) => i.uid === u));
@@ -1610,9 +1619,12 @@ function showTradeNight(root, onTrade) {
     const list = spareCards().sort((a, b) => cardValue(a) - cardValue(b));
     const picked = new Set();
     const m = modal(`<h2>The Stranger</h2><p style="margin:0">Pick two spares to slide across the table.</p>
-      ${list.length >= 2 ? `<div class="cardgrid">${list.map((i) => `<button class="cardcell" data-u="${i.uid}">${thumb(i)}<span>${esc(cardTitle(i))}</span></button>`).join('')}</div>` : '<p>You need at least two spare cards.</p>'}
+      ${list.length >= 2 ? '<div id="tbar"></div><div class="cardgrid" id="tgrid"></div>' : '<p>You need at least two spare cards.</p>'}
       <div class="row"><button class="btn primary" id="deal" disabled>Slide them over</button><button class="btn" data-close>Never mind</button></div>`, { wide: true });
-    $$('[data-u]', m).forEach((b) => b.onclick = () => { const u = b.dataset.u; if (picked.has(u)) picked.delete(u); else if (picked.size < 2) picked.add(u); $$('[data-u]', m).forEach((x) => x.classList.toggle('picked', picked.has(x.dataset.u))); $('#deal', m).disabled = picked.size !== 2; });
+    if (list.length >= 2) cardFilter('blind', { sort: 'cheap' }).mount($('#tbar', m), $('#tgrid', m), list, {
+      render: (out) => out.map((i) => `<button class="cardcell ${picked.has(i.uid) ? 'picked' : ''}" data-u="${i.uid}">${thumb(i)}<span>${esc(cardTitle(i))}</span><span class="price">${money(cardValue(i))}</span></button>`).join(''),
+      wire: (g) => $$('[data-u]', g).forEach((b) => b.onclick = () => { const u = b.dataset.u; if (picked.has(u)) picked.delete(u); else if (picked.size < 2) picked.add(u); $$('[data-u]', m).forEach((x) => x.classList.toggle('picked', picked.has(x.dataset.u))); $('#deal', m).disabled = picked.size !== 2; }),
+    });
     $('[data-close]', m).onclick = () => m.close();
     $('#deal', m).onclick = () => {
       [...picked].forEach((u) => { const i = S.collection.find((x) => x.uid === u); S.collection.splice(S.collection.indexOf(i), 1); });
