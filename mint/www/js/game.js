@@ -1,21 +1,26 @@
-// Mint Condition: first slice (5 days). Screens, desk interaction, economy and story flow.
-import { LINES, CARDS, DAYS, TOOLS, TIERS, RENT, FOOD, START_MONEY, MAX_CITATIONS, PACKS } from './data.js';
-import { cardSVG, hitPoint, defectName, cardSize, copyrightText } from './cardsvg.js';
+// Mint Condition: five weeks at Gemline Authentication.
+// Screens, desk interaction, economy, meters, collecting and story flow.
+import { LINES, CARDS, DAYS, TOOLS, TIERS, FOOD, START_MONEY, MAX_CITATIONS, PACKS, weekOf, LAST_DAY, WEEKS } from './data.js';
+import { cardSVG, hitPoint, defectName, cardSize, copyrightText, cardWeight, extraReadings, icStats } from './cardsvg.js';
 import { subsFrom, finalGrade, centerPct, gradeName, trueGrade } from './grading.js';
-import { makeRng, makeSubmission, truthOf, makeInst, rollVariants, pickCard, pickQuality, cardValue, cardValueRaw, cardTitle, variantLabels, rarityName, blankInst, makeFake } from './gen.js';
-import { storySubs, onStoryStamp, morningLetters, eveningEvents, dayName } from './story.js';
+import { makeRng, makeSubmission, truthOf, makeInst, rollVariants, pickCard, pickQuality, cardValue, cardTitle, variantLabels, rarityName, blankInst, makeFake, setMarket } from './gen.js';
+import { storySubs, onStoryStamp, morningLetters, eveningEvents, weekendEvents, dayName, isFriday, isMonday, CLUES, ENDINGS, pickEndingChoices, evidenceCount } from './story.js';
 import { VERSION } from './version.js';
-import { unlockAudio, setScene, sfx, toggleMute, isMuted, duck } from './audio.js';
+import { unlockAudio, setScene, sfx, toggleMute, isMuted, duck, setVolumes } from './audio.js';
 import { streetSVG, shopSVG, marketSVG, dinerSVG, homeSVG, louLine, sellerLine, salLine, rumor, theoLine } from './scenes.js';
+import { slabHTML } from './slab.js';
+import { initCollect, showApex, showAuction } from './collect.js';
+import { CODEX, ACHIEVEMENTS, achievements, unlockAch, getSettings, setSetting, SPEEDS } from './extras.js';
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
 const app = $('#app');
-const SAVE = 'mint-condition-save-v1';
+const SAVE = 'mint-condition-save-v2';
 const pad3 = (n) => String(n).padStart(3, '0');
 const money = (n) => (n < 0 ? '−$' : '$') + Math.abs(Math.round(n));
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 const fmtG = (g) => (g % 1 ? g.toFixed(1) : String(g));
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 let S = null; // saved state
 let D = null; // desk (shift) state
 
@@ -25,7 +30,7 @@ function toast(msg, cls = '') {
   t.className = 'toast ' + cls;
   t.textContent = msg;
   $('#toasts').appendChild(t);
-  setTimeout(() => t.remove(), 2500);
+  setTimeout(() => t.remove(), 2600);
 }
 function save() { try { localStorage.setItem(SAVE, JSON.stringify(S)); } catch (e) { /* storage unavailable */ } }
 function loadSave() { try { const s = localStorage.getItem(SAVE); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
@@ -45,7 +50,28 @@ function modal(html, opts = {}) {
 function closeAllModals() { [...modals].forEach((m) => m.remove()); modals.length = 0; }
 
 function letterHTML(l) {
-  return `<div class="paper letter"><div class="from">${esc(l.from)}</div>${l.body.map((p) => `<p class="${/^[A-Z ]{4,20}$/.test(p) ? 'loud' : ''}">${esc(p)}</p>`).join('')}</div>`;
+  return `<div class="paper letter"><div class="from">${esc(l.from)}</div>${l.body.map((p) => `<p class="${/^[A-Z ·.]{4,40}$/.test(p) ? 'loud' : ''}">${esc(p)}</p>`).join('')}</div>`;
+}
+
+function meters(delta) {
+  if (!delta) return;
+  if (delta.rep) S.rep = clamp(S.rep + delta.rep, 0, 100);
+  if (delta.sus) S.sus = clamp(S.sus + delta.sus, 0, 100);
+  if (delta.integ) S.integ = clamp(S.integ + delta.integ, -100, 100);
+}
+
+function achieve(id) {
+  const a = unlockAch(id);
+  if (a) { toast(`Achievement: ${a[1]}`, 'good'); sfx('collect'); }
+}
+function learn(key) {
+  if (!CODEX[key] || S.codex[key]) return;
+  S.codex[key] = true;
+  toast(`Codex: ${CODEX[key].name}`, 'good');
+  if (Object.keys(S.codex).length >= 20) achieve('codex');
+}
+function learnInst(inst) {
+  Object.keys(inst.v || {}).forEach((k) => { if (inst.v[k] && CODEX[k] && k !== 'holo' && k !== 'first' && k !== 'gold' && k !== 'serial') learn(k); });
 }
 
 // Show a queue of letters/events one by one, then call done.
@@ -58,79 +84,147 @@ function runEvents(list, done) {
     const broke = c.cost && S.money < c.cost;
     return `<button class="btn ${c.id === 'no' || c.id === 'ok' ? '' : 'primary'}" data-c="${c.id}" ${broke ? 'disabled' : ''}>${esc(c.label)}${broke ? ' (not enough money)' : ''}</button>`;
   }).join('')}</div>`, { dismiss: false });
-  $$('[data-c]', m).forEach((b) => b.addEventListener('click', () => {
+  $$('[data-c]', m).forEach((b) => b.onclick = () => {
     const c = choices.find((x) => x.id === b.dataset.c);
     if (ev.id) S.flags[ev.id] = c.id;
     if (c.cost) S.money -= c.cost;
-    if (ev.cost && ev.forced) S.money -= ev.cost;
+    if (c.gain) S.money += c.gain;
+    meters(c);
+    if (ev.cost) S.money -= ev.cost;
     if (ev.gain) S.money += ev.gain;
+    meters(ev);
+    if (ev.evidence) S.flags[ev.evidence] = true;
+    if (ev.id === 'minaPay' && c.id === 'yes') achieve('mina');
     m.close();
     runEvents(list, done);
-  }));
+  });
 }
 
-// ------------------------------------------------------------------ title
+// ------------------------------------------------------------------ title, settings, codex, achievements
 function showTitle() {
   setScene('title');
   closeAllModals();
   const saved = loadSave();
+  const live = saved && saved.phase !== 'end';
   const t = (l, n, v = {}) => { const i = blankInst(l, n); Object.assign(i.v, v); return cardSVG(i, { clean: true }); };
-  app.innerHTML = `<div class="screen title-screen">
-    <div class="title-cards">${t('ns', 1, { holo: true })}${t('gg', 1)}${t('bl', 1, { shadowless: true, first: true })}</div>
+  app.innerHTML = `<div class="screen title-screen scroll">
+    <div class="title-cards">${t('ns', 1, { holo: true })}${t('gg', 1)}${t('rd', 1, { secret: true })}</div>
     <h1>Mint<span>Condition</span></h1>
     <p>You grade trading cards for a living. Every fake you catch costs someone. Every one you miss costs you.</p>
     <div class="title-actions">
-      ${saved && saved.phase !== 'end' ? `<button class="btn primary" id="cont">Continue · ${dayName(saved.day)}</button>` : ''}
-      <button class="btn ${saved && saved.phase !== 'end' ? '' : 'primary'}" id="new">New game</button>
+      ${live ? `<button class="btn primary" id="cont">Continue · Week ${Math.ceil(saved.day / 5)}, ${dayName(saved.day)}</button>` : ''}
+      <button class="btn ${live ? '' : 'primary'}" id="new">New game</button>
+      <div class="row" style="justify-content:center"><button class="btn small" id="ach">Achievements</button><button class="btn small" id="set">Settings</button></div>
     </div>
-    <p class="mono" style="font-size:11px">v${VERSION} · First slice · 5 days · 3 card lines</p>
+    <p class="mono" style="font-size:11px">v${VERSION} · 5 weeks · 11 card lines</p>
   </div>`;
-  if ($('#cont')) $('#cont').onclick = () => { S = saved; resume(); };
+  if ($('#cont')) $('#cont').onclick = () => { S = migrate(saved); resume(); };
   $('#new').onclick = () => {
-    if (saved && saved.phase !== 'end') {
-      const m = modal(`<h2>Start over?</h2><p>Your current week will be lost.</p><div class="row"><button class="btn" data-x>Keep playing</button><button class="btn danger" data-y>Start over</button></div>`);
+    if (live) {
+      const m = modal(`<h2>Start over?</h2><p>Your current run will be lost. Achievements are kept.</p><div class="row"><button class="btn" data-x>Keep playing</button><button class="btn danger" data-y>Start over</button></div>`);
       $('[data-x]', m).onclick = () => m.close();
       $('[data-y]', m).onclick = () => { m.close(); newGame(); };
     } else newGame();
   };
+  $('#ach').onclick = showAchievements;
+  $('#set').onclick = showSettings;
 }
 
+function showSettings() {
+  const st = getSettings();
+  const m = modal(`<h2>Settings</h2>
+    <label class="setrow"><span>Music</span><input type="range" id="sMusic" min="0" max="1" step="0.05" value="${st.music}"></label>
+    <label class="setrow"><span>Sound effects</span><input type="range" id="sSfx" min="0" max="1" step="0.05" value="${st.sfx}"></label>
+    <div class="setrow"><span>Shift speed</span><div class="shop-tabs" id="sSpeed">${Object.entries(SPEEDS).map(([k, v]) => `<button data-sp="${k}" aria-selected="${st.speed === k}">${v.label}</button>`).join('')}</div></div>
+    <p style="margin:0;color:var(--muted);font-size:13px">Shift speed changes how fast the clock runs at the desk. Relaxed gives you about 12 minutes a shift, Fast about 5.</p>
+    <button class="btn primary" data-x>Done</button>`);
+  const vol = () => { const s = setSetting('music', +$('#sMusic', m).value); setSetting('sfx', +$('#sSfx', m).value); setVolumes(s.music, getSettings().sfx); };
+  $('#sMusic', m).oninput = vol;
+  $('#sSfx', m).oninput = () => { vol(); sfx('tag'); };
+  $$('[data-sp]', m).forEach((b) => b.onclick = () => { setSetting('speed', b.dataset.sp); $$('[data-sp]', m).forEach((x) => x.setAttribute('aria-selected', x === b ? 'true' : 'false')); if (D && D.timer) { clearInterval(D.timer); D.timer = setInterval(tick, SPEEDS[b.dataset.sp].ms); } });
+  $('[data-x]', m).onclick = () => m.close();
+}
+
+function showAchievements() {
+  const got = achievements();
+  const m = modal(`<h2>Achievements</h2><p style="margin:0;color:var(--muted)">${Object.keys(got).length} of ${ACHIEVEMENTS.length}. Kept across runs.</p>
+    <div class="achlist">${ACHIEVEMENTS.map(([id, n, d]) => `<div class="ach ${got[id] ? 'got' : ''}"><b>${got[id] ? '★' : '☆'} ${esc(n)}</b><span>${esc(d)}</span></div>`).join('')}</div>
+    <button class="btn" data-x>Close</button>`, { wide: true });
+  $('[data-x]', m).onclick = () => m.close();
+}
+
+function codexHTML() {
+  const cats = {};
+  Object.entries(CODEX).forEach(([k, c]) => { (cats[c.cat] = cats[c.cat] || []).push([k, c]); });
+  return `<p style="margin:0;color:var(--muted)">${Object.keys(S.codex).length} of ${Object.keys(CODEX).length} learned. Entries unlock when you catch a tell, get cited for one, or find a chase version.</p>
+    ${Object.entries(cats).map(([cat, list]) => `<h3 class="sub-h">${esc(cat)}</h3><div class="codex">${list.map(([k, c]) => S.codex[k]
+      ? `<div class="cx"><b>${esc(c.name)}</b><span class="mono">${esc(c.tool)}</span><p>${esc(c.text)}</p></div>`
+      : '<div class="cx locked"><b>???</b><p>Not learned yet.</p></div>').join('')}</div>`).join('')}`;
+}
+function showCodex() {
+  const m = modal(`<div class="row" style="justify-content:space-between;align-items:center"><h2>Codex</h2><button class="btn small" data-x>Close</button></div>${codexHTML()}`, { wide: true });
+  $('[data-x]', m).onclick = () => m.close();
+}
+
+// ------------------------------------------------------------------ new game and saves
+function freshState() {
+  const seed = Math.floor(Math.random() * 1e9);
+  const R = makeRng(seed);
+  const starter = [['bl', 1], ['gg', 2], ['ns', 4]].map(([l, n]) => makeInst(R, l, n, 'nice'));
+  return { v: 2, day: 1, money: START_MONEY, rent: WEEKS[0].rent, citations: 0, flags: {}, collection: starter, seed, phase: 'morning', actions: 2, eve: null,
+    rep: 50, sus: 0, integ: 0, fakes: [], apex: [], graded: [], pop: {}, codex: {}, sets: {}, clues: 0, weekend: false, shift: null,
+    stats: { graded: 0, correct: 0, cited: 0, earned: 0, fakesCaught: 0 }, history: [] };
+}
+function migrate(s) { return { ...freshState(), ...s }; }
+function newGame() { S = freshState(); save(); showMorning(); }
+
 function resume() {
+  setMarket(weekOf(S.day).market, S.pop);
+  if (S.phase === 'shift' && S.shift) return startShift(true);
   if (S.phase === 'evening') return showCity();
   return showMorning();
 }
 
-function newGame() {
-  const seed = Math.floor(Math.random() * 1e9);
-  const R = makeRng(seed);
-  const starter = [['bl', 1], ['gg', 2], ['ns', 4]].map(([l, n]) => makeInst(R, l, n, 'nice'));
-  S = { v: 1, day: 1, money: START_MONEY, rent: RENT, citations: 0, flags: {}, collection: starter, seed, phase: 'morning', actions: 2, eve: null,
-    stats: { graded: 0, correct: 0, cited: 0, earned: 0, bribes: 0 }, history: [] };
-  save();
-  showMorning();
+// ------------------------------------------------------------------ morning
+function meterHTML() {
+  const bar = (n, v, cls) => `<div class="meter ${cls}"><span>${n}</span><div><i style="width:${v}%"></i></div><b>${Math.round(v)}</b></div>`;
+  return `<div class="meters">${bar('Reputation', S.rep, 'rep')}${bar('Suspicion', S.sus, 'sus')}</div>`;
 }
 
-// ------------------------------------------------------------------ morning
 function showMorning() {
   setScene('morning');
   closeAllModals();
   S.phase = 'morning';
+  S.shift = null;
+  const wk = weekOf(S.day);
+  if (isMonday(S.day) && S.day > 1 && !S.flags['monday' + S.day]) {
+    S.flags['monday' + S.day] = true;
+    S.citations = 0;
+    S.sus = clamp(S.sus - 5, 0, 100);
+  }
+  S.rent = wk.rent;
+  setMarket(wk.market, S.pop);
   save();
   const cfg = DAYS[S.day - 1];
-  const rules = DAYS.slice(0, S.day).flatMap((d, i) => d.rules.map((r) => ({ r, isNew: i === S.day - 1 && S.day > 1 })));
-  const newTools = S.day > 1 ? cfg.tools.filter((t) => !DAYS[S.day - 2].tools.includes(t)) : [];
+  const prev = S.day > 1 ? DAYS[S.day - 2] : null;
+  const fresh = cfg.rules.map((r) => ({ r, isNew: true }));
+  const newTools = prev ? cfg.tools.filter((t) => !prev.tools.includes(t)) : [];
+  const newLines = prev ? cfg.lines.filter((l) => !prev.lines.includes(l)) : cfg.lines;
   const letters = morningLetters(S.day, S.flags, S);
   app.innerHTML = `<div class="screen scroll"><div class="memo-wrap">
+    ${isMonday(S.day) ? `<div class="weekcard"><span class="kicker">Week ${wk.n} of 5</span><b>${esc(wk.name)}</b></div>` : ''}
     <div class="paper memo">
-      <div class="head"><h2>GEMLINE AUTHENTICATION · BULLETIN</h2><span>${dayName(S.day)}, day ${S.day} of 5</span></div>
-      <ol>${rules.map((x) => `<li class="${x.isNew ? 'new' : ''}">${x.isNew ? '<span class="tag">NEW</span>' : ''}${esc(x.r)}</li>`).join('')}</ol>
-      <div class="stats"><span>QUOTA: ${cfg.quota} CARDS</span><span>LINES: ${cfg.lines.map((l) => LINES[l].name.toUpperCase()).join(', ')}</span>${newTools.length ? `<span>NEW TOOL: ${newTools.map((t) => TOOLS[t].name.toUpperCase()).join(', ')}</span>` : ''}<span>CITATIONS: ${S.citations}/${MAX_CITATIONS}</span><span>CASH: ${money(S.money)}</span>${S.day === 5 ? `<span>RENT DUE TONIGHT: ${money(S.rent)}</span>` : ''}</div>
+      <div class="head"><h2>GEMLINE AUTHENTICATION · BULLETIN</h2><span>Week ${wk.n} · ${dayName(S.day)}</span></div>
+      ${fresh.length ? `<ol>${fresh.map((x) => `<li class="new"><span class="tag">NEW</span>${esc(x.r)}</li>`).join('')}</ol>` : '<p style="margin:0">No new rules today. All standing rules apply (Reference → Rules).</p>'}
+      <div class="stats"><span>QUOTA: ${cfg.quota} CARDS</span>${newLines.length ? `<span>NEW LINE: ${newLines.map((l) => LINES[l].name.toUpperCase()).join(', ')}</span>` : ''}${newTools.length ? `<span>NEW TOOL: ${newTools.map((t) => TOOLS[t].name.toUpperCase()).join(', ')}</span>` : ''}<span>CITATIONS THIS WEEK: ${S.citations}/${MAX_CITATIONS}</span><span>CASH: ${money(S.money)}</span><span>RENT ${isFriday(S.day) ? 'DUE TONIGHT' : 'FRIDAY'}: ${money(S.rent)}</span>${wk.pay !== 1 ? `<span>PAY RATE: ${Math.round(wk.pay * 100)}%</span>` : ''}</div>
+      ${meterHTML()}
     </div>
     ${letters.map(letterHTML).join('')}
     <button class="btn primary" id="go">Start the shift · 9:00</button>
-    <button class="btn small" id="quit">Back to title</button>
+    <div class="row" style="justify-content:center"><button class="btn small" id="cdx">Codex</button><button class="btn small" id="quit">Save and quit</button></div>
   </div></div>`;
-  $('#go').onclick = startShift;
+  $('#go').onclick = () => startShift(false);
+  $('#cdx').onclick = showCodex;
   $('#quit').onclick = showTitle;
 }
 
@@ -138,25 +232,45 @@ function showMorning() {
 const ICONS = {
   hand: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="9" height="13" rx="1.5"/><rect x="12" y="5" width="9" height="13" rx="1.5" stroke-dasharray="2 2"/><path d="M8 21h8M14 19l2 2-2 2"/></svg>',
   loupe: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10" cy="10" r="6"/><path d="M14.5 14.5L21 21"/></svg>',
+  micro: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 3h4v6l-2 2-2-2z"/><path d="M11 11v4M6 21h12M8 21a7 7 0 0 1 3-6M15 13a5 5 0 0 1 2 8"/></svg>',
   ruler: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="8" width="20" height="8" rx="1"/><path d="M6 8v3M10 8v4M14 8v3M18 8v4"/></svg>',
   uv: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.8.8 1 1.6 1 2.5h6c0-.9.2-1.7 1-2.5A6 6 0 0 0 12 3z"/></svg>',
+  tilt: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 20h16M7 20l3-6M17 20l-3-6"/><rect x="6" y="3" width="10" height="11" rx="1" transform="rotate(-12 11 8)"/></svg>',
+  water: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3c-4 6-6 9-6 12a6 6 0 0 0 12 0c0-3-2-6-6-12z"/></svg>',
+  registry: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20h8M12 16v4M6 8h7M6 11h10"/></svg>',
+  scale: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="14" width="18" height="6" rx="1"/><path d="M6 14l1-4h10l1 4M9 17h6"/></svg>',
+  light: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="1.5"/><path d="M7 9h10M7 12h10M7 15h6"/></svg>',
   binder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4h12a3 3 0 0 1 3 3v13H7a3 3 0 0 1-3-3z"/><path d="M4 17a3 3 0 0 1 3-3h12"/></svg>',
 };
-
+const TOOL_ORDER = ['hand', 'loupe', 'micro', 'ruler', 'uv', 'tilt', 'light', 'water', 'scale', 'registry', 'binder'];
 
 const TIPS = {
-  2: '<b>New: UV lamp.</b> Old genuine stock stays dull under it. Fakes on modern paper glow bright. Bloomlings are in the queue now too: check the reference notes.',
-  3: '<b>New rules.</b> Flip every card: counterfeit backs are turning up. Under UV, touch-up ink glows in patches. Stamp plus shadow on a Bloomling means altered.',
-  4: '<b>Trimmed cards are going around.</b> The Ruler shows card size as well as centering. Anything under 2.50 × 3.50 in has been cut.',
-  5: '<b>Audit day.</b> Everything you stamp today will be checked against your week.',
+  2: '<b>New: UV lamp.</b> Old genuine stock stays dull. Fakes on modern paper glow bright. Bloomlings are in the queue now: read their reference notes.',
+  3: '<b>New rules.</b> Flip every card. Under UV, touch-up ink glows in patches. Stamp plus shadow on a Bloomling means altered.',
+  4: '<b>Trimmed cards are going around.</b> The Ruler shows card size as well as centering.',
+  6: '<b>New: tilt stand and Moth &amp; Lantern.</b> Every genuine Moth &amp; Lantern card has hidden ink under UV. The tilt stand makes holograms shift.',
+  7: '<b>New: dropper and Tidebound.</b> Tap a drop of water onto a Tidebound card: it beads on real stock. Never use it on any other line.',
+  8: '<b>New: registry and Rift Duelists.</b> The hex hologram must shift color on the tilt stand. The registry shows population reports and serials.',
+  11: '<b>The Boom.</b> VIP walk-ins pay well. New: scale and Grimoire Accord. Measure Alpha corners with the ruler: all four should match.',
+  12: '<b>New: microscope and Hollow Pantheon.</b> Tarnished leaf means a 1987 first print. Genuine leaf shows flakes under the microscope.',
+  13: '<b>Ring forgeries.</b> Check the microprint along the bottom border with the microscope. New: light box and Ironclad Derby.',
+  16: '<b>The Crash.</b> Pay is down a quarter. New: Cryptid Field Notes. Look up serials on the registry.',
+  17: '<b>New: Starpost.</b> The ruler counts perforations. An upside-down center is a genuine error.',
+  25: '<b>Final audit.</b> Everything you stamp today counts.',
 };
 
-function startShift() {
+function startShift(resuming) {
   closeAllModals();
   const cfg = DAYS[S.day - 1];
-  const R = makeRng(S.seed + S.day * 7919);
-  D = { cfg, R, story: storySubs(R, S.day, S.flags), served: 0, minute: 0, sub: null, face: 'front', tool: 'hand', uv: false, ruler: false, measured: false,
-    found: new Set(), paid: {}, log: [], ended: false, cites: 0, tip: TIPS[S.day] || null, coach: S.day === 1 ? 0 : -1, timer: null, busy: false };
+  setMarket(weekOf(S.day).market, S.pop);
+  const sh = resuming ? S.shift : null;
+  const R = makeRng(S.seed + S.day * 7919, sh ? sh.rng : undefined);
+  D = { cfg, R, story: sh ? sh.story : storySubs(R, S.day, S.flags), served: sh ? sh.served : 0, minute: sh ? sh.minute : 0, sub: null,
+    face: 'front', tool: 'hand', uv: false, ruler: false, tilt: false, light: false, water: [], measured: false, weighed: false, registry: null,
+    found: new Set(), paid: {}, log: sh ? sh.log : [], ended: false, cites: sh ? sh.cites : 0, tip: TIPS[S.day] || null, tipSeen: sh ? true : false,
+    coach: S.day === 1 && !sh ? 0 : -1, timer: null, busy: false, ticks: 0 };
+  S.phase = 'shift';
+  const tools = TOOL_ORDER.filter((t) => cfg.tools.includes(t));
   app.innerHTML = `<div class="screen desk">
     <div class="topbar">
       <span class="day">${dayName(S.day).slice(0, 3)}</span>
@@ -182,7 +296,7 @@ function startShift() {
     </div>
     <button class="infostrip" id="strip" aria-label="Show the form and worksheet"></button>
     <div class="toolbar" id="toolbar">
-      ${['hand', 'loupe', 'ruler', 'uv', 'binder'].map((t) => `<button class="tool" data-tool="${t}" ${cfg.tools.includes(t) ? '' : 'disabled title="Not issued yet"'}>${ICONS[t]}<span>${TOOLS[t].name}</span></button>`).join('')}
+      <div class="tools-scroll">${tools.map((t) => `<button class="tool" data-tool="${t}" title="${esc(TOOLS[t].desc)}">${ICONS[t]}<span>${TOOLS[t].name}</span></button>`).join('')}</div>
       <button class="verdict-btn" id="verdictBtn">VERDICT</button>
     </div>
   </div>`;
@@ -192,7 +306,7 @@ function startShift() {
   });
   $('#strip').onclick = () => { $('#side').classList.toggle('open'); sfx('ui'); };
   $('#sideClose').onclick = () => $('#side').classList.remove('open');
-  setScene('desk');
+  setScene(D.minute >= 420 ? 'deskLate' : 'desk');
   $$('.tool').forEach((b) => b.onclick = () => useTool(b.dataset.tool));
   $('#verdictBtn').onclick = openVerdict;
   $('#clockout').onclick = () => {
@@ -203,15 +317,23 @@ function startShift() {
   bindStage();
   window.addEventListener('resize', fitStage);
   window.addEventListener('keydown', onKey);
-  nextCard();
+  if (sh && sh.sub) { D.sub = sh.sub; resetCard(); (sh.found || []).forEach((id) => D.found.add(id)); D.measured = !!sh.measured; renderAll(true); } else nextCard();
   updateTop();
-  D.timer = setInterval(tick, 1000);
+  D.timer = setInterval(tick, SPEEDS[getSettings().speed].ms);
+  saveShift();
+}
+
+function saveShift() {
+  if (!D || D.ended) return;
+  S.phase = 'shift';
+  S.shift = { rng: D.R.state(), story: D.story, served: D.served, minute: D.minute, log: D.log, cites: D.cites, sub: D.sub, found: [...D.found], measured: D.measured };
+  save();
 }
 
 function onKey(e) {
   if (!D || D.ended || modals.length) return;
   const k = e.key.toLowerCase();
-  const map = { h: 'hand', l: 'loupe', r: 'ruler', u: 'uv', b: 'binder' };
+  const map = { h: 'hand', l: 'loupe', m: 'micro', r: 'ruler', u: 'uv', t: 'tilt', b: 'binder', w: 'water', s: 'scale', g: 'registry', x: 'light' };
   if (map[k] && D.cfg.tools.includes(map[k])) useTool(map[k]);
   if (k === 'f') flip();
   if (k === 'v' || k === 'enter') openVerdict();
@@ -221,6 +343,7 @@ function tick() {
   if (!D || D.ended || document.hidden || D.busy) return;
   if (modals.some((m) => m.dataset.pause)) return;
   addMinutes(1, true);
+  if (++D.ticks % 10 === 0) saveShift();
 }
 function addMinutes(n, quiet) {
   D.minute += n;
@@ -230,7 +353,7 @@ function addMinutes(n, quiet) {
 }
 function clockStr(m) { const h = 9 + Math.floor(m / 60), mm = m % 60; return `${h > 12 ? h - 12 : h}:${String(mm).padStart(2, '0')}${h >= 12 ? ' pm' : ' am'}`; }
 function updateTop() {
-  if (!$('#clock')) return;
+  if (!$('#clock') || !D) return;
   const c = $('#clock');
   c.textContent = clockStr(Math.min(D.minute, 480));
   c.classList.toggle('late', D.minute >= 420);
@@ -242,13 +365,21 @@ function updateTop() {
   $('#clockout').hidden = D.served < D.cfg.quota;
 }
 
+function resetCard() {
+  D.face = 'front'; D.uv = false; D.ruler = false; D.tilt = false; D.light = false; D.water = []; D.damaged = false;
+  D.measured = false; D.weighed = false; D.registry = null; D.found = new Set(); D.paid = {};
+  if (D.tool !== 'loupe' && D.tool !== 'micro') D.tool = 'hand';
+}
+
 function nextCard() {
   const st = D.story.find((x) => x.at === D.served && !x.used);
-  if (st) { st.used = true; D.sub = st.sub; } else D.sub = makeSubmission(D.R, D.cfg, S.day);
-  D.face = 'front'; D.uv = false; D.ruler = false; D.measured = false; D.found = new Set(); D.paid = {};
-  if (D.tool !== 'loupe') D.tool = 'hand';
+  if (st) { st.used = true; D.sub = st.sub; } else D.sub = makeSubmission(D.R, D.cfg, S.day, { rep: S.rep });
+  resetCard();
+  renderAll(true);
+}
+function renderAll(slideIn) {
   renderForm();
-  renderCard(true);
+  renderCard(slideIn);
   renderSheet();
   updateTools();
   coach();
@@ -268,16 +399,37 @@ function fitStage() {
   renderMarks();
 }
 
+function viewOpts(extra = {}) {
+  return { face: D.face, uv: D.uv, ruler: D.ruler, tilt: D.tilt, light: D.light, water: D.face === 'front' ? D.water : [], ...extra };
+}
 function renderCard(slideIn) {
   const inst = D.sub.inst;
-  $('#cardview').innerHTML = cardSVG(inst, { face: D.face, uv: D.uv, ruler: D.ruler });
-  $('#lensInner').innerHTML = cardSVG(inst, { face: D.face, uv: D.uv, micro: true });
+  $('#cardview').innerHTML = cardSVG(inst, viewOpts());
+  $('#lensInner').innerHTML = cardSVG(inst, viewOpts({ ruler: false, micro: true, microprint: D.tool === 'micro' }));
   if (slideIn) { const cv = $('#cardview'); cv.classList.remove('slide-in'); void cv.offsetWidth; cv.classList.add('slide-in'); }
   fitStage();
+  checkClue();
+}
+
+// Ghost Print clues reveal themselves when you look the right way.
+function checkClue() {
+  const c = D.sub.inst.clue;
+  if (!c || S.flags['clue_' + c]) return;
+  const hit = (c === 'uv' && D.uv && D.face === 'front') || (c === 'light' && D.light) || (c === 'back' && D.face === 'back') || (c === 'registry' && D.registry);
+  if (!hit) return;
+  S.flags['clue_' + c] = true;
+  S.clues = (S.clues || 0) + 1;
+  sfx('sparkle');
+  const info = CLUES[c];
+  setTimeout(() => {
+    const m = modal(`${letterHTML({ from: info.title, body: [...info.body, `(Clue ${S.clues} of 4. Ellis Marsh's Ghost Print is out there.)`] })}<button class="btn primary" data-x>Keep it in mind</button>`);
+    m.dataset.pause = '1';
+    $('[data-x]', m).onclick = () => m.close();
+  }, 300);
 }
 
 function renderMarks() {
-  const marks = $('#marks'), stage = $('#stage');
+  const marks = $('#marks');
   if (!marks || !D || !D.sub) return;
   const list = D.sub.inst.defects.filter((d) => D.found.has(d.id));
   marks.innerHTML = list.map((d, i) => {
@@ -294,7 +446,7 @@ function renderForm() {
   $('#form').innerHTML = `<div class="fhead"><span>GEMLINE · SUBMISSION</span><span>No. ${f.no}</span></div>
     <dl>
       <dt>Client</dt><dd>${esc(f.client)}</dd>
-      <dt>Service</dt><dd>${TIERS[f.tier].name} · ${money(TIERS[f.tier].pay)}</dd>
+      <dt>Service</dt><dd>${TIERS[f.tier].name} · ${money(payFor(f.tier))}</dd>
       <dt>Card</dt><dd>${esc(f.name)}</dd>
       <dt>Set</dt><dd>${esc(L.name)} (${L.year})</dd>
       <dt>Number</dt><dd>${pad3(f.n)}/${pad3(L.total)}</dd>
@@ -304,12 +456,11 @@ function renderForm() {
   renderStrip();
 }
 
-// Phone-sized summary of the form and the worksheet, under the card.
 function renderStrip() {
   const el = $('#strip');
   if (!el || !D || !D.sub) return;
   const f = D.sub.form, L = LINES[f.line], w = worksheet();
-  el.innerHTML = `<span class="s-main"><b>${esc(f.name)}</b><span>${L.setCode} ${pad3(f.n)} · ${f.claims.length ? esc(f.claims.join(', ')) : 'No variant claimed'}${f.note ? ' · <i>note attached</i>' : ''}</span></span>
+  el.innerHTML = `<span class="s-main"><b>${esc(f.name)}</b><span>${esc(L.setCode)} ${pad3(f.n)} · ${f.claims.length ? esc(f.claims.join(', ')) : 'No variant claimed'}${f.note ? ' · <i>note attached</i>' : ''}</span></span>
     <span class="s-grade"><b>${fmtG(w.grade)}</b><small>${D.measured ? '' : 'ctr? · '}${w.found.length} tagged</small></span><span class="s-chev" aria-hidden="true">⌃</span>`;
 }
 
@@ -321,16 +472,27 @@ function worksheet() {
   return { subs, grade: finalGrade(subs), found, c };
 }
 
+function readings() {
+  const inst = D.sub.inst, out = [];
+  if (D.measured) { out.push(['Size', cardSize(inst)]); extraReadings(inst).forEach((t) => out.push(['Ruler', t])); }
+  if (D.weighed) out.push(['Weight', `${cardWeight(inst)} (ref ${LINES[inst.line].weight.toFixed(2)} g)`]);
+  if (D.water.length) out.push(['Water', inst.line === 'tb' && !(inst.fake && inst.fake.kinds.includes('absorb')) ? 'Beaded on the surface' : 'Soaked in and stained']);
+  if (D.registry) out.push(['Registry', D.registry]);
+  return out;
+}
+
 function renderSheet() {
   const w = worksheet();
   const cats = [['Corners', 'corners'], ['Edges', 'edges'], ['Surface', 'surface']];
+  const rd = readings();
   $('#sheet').innerHTML = `<h3>Worksheet</h3>
     <div class="subs">
       <span>Centering</span><span class="v">${D.measured ? fmtG(w.subs.centering) : '10?'}</span>
-      <span class="dim">${D.measured ? `L/R ${Math.round(w.c.lr)}/${Math.round(100 - w.c.lr)} · T/B ${Math.round(w.c.tb)}/${Math.round(100 - w.c.tb)} · ${cardSize(D.sub.inst)}` : 'Not measured. Counts as 10.'}</span>
+      <span class="dim">${D.measured ? `L/R ${Math.round(w.c.lr)}/${Math.round(100 - w.c.lr)} · T/B ${Math.round(w.c.tb)}/${Math.round(100 - w.c.tb)}` : 'Not measured. Counts as 10.'}</span>
       ${cats.map(([n, k]) => `<span>${n}</span><span class="v">${fmtG(w.subs[k])}</span>`).join('')}
     </div>
     <div class="grade-big"><span class="num">${fmtG(w.grade)}</span><span class="nm">${gradeName(w.grade, w.subs)}</span></div>
+    ${rd.length ? `<dl class="readings">${rd.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>` : ''}
     <ul class="taglist">${w.found.length ? w.found.map((d, i) => `<li>${i + 1}. <b>${defectName(d)}</b></li>`).join('') : '<li>No flaws tagged yet. Check both sides.</li>'}</ul>`;
   renderStrip();
 }
@@ -338,32 +500,34 @@ function renderSheet() {
 function updateTools() {
   $$('.tool').forEach((b) => {
     const t = b.dataset.tool;
-    const on = t === 'hand' || t === 'loupe' ? D.tool === t : t === 'ruler' ? D.ruler : t === 'uv' ? D.uv : false;
+    const on = ['hand', 'loupe', 'micro', 'water'].includes(t) ? D.tool === t : t === 'ruler' ? D.ruler : t === 'uv' ? D.uv : t === 'tilt' ? D.tilt : t === 'light' ? D.light : false;
     b.setAttribute('aria-pressed', on ? 'true' : 'false');
   });
   const st = $('#stage');
-  st.classList.toggle('tool-loupe', D.tool === 'loupe');
+  st.classList.toggle('tool-loupe', D.tool === 'loupe' || D.tool === 'micro' || D.tool === 'water');
   st.classList.toggle('tool-hand', D.tool === 'hand');
+}
+
+function payTool(t) {
+  const cost = TOOLS[t].cost || 0;
+  if (cost && !D.paid[t]) { D.paid[t] = true; addMinutes(cost); }
 }
 
 function useTool(t) {
   if (!D || D.ended || D.busy) return;
   sfx('tool');
-  if (t === 'hand' || t === 'loupe') { D.tool = t; $('#lens').hidden = true; }
-  if (t === 'ruler') {
-    if (!D.paid.ruler) { D.paid.ruler = true; addMinutes(3); }
-    D.ruler = !D.ruler; D.measured = true;
-    renderCard(); renderSheet();
+  if (['hand', 'loupe', 'micro', 'water'].includes(t)) {
+    D.tool = t; $('#lens').hidden = true;
+    if (t === 'micro' || t === 'loupe') renderCard();
+    if (t === 'water') toast(D.sub.inst.line === 'tb' ? 'Tap the card to place a drop.' : 'Careful: water only belongs on Tidebound cards.');
   }
-  if (t === 'uv') {
-    if (!D.paid.uv) { D.paid.uv = true; addMinutes(2); }
-    D.uv = !D.uv;
-    renderCard();
-  }
-  if (t === 'binder') {
-    if (!D.paid.binder) { D.paid.binder = true; addMinutes(1); }
-    openReference(D.sub.form.line, D.sub.form.n, D.cfg.lines);
-  }
+  if (t === 'ruler') { payTool(t); D.ruler = !D.ruler; D.measured = true; renderCard(); renderSheet(); }
+  if (t === 'uv') { payTool(t); D.uv = !D.uv; if (D.uv) D.light = false; renderCard(); }
+  if (t === 'tilt') { payTool(t); D.tilt = !D.tilt; renderCard(); }
+  if (t === 'light') { payTool(t); D.light = !D.light; if (D.light) D.uv = false; renderCard(); }
+  if (t === 'scale') { payTool(t); D.weighed = true; toast(`Scale: ${cardWeight(D.sub.inst)}. Reference ${LINES[D.sub.inst.line].weight.toFixed(2)} g.`); renderSheet(); }
+  if (t === 'registry') { payTool(t); openRegistry(); }
+  if (t === 'binder') { payTool(t); openReference(D.sub.form.line, D.sub.form.n, D.cfg.lines); }
   updateTools();
   coach();
 }
@@ -372,18 +536,18 @@ function flip() {
   sfx('flip');
   const cv = $('#cardview');
   cv.classList.remove('flipping'); void cv.offsetWidth; cv.classList.add('flipping');
-  setTimeout(() => { D.face = D.face === 'front' ? 'back' : 'front'; renderCard(); }, 170);
+  setTimeout(() => { D.face = D.face === 'front' ? 'back' : 'front'; renderCard(); renderMarks(); }, 170);
 }
 
 function bindStage() {
   const stage = $('#stage'), lens = $('#lens');
   let st = null;
   const pt = (e) => { const r = stage.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top, w: r.width, h: r.height }; };
-  // The lens floats above a finger. Near the top of the screen it moves to the
-  // side instead, and it is always kept fully on screen.
+  const lensOn = () => D.tool === 'loupe' || D.tool === 'micro';
   const showLens = (p, touch) => {
-    const Z = 3.2, R = 75, r = stage.getBoundingClientRect();
+    const Z = D.tool === 'micro' ? 7 : 3.2, R = 75, r = stage.getBoundingClientRect();
     lens.hidden = false;
+    lens.classList.toggle('micro', D.tool === 'micro');
     let cx = p.x, cy = touch ? p.y - 95 : p.y;
     if (touch && r.top + cy - R < 6) { cy = p.y; cx = p.x + (p.x > p.w / 2 ? -110 : 110); }
     const vx = Math.min(Math.max(r.left + cx, R + 4), window.innerWidth - R - 4);
@@ -399,22 +563,23 @@ function bindStage() {
     const p = pt(e);
     st = { x: p.x, y: p.y, t: Date.now(), moved: false, type: e.pointerType };
     try { stage.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
-    if (D.tool === 'loupe') showLens(p, e.pointerType !== 'mouse');
+    if (lensOn()) showLens(p, e.pointerType !== 'mouse');
   });
   stage.addEventListener('pointermove', (e) => {
     if (!D || D.ended) return;
     const p = pt(e);
     if (st && Math.hypot(p.x - st.x, p.y - st.y) > 7) st.moved = true;
-    if (D.tool === 'loupe' && (st || e.pointerType === 'mouse')) showLens(p, e.pointerType !== 'mouse');
+    if (lensOn() && (st || e.pointerType === 'mouse')) showLens(p, e.pointerType !== 'mouse');
   });
   const up = (e) => {
     if (!st) return;
     const p = pt(e);
     const tap = !st.moved && Date.now() - st.t < 600;
     if (tap && D.tool === 'hand') flip();
-    if (D.tool === 'loupe') {
+    if (tap && D.tool === 'water') placeDrop(p);
+    if (lensOn()) {
       if (tap) tagAt(p);
-      else if (st.type !== 'mouse') tagAt(p, true); // lifting after a drag tags only if the crosshair is on a flaw
+      else if (st.type !== 'mouse') tagAt(p, true);
       if (st.type !== 'mouse') lens.hidden = true;
     }
     st = null;
@@ -424,6 +589,17 @@ function bindStage() {
   stage.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') lens.hidden = true; });
   stage.addEventListener('contextmenu', (e) => e.preventDefault());
   requestAnimationFrame(fitStage);
+}
+
+function placeDrop(p) {
+  if (D.face !== 'front') { toast('Turn the card face up first.'); return; }
+  payTool('water');
+  const inst = D.sub.inst;
+  D.water.push({ x: Math.round((p.x / p.w) * 250), y: Math.round((p.y / p.h) * 350) });
+  const beads = inst.line === 'tb' && !(inst.fake && inst.fake.kinds.includes('absorb'));
+  if (!beads && !inst.fake) { D.damaged = true; toast('The ink runs. That was a client\'s card.', 'bad'); sfx('miss'); }
+  else toast(beads ? 'The drop beads up.' : 'The drop soaks straight in.');
+  renderCard(); renderSheet();
 }
 
 function segDist(px, py, d) {
@@ -466,7 +642,6 @@ function tagAt(p, quiet) {
   }
 }
 
-// Day 1 coaching on the training card.
 function coach() {
   const el = $('#coach');
   if (!el || !D) return;
@@ -491,13 +666,35 @@ function coach() {
   if (n) n.onclick = () => { D.coach = 1; coach(); };
 }
 
+// ------------------------------------------------------------------ registry terminal
+function openRegistry() {
+  const inst = D.sub.inst, key = inst.line + ':' + inst.n;
+  const R = makeRng((inst.n * 131 + inst.line.charCodeAt(0) * 17) >>> 0);
+  const pop = [6, 7, 8, 9, 10].map((g) => [g, R.int(g === 10 ? 2 : 8, g === 10 ? 14 : 70) + (g === 10 ? (S.pop[key] || 0) : 0)]);
+  let serial = '';
+  if (inst.v.serial) {
+    const sn = String(inst.v.serial).padStart(2, '0');
+    if (inst.clue === 'registry') serial = `Serial ${sn}/50 is registered to ELLIS MARSH (deceased 2004). Estate: unsold lots consigned to a night market vendor, Thursdays.`;
+    else if (inst.fake && inst.fake.kinds.includes('dupserial')) serial = `Serial ${sn}/50 is ALREADY REGISTERED to slab #G-${4000 + inst.v.serial * 37}, graded 8.5 in 1991.`;
+    else serial = `Serial ${sn}/50: no record. First submission.`;
+  }
+  D.registry = serial ? serial.split('.')[0] : `Pop report checked (${pop[4][1]} tens on file)`;
+  const m = modal(`<div class="terminal"><div class="t-head">GEMLINE REGISTRY · TERMINAL 4</div>
+    <div>&gt; LOOKUP ${esc(LINES[inst.line].setCode)} ${pad3(inst.n)} ${esc(cardTitle(inst).toUpperCase())}</div>
+    <div class="t-pop">${pop.map(([g, n]) => `<span>GRADE ${g}</span><span>${'█'.repeat(Math.max(1, Math.round(n / 5)))} ${n}</span>`).join('')}</div>
+    ${serial ? `<div>&gt; SERIAL CHECK</div><div class="t-out">${esc(serial)}</div>` : '<div>&gt; NO SERIAL ON THIS CARD</div>'}
+    <div>&gt; STOLEN REPORTS: NONE</div></div><button class="btn primary" data-x>Close</button>`);
+  $('[data-x]', m).onclick = () => m.close();
+  renderSheet();
+  checkClue();
+}
+
 // ------------------------------------------------------------------ reference binder
 function openReference(line, n, lines) {
   let cur = { line, n: CARDS[line].some((c) => c.n === n) ? n : 1 };
   const m = modal(`<div class="row" style="justify-content:space-between;align-items:center"><h2>Reference binder</h2><button class="btn small" data-close>Close</button></div>
-    <div class="shop-tabs" id="rtabs"><button data-l="rules">Rules</button>${lines.map((l) => `<button data-l="${l}">${LINES[l].name}</button>`).join('')}</div>
+    <div class="shop-tabs scrolltabs" id="rtabs"><button data-l="rules">Rules</button><button data-l="codex">Codex</button>${lines.map((l) => `<button data-l="${l}">${LINES[l].name}</button>`).join('')}</div>
     <div id="rbody"></div>`, { wide: true });
-  // The clock keeps running while you read.
   $('[data-close]', m).onclick = () => m.close();
   const draw = () => {
     $$('#rtabs button', m).forEach((b) => b.setAttribute('aria-selected', b.dataset.l === cur.line ? 'true' : 'false'));
@@ -506,14 +703,17 @@ function openReference(line, n, lines) {
       $('#rbody', m).innerHTML = `<div class="paper memo" style="max-width:none"><div class="head"><h2>STANDING RULES</h2><span>${dayName(S.day)}</span></div><ol>${rules.map((r) => `<li>${esc(r)}</li>`).join('')}</ol></div>`;
       return;
     }
+    if (cur.line === 'codex') { $('#rbody', m).innerHTML = codexHTML(); return; }
     const L = LINES[cur.line];
     const c = CARDS[cur.line].find((x) => x.n === cur.n);
     const off = blankInst(cur.line, cur.n);
+    const stat = cur.line === 'ic' ? `<table class="statsheet"><tr><th></th><th>Run 1</th><th>Run 2</th></tr>${['Speed', 'Grit', 'Boiler'].map((nm, k) => `<tr><td>${nm}</td><td>${c.s1[k]}</td><td>${c.s2[k]}</td></tr>`).join('')}</table>` : '';
     $('#rbody', m).innerHTML = `<div class="viewer">
       <div style="display:flex;gap:10px;flex:0 1 auto;margin:0 auto"><div style="width:min(190px,40vw)">${cardSVG(off, { clean: true })}</div><div style="width:min(190px,40vw)">${cardSVG(off, { clean: true, face: 'back' })}</div></div>
       <div class="info"><b style="font-family:var(--f-display);font-size:20px">${esc(c.full || c.name)}</b>
-        <span class="mono">${L.setCode} · ${pad3(c.n)}/${pad3(L.total)} · ${rarityName(off)}</span>
-        <ul style="margin:4px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:4px;color:var(--muted)">${L.notes.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>
+        <span class="mono">${esc(L.setCode)} · ${pad3(c.n)}/${pad3(L.total)} · ${rarityName(off)} · ${L.weight.toFixed(2)} g</span>
+        ${stat}
+        <ul style="margin:4px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:4px;color:var(--muted)">${L.notes.map((x) => `<li>${esc(x)}</li>`).join('')}<li>Microprint along the bottom border reads "${esc(L.micro)}".</li></ul></div>
     </div>
     <div class="cardgrid" style="margin-top:12px">${CARDS[cur.line].map((x) => `<button class="cardcell ${x.n === cur.n ? 'picked' : ''}" data-n="${x.n}">${cardSVG(blankInst(cur.line, x.n), { clean: true })}<span>${pad3(x.n)} ${esc(x.name)}</span></button>`).join('')}</div>`;
     $$('[data-n]', m).forEach((b) => b.onclick = () => { cur.n = +b.dataset.n; draw(); });
@@ -528,9 +728,9 @@ function openVerdict() {
   const w = worksheet();
   let choice = null, grade = w.grade;
   const opts = [
-    ['grade', 'GRADE', 'Authentic. Seal it with a grade.'],
+    ['grade', 'GRADE', 'Authentic. Seal it in a slab.'],
     ['error', 'AUTHENTIC ERROR', 'A genuine misprint. Grade it and label it.'],
-    ['altered', 'ALTERED', 'Trimmed, recolored or stamped after printing.'],
+    ['altered', 'ALTERED', 'Trimmed, recolored, recut or stamped after printing.'],
     ['counterfeit', 'COUNTERFEIT', 'Not a genuine card.'],
     ['return', 'RETURN TO CLIENT', 'The card does not match the form.'],
   ];
@@ -559,37 +759,97 @@ function openVerdict() {
   sync();
 }
 
+const STICKY = { counterfeit: ['COUNTERFEIT', 'Returned to client, unsealed.'], altered: ['ALTERED', 'Returned to client, unsealed.'], return: ['RETURNED', 'Card does not match the form.'] };
+
 function stamp(verdict, grade) {
   D.busy = true;
-  const sub = D.sub;
-  const entry = { sub, verdict, grade: verdict === 'grade' || verdict === 'error' ? grade : null, truth: truthOf(sub), found: [...D.found], measured: D.measured, sheet: worksheet().grade };
+  $('#side').classList.remove('open');
+  const sub = D.sub, inst = sub.inst;
+  const entry = { sub, verdict, grade: verdict === 'grade' || verdict === 'error' ? grade : null, truth: truthOf(sub), found: [...D.found], measured: D.measured, sheet: worksheet().grade, damaged: D.damaged };
   judge(entry);
   D.log.push(entry);
-  if (entry.res === 'cite') { D.cites++; setTimeout(() => citationSlip(entry), 650); }
   if (sub.story) onStoryStamp(sub, verdict, grade, S.flags);
+  if (sub.story === 'vince1') achieve(S.flags.vince1 === 'took' ? 'took' : 'refuse');
   if (D.coach >= 0 && sub.story === 'tutorial') D.coach = -1;
-  const label = { grade: 'GRADE ' + fmtG(grade), error: 'ERROR · ' + fmtG(grade), altered: 'ALTERED', counterfeit: 'COUNTERFEIT', return: 'RETURNED' }[verdict];
-  const sa = document.createElement('div');
-  sa.className = 'stamp-anim';
-  sfx('stamp');
-  sa.innerHTML = `<span>${label}</span>`;
-  $('#stage').appendChild(sa);
+  afterStamp(entry);
   $('#lens').hidden = true;
-  setTimeout(() => { const cv = $('#cardview'); if (cv) { cv.classList.add('slide-out'); } sa.remove(); }, 550);
+  const sealed = verdict === 'grade' || verdict === 'error';
+  sfx('stamp');
+  if (sealed) slabAnimation(inst, verdict, grade); else stickyAnimation(verdict);
+  if (entry.res === 'cite') { D.cites++; setTimeout(() => citationSlip(entry), sealed ? 1500 : 1100); }
   setTimeout(() => {
     if (!D || D.ended) return;
-    $('#cardview').classList.remove('slide-out');
+    $$('.slab-anim, .sticky-anim').forEach((x) => x.remove());
+    $('#cardview').className = '';
     D.served++;
     D.busy = false;
     $('#coach').hidden = true;
     nextCard();
     updateTop();
-  }, 1000);
+    saveShift();
+  }, sealed ? 1900 : 1400);
   addMinutes(2, true);
+}
+
+// Bookkeeping after each verdict: meters, codex, achievements, Fake Binder, population.
+function afterStamp(e) {
+  const inst = e.sub.inst, walkIn = e.res === 'story';
+  if (!walkIn) meters(e.res === 'ok' ? { rep: 1 } : { rep: -3, sus: e.grade != null && e.grade > e.sheet && e.truth.grade < e.grade ? 3 : 0 });
+  if (inst.fake && (e.res === 'cite' || e.verdict === 'counterfeit')) inst.fake.kinds.forEach(learn);
+  if (inst.alt && (e.res === 'cite' || e.verdict === 'altered')) learn(inst.alt.kind);
+  learnInst(inst);
+  if (e.verdict === 'counterfeit' && inst.fake) {
+    S.stats.fakesCaught = (S.stats.fakesCaught || 0) + 1;
+    if (S.stats.fakesCaught >= 10) achieve('fakes10');
+    if (S.stats.fakesCaught >= 50) achieve('fakes50');
+    const ring = inst.fake.kinds.includes('micro');
+    if (ring) achieve('ring');
+    if (ring || Math.random() < 0.35) {
+      S.fakes.push(JSON.parse(JSON.stringify(inst)));
+      setTimeout(() => toast(ring ? 'A ring forgery. You keep it, quietly. Evidence.' : '"Keep it," the client says. "Burn it." It goes in your Fake Binder.', 'good'), 1600);
+    }
+  }
+  if ((e.verdict === 'grade' || e.verdict === 'error') && !walkIn) {
+    achieve('first_slab');
+    if (e.res === 'ok' && e.grade === 10 && e.truth.grade === 10 && e.truth.subs.centering === 10 && e.truth.subs.corners === 10 && e.truth.subs.edges === 10 && e.truth.subs.surface === 10) achieve('pristine');
+    if (e.grade === 10) { const k = inst.line + ':' + inst.n; S.pop[k] = (S.pop[k] || 0) + 1; }
+    S.graded.push({ inst: JSON.parse(JSON.stringify(inst)), grade: e.grade });
+    if (S.graded.length > 25) S.graded.shift();
+  }
+}
+
+function slabAnimation(inst, verdict, grade) {
+  const wrap = $('#wrap'), stage = $('#stage');
+  const r = stage.getBoundingClientRect(), wr = wrap.getBoundingClientRect();
+  const el = document.createElement('div');
+  el.className = 'slab-anim';
+  const H = Math.min(wr.height - 12, r.height * 1.22);
+  el.style.height = H + 'px';
+  el.style.left = (wr.width / 2) + 'px';
+  el.style.top = (wr.height / 2) + 'px';
+  el.innerHTML = slabHTML(inst, { grade: verdict === 'error' ? 'ERR ' + fmtG(grade) : grade, label: verdict === 'error' ? 'AUTHENTIC ERROR' : gradeName(grade) });
+  wrap.appendChild(el);
+  $('#cardview').classList.add('into-slab');
+  setTimeout(() => sfx('rustle'), 450);
+  setTimeout(() => sfx('tool'), 700);
+  setTimeout(() => { el.classList.add('away'); sfx('whoosh'); }, 1350);
+}
+
+function stickyAnimation(verdict) {
+  const wrap = $('#wrap');
+  const [title, line] = STICKY[verdict];
+  const el = document.createElement('div');
+  el.className = 'sticky-anim';
+  el.innerHTML = `<b>${title}</b><span>${line}</span><i>— ${dayName(S.day).slice(0, 3)} · desk 4</i>`;
+  $('#stage').appendChild(el);
+  sfx('rustle');
+  setTimeout(() => { $('#cardview').classList.add('slide-away'); el.classList.add('away'); sfx('whoosh'); }, 800);
+  void wrap;
 }
 
 function endShift(early) {
   if (D.ended) return;
+  saveShift();
   D.ended = true;
   clearInterval(D.timer);
   window.removeEventListener('resize', fitStage);
@@ -599,10 +859,10 @@ function endShift(early) {
   setTimeout(showPayday, early ? 300 : 1100);
 }
 
-
-// Decide whether a stamped verdict was right. Walk-ins skip review.
+// ------------------------------------------------------------------ judging
 function judge(e) {
-  if (e.sub.story && e.sub.story !== 'tutorial') { e.res = 'story'; return e; }
+  if (e.sub.story && !['tutorial', 'clue1', 'clue2', 'clue3', 'clue4', 'widower'].includes(e.sub.story)) { e.res = 'story'; return e; }
+  if (e.damaged && !e.sub.inst.fake) { e.res = 'cite'; e.why = 'Water-damaged a client\'s card'; e.detail = 'The dropper is for Tidebound only. Every other line stains.'; return e; }
   if (!e.truth.ok.includes(e.verdict)) { e.res = 'cite'; e.why = citeReason(e); e.detail = citeDetail(e); }
   else if (e.grade != null && Math.abs(e.grade - e.truth.grade) >= 1) { e.res = 'cite'; e.why = `Graded ${fmtG(e.grade)}. It was a ${fmtG(e.truth.grade)}.`; e.detail = gradeDetail(e); }
   else { e.res = 'ok'; e.exact = e.grade == null || e.grade === e.truth.grade; }
@@ -615,27 +875,51 @@ const FAKE_TELL = {
   uv: () => 'It\'s printed on modern paper. It glows under the UV lamp.',
   swirl: () => 'The holo swirl turns counter-clockwise. Genuine swirls turn clockwise.',
   back: () => 'The back is wrong. Compare it with the reference binder.',
+  nohidden: () => 'No hidden ink under UV. Every genuine Moth & Lantern card has some.',
+  absorb: () => 'Water soaks into it. Genuine Tidebound stock is waterproof.',
+  flathex: () => 'The hex hologram stays flat silver on the tilt stand.',
+  weight: (inst) => `It weighs ${cardWeight(inst)}. The reference is ${LINES[inst.line].weight.toFixed(2)} g.`,
+  paint: () => 'The gold is paint: smooth under the microscope, no leaf flakes.',
+  micro: (inst) => `A ring forgery. The microprint reads "${'…'}${LINES[inst.line].micro.slice(0, 3)}${LINES[inst.line].micro[4]}${LINES[inst.line].micro[3]}…". Check it under the microscope.`,
+  stock: () => 'Light shines straight through it on the light box. Thin modern stock.',
+  badstats: (inst) => { const s = icStats(inst); return `Its stats (${s.s.join('/')}) don't match Run ${s.run1 ? 1 : 2} on the stat sheet.`; },
+  dupserial: (inst) => `Serial ${String(inst.v.serial).padStart(2, '0')}/50 is already registered to another card.`,
+  perfs: () => 'Wrong perforation count: 27 × 19. Genuine is 28 × 20.',
 };
 const ALT_TELL = {
   stamp: '1st Edition stamp on a print with a drop shadow. Real 1st Editions are shadowless.',
   recolor: 'A damaged spot was inked over. It glows in a patch under the UV lamp.',
   trim: 'It measures 2.46 × 3.44 in. Someone trimmed the edges.',
+  alphatrim: 'The corners don\'t match: one was recut to fake an Alpha.',
 };
+
+function citeReason(e) {
+  const ok = e.truth.ok, v = e.verdict;
+  if (ok.includes('return') && v !== 'return') return 'Missed a form mismatch';
+  if (ok.includes('counterfeit') && (v === 'grade' || v === 'error')) return 'Passed a counterfeit';
+  if (ok.includes('altered') && (v === 'grade' || v === 'error')) return 'Passed an altered card';
+  if ((ok.includes('altered') || ok.includes('counterfeit')) && (v === 'altered' || v === 'counterfeit')) return 'Wrong rejection: it was ' + (ok.includes('altered') ? 'altered' : 'counterfeit');
+  if (v === 'counterfeit' || v === 'altered') return 'Rejected a genuine card';
+  if (v === 'return') return 'Returned a card that matched its form';
+  if (v === 'error' && ok.includes('grade')) return 'Labeled an error that isn\'t there';
+  if (v === 'grade' && ok.includes('error')) return 'Missed a genuine error';
+  return 'Wrong verdict';
+}
 
 function citeDetail(e) {
   const { inst, form } = e.sub, ok = e.truth.ok, v = e.verdict;
   if (ok.includes('return') && v !== 'return') {
     if (e.sub.mismatch === 'name') return `The form says ${form.name}. The card is ${cardTitle(inst)}.`;
     if (e.sub.mismatch === 'number') return `The form says No. ${pad3(form.n)}. The card is No. ${pad3(inst.n)}.`;
-    const extra = form.claims.filter((c) => !variantLabels(inst.v).includes(c));
+    const extra = form.claims.filter((c) => !variantLabels(inst.v, inst.line).includes(c));
     return `The form claims ${extra.join(', ') || 'a variant'}. The card isn't.`;
   }
-  if (ok.includes('counterfeit') && v !== 'counterfeit') return inst.fake.kinds.map((k) => FAKE_TELL[k](inst)).join(' ');
+  if (ok.includes('counterfeit') && v !== 'counterfeit') return inst.fake.kinds.map((k) => (FAKE_TELL[k] ? FAKE_TELL[k](inst) : '')).join(' ');
   if (ok.includes('altered') && v !== 'altered') return ALT_TELL[inst.alt.kind];
   if (v === 'counterfeit' || v === 'altered') return 'Nothing on it was fake or tampered with.';
   if (v === 'return') return 'Name, number and variant all matched the form.';
-  if (v === 'error' && !inst.v.noYellow) return 'The inks are normal. It isn\'t a misprint.';
-  if (v === 'grade' && inst.v.noYellow) return 'The yellow ink layer is missing: white where yellow should be, cyan greens, pink reds. That\'s a genuine error.';
+  if (v === 'error' && ok.includes('grade')) return 'It printed normally. It isn\'t an error.';
+  if (v === 'grade' && ok.includes('error')) return inst.v.inverted ? 'The center is printed upside down. That\'s a genuine error.' : 'The yellow ink layer is missing. That\'s a genuine error.';
   return '';
 }
 
@@ -665,18 +949,10 @@ function citationSlip(e) {
 }
 
 // ------------------------------------------------------------------ payday
-function citeReason(e) {
-  const ok = e.truth.ok, v = e.verdict;
-  if (ok.includes('return') && v !== 'return') return 'Missed a form mismatch';
-  if (ok.includes('counterfeit') && (v === 'grade' || v === 'error')) return 'Passed a counterfeit';
-  if (ok.includes('altered') && (v === 'grade' || v === 'error')) return 'Passed an altered card';
-  if ((ok.includes('altered') || ok.includes('counterfeit')) && (v === 'altered' || v === 'counterfeit')) return 'Wrong rejection: it was ' + (ok.includes('altered') ? 'altered' : 'counterfeit');
-  if (v === 'counterfeit' || v === 'altered') return 'Rejected a genuine card';
-  if (v === 'return') return 'Returned a card that matched its form';
-  if (v === 'error' && ok.includes('grade')) return 'Labeled an error that isn\'t there';
-  if (v === 'grade' && ok.includes('error')) return 'Missed a genuine misprint';
-  return 'Wrong verdict';
-}
+const payFor = (tier) => {
+  const wk = weekOf(S.day);
+  return Math.round(TIERS[tier].pay * wk.pay) + (S.rep >= 75 ? 2 : 0);
+};
 
 function showPayday() {
   setScene('payday');
@@ -684,32 +960,32 @@ function showPayday() {
   const rows = [];
   let pay = 0, bonus = 0, cites = 0;
   D.log.forEach((e) => {
-    const tierPay = TIERS[e.sub.form.tier].pay;
-    pay += tierPay;
-    const r = { name: cardTitle(e.sub.inst), verdict: e.verdict, grade: e.grade, pay: tierPay, story: e.sub.story };
-    const walkIn = e.res === 'story';
-    r.res = e.res; r.why = e.why; r.exact = e.exact;
+    const p = payFor(e.sub.form.tier);
+    pay += p;
+    const r = { name: cardTitle(e.sub.inst), verdict: e.verdict, grade: e.grade, pay: p, res: e.res, why: e.why, exact: e.exact };
     if (e.res === 'cite') cites++;
     if (e.res === 'ok' && e.exact) bonus += 4;
     rows.push(r);
-    S.history.push({ day: S.day, name: r.name, verdict: e.verdict, grade: e.grade, truth: e.truth.grade, ok: r.res === 'ok', story: walkIn ? e.sub.story : null });
+    S.history.push({ day: S.day, name: r.name, verdict: e.verdict, grade: e.grade, truth: e.truth.grade, ok: e.res === 'ok', story: e.res === 'story' ? e.sub.story : null });
   });
   const fines = Math.max(0, cites - 1) * 5;
   const short = Math.max(0, D.cfg.quota - D.served);
   const shortFine = short * 5;
-  const rentDue = S.day === 5 ? S.rent : 0;
-  const net = pay + bonus - fines - shortFine - FOOD;
-  S.money += net;
+  S.money += pay + bonus - fines - shortFine - FOOD;
   S.citations += cites;
   S.stats.graded += D.log.length;
   S.stats.correct += rows.filter((r) => r.res === 'ok').length;
   S.stats.cited += cites;
   S.stats.earned += pay + bonus;
+  if (!cites && D.served >= D.cfg.quota) { meters({ rep: 2 }); achieve('clean_day'); }
+  if (short) meters({ rep: -short });
   let rentLine = '';
-  if (rentDue) {
-    if (S.money >= rentDue) { S.money -= rentDue; S.flags.rent = 'paid'; rentLine = `<tr><td>Rent to Mr. Gaunt</td><td class="amt bad">−${money(rentDue)}</td></tr>`; }
-    else { S.flags.rent = 'evicted'; rentLine = `<tr><td>Rent to Mr. Gaunt: <span class="cite">you are ${money(rentDue - S.money)} short</span></td><td class="amt bad">unpaid</td></tr>`; }
+  if (isFriday(S.day)) {
+    if (S.money >= S.rent) { S.money -= S.rent; rentLine = `<tr><td>Rent to Mr. Gaunt</td><td class="amt bad">−${money(S.rent)}</td></tr>`; }
+    else { S.flags.evicted = true; rentLine = `<tr><td>Rent to Mr. Gaunt: <span class="cite">you are ${money(S.rent - S.money)} short</span></td><td class="amt bad">unpaid</td></tr>`; }
   }
+  S.shift = null;
+  S.phase = 'payday';
   const vLabel = (r) => ({ grade: 'Grade ' + fmtG(r.grade), error: 'Error · ' + fmtG(r.grade), altered: 'Altered', counterfeit: 'Counterfeit', return: 'Returned' }[r.verdict]);
   app.innerHTML = `<div class="screen scroll"><div class="memo-wrap">
     <div class="paper ledger">
@@ -723,33 +999,60 @@ function showPayday() {
         ${rentLine}
         <tr class="total"><td>Cash on hand</td><td class="amt">${money(S.money)}</td></tr>
       </table>
-      <p class="mono" style="font-size:12px;color:var(--ink-soft);margin:10px 0 0">Citations this week: ${S.citations}/${MAX_CITATIONS}</p>
+      <p class="mono" style="font-size:12px;color:var(--ink-soft);margin:10px 0 0">Citations this week: ${S.citations}/${MAX_CITATIONS}${weekOf(S.day).pay !== 1 ? ` · Pay rate ${Math.round(weekOf(S.day).pay * 100)}%` : ''}${S.rep >= 75 ? ' · Senior rate +$2/card' : ''}</p>
+      ${meterHTML()}
     </div>
-    <button class="btn primary" id="home">${S.day === 5 ? 'Go home' : 'Go home'}</button>
+    <button class="btn primary" id="home">Go home</button>
   </div></div>`;
   $('#home').onclick = afterPayday;
   D = null;
+  save();
 }
 
 function afterPayday() {
-  if (S.citations >= MAX_CITATIONS) return gameOver('fired');
+  if (S.flags.evicted) return gameOver('evicted');
+  if (S.sus >= 100) return gameOver('arrested');
+  if (S.citations >= MAX_CITATIONS || S.rep <= 0) return gameOver('fired');
   const evs = eveningEvents(S.day, S.flags, S);
+  if (S.day === 5) evs.push(...weekOneAudit());
   app.innerHTML = '<div class="screen city"></div>';
   runEvents(evs, () => {
-    if (S.day === 5) return finale();
+    if (S.sus >= 100) return gameOver('arrested');
+    if (S.day >= LAST_DAY) return finale();
     S.phase = 'evening';
-    S.actions = 2;
     S.eve = null;
+    if (isFriday(S.day)) {
+      S.weekend = true; S.actions = 3;
+      if (S.day === 20) achieve('survivor');
+      return runEvents(weekendEvents(S.day / 5, S.flags, S), () => { save(); showCity(); });
+    }
+    S.weekend = false; S.actions = 2;
     save();
     showCity();
   });
 }
 
-// ------------------------------------------------------------------ evening city
+function weekOneAudit() {
+  const f = S.flags, ev = [];
+  const bad = S.history.filter((h) => !h.ok && !h.story);
+  if (f.vince1 === 'took') ev.push({ from: 'Director Pike\'s office, 5:40 p.m.', body: ['Pike has three of your slabs on his desk. One of them is the Ashowl you sealed for Carrow.', '"This isn\'t a nine," he says. He doesn\'t raise his voice. He doesn\'t call security.', '"Carrow pays you. Fine. From Monday, Carrow pays me, through you."', 'The audit report on his desk already says CLEAN. The audit was never about the cards.'] });
+  else if (bad.length >= 4) ev.push({ from: 'Director Pike\'s office, 5:40 p.m.', body: [`Pike lays out ${Math.min(bad.length, 5)} of your slabs in a row. Every one of them is wrong.`, '"One more week like this," he says, "and you can go back to whatever you did before."'], rep: -5 });
+  else ev.push({ from: 'Director Pike\'s office, 5:40 p.m.', body: ['Pike re-grades three of your slabs at his desk, slowly, with his own loupe.', '"Clean," he says, like the word costs him something.'], rep: 5 });
+  if (f.vince1 === 'refused') {
+    const best = [...S.collection].sort((a, b) => cardValue(b) - cardValue(a))[0];
+    const body = ['When you get home the door is open. Not broken. Open. Someone had a key.', 'Your binder is on the kitchen floor, every page turned.'];
+    if (best) { S.collection.splice(S.collection.indexOf(best), 1); body.push(`Your ${cardTitle(best)} is gone. Its sleeve is on the table, cut in half.`); }
+    body.push('On Theo\'s pillow, face up: a Neon Saints card. Midnight Magnus. "The lights go out. So do you."');
+    ev.push({ from: 'Home, 7:15 p.m.', body });
+  }
+  return ev;
+}
+
+// ------------------------------------------------------------------ the city
 function collectionValue() { return S.collection.reduce((s, i) => s + cardValue(i), 0); }
 
-// The evening clock: each stop takes a couple of hours.
 function eveClock() {
+  if (S.weekend) return ['SATURDAY MORNING', 'SATURDAY AFTERNOON', 'SATURDAY EVENING', 'SATURDAY NIGHT'][3 - S.actions] || 'SATURDAY';
   const m = 17 * 60 + 40 + (2 - S.actions) * 130;
   const h = Math.floor(m / 60) % 24, mm = m % 60;
   return `${h > 12 ? h - 12 : h}:${String(mm).padStart(2, '0')} ${h >= 12 && h < 24 ? 'pm' : 'am'}`;
@@ -769,6 +1072,8 @@ const PLACES = {
   shop: { name: 'Brick & Mortar Cards', blurb: 'Packs, singles, and Lou, who doesn\'t always know what he has.', walk: 'Walking two blocks to Brick & Mortar Cards…' },
   market: { name: 'The night market', blurb: 'Bulk bins under a tarp. $3 a dig, keep two.', walk: 'Cutting through the alley to the night market…' },
   diner: { name: 'Last Stop Diner', blurb: 'Four hours, cash in hand. People talk while you pour coffee.', walk: 'Catching the 41 bus to the Last Stop Diner…' },
+  apex: { name: 'Apex Grading', blurb: 'Send your own cards to be slabbed. Dispute their mistakes.', walk: 'Walking down Mill Street to Apex…' },
+  auction: { name: 'The Corn Exchange auction', blurb: 'Saturdays only. Bid against collectors, or sell to the room.', walk: 'Taking the tram to the Corn Exchange…', weekend: true },
   home: { name: 'Home', blurb: 'Theo, your binder, and bed.', walk: 'Climbing three flights of stairs…' },
 };
 
@@ -777,15 +1082,17 @@ function showCity() {
   closeAllModals();
   $('#toasts').innerHTML = '';
   S.phase = 'evening';
+  setMarket(weekOf(S.day).market, S.pop);
   save();
   const a = S.actions;
   const open = { shop: a > 0, market: a > 0, diner: a > 0 };
+  const places = Object.entries(PLACES).filter(([, p]) => !p.weekend || S.weekend);
   app.innerHTML = `<div class="screen street-screen">
     <div class="street-scene">${streetSVG(open, S.flags, S.day)}</div>
     <div class="street-panel scroll">
-      <div class="loc-head"><div><div class="kicker">${eveClock()} · ${dayName(S.day).toUpperCase()} NIGHT</div><h2>Outside Gemline</h2></div><span class="chip mono">${money(S.money)}</span></div>
-      <p class="sub">${a ? `Rain. You have time for ${a} more ${a === 1 ? 'stop' : 'stops'} tonight.` : 'Everything is closing. Time to go home.'} Rent ${money(S.rent)} is due Friday.</p>
-      <div class="places compact">${Object.entries(PLACES).map(([k, p]) => `<button class="place" data-p="${k}" ${k !== 'home' && !a ? 'disabled' : ''}><b>${esc(p.name)}</b><small>${esc(p.blurb)}</small><span class="cost">${k === 'home' ? 'free' : a ? 'uses one stop' : 'closed'}</span></button>`).join('')}</div>
+      <div class="loc-head"><div><div class="kicker">${eveClock()} · ${S.weekend ? 'WEEKEND' : dayName(S.day).toUpperCase() + ' NIGHT'}</div><h2>${S.weekend ? 'The weekend' : 'Outside Gemline'}</h2></div><span class="chip mono">${money(S.money)}</span></div>
+      <p class="sub">${a ? `You have time for ${a} more ${a === 1 ? 'stop' : 'stops'}.` : 'Everything is closing. Time to go home.'} Rent ${money(weekOf(S.day + (S.weekend ? 1 : 0)).rent)} on Friday.${weekOf(S.day).market !== 1 ? ` Market: ${weekOf(S.day).market > 1 ? 'booming' : 'crashed'}.` : ''}</p>
+      <div class="places compact">${places.map(([k, p]) => `<button class="place" data-p="${k}" ${k !== 'home' && !a ? 'disabled' : ''}><b>${esc(p.name)}</b><small>${esc(p.blurb)}</small><span class="cost">${k === 'home' ? 'free' : a ? 'uses one stop' : 'closed'}</span></button>`).join('')}</div>
       <button class="btn small" id="quit">Save and quit to title</button>
     </div>
   </div>`;
@@ -795,10 +1102,10 @@ function showCity() {
 }
 
 function go(p) {
-  if (p !== 'home' && !S.actions) { toast('It\'s too late for that tonight.'); return; }
+  if (p !== 'home' && !S.actions) { toast('It\'s too late for that.'); return; }
   travel(PLACES[p].walk, () => {
     if (p !== 'home') { S.actions--; save(); }
-    ({ shop: showShop, market: showMarket, diner: showDiner, home: showHome })[p]();
+    ({ shop: showShop, market: showMarket, diner: showDiner, home: showHome, apex: showApex, auction: showAuction })[p]();
   });
 }
 
@@ -815,86 +1122,89 @@ function locScreen(cls, svg, kicker, title, speaker, line, leaveLabel = 'Leave')
       <div id="locbody"></div>
     </div>
   </div>`;
+  if (!S.eve || S.eve.day !== S.day) S.eve = { day: S.day };
   return $('#locbody');
 }
 
-// Cards that never get flagged in the city: you have to recognise them yourself.
+const unlockedLines = () => Object.keys(LINES).filter((l) => LINES[l].unlock <= S.day);
 function cityRng() { return makeRng(Math.floor(Math.random() * 1e9)); }
 
 function eveStock() {
-  if (S.eve && S.eve.day === S.day) return S.eve;
+  if (S.eve && S.eve.day === S.day && S.eve.singles) return S.eve;
   const R = cityRng();
   const singles = [];
+  const lines = unlockedLines();
   for (let i = 0; i < 3; i++) {
-    const line = R.pick(['gg', 'ns', 'bl']);
+    const line = R.pick(lines);
     const c = pickCard(R, line, { c: 3, u: 3, r: 2 });
     const inst = makeInst(R, line, c.n, pickQuality(R, -0.1));
-    rollVariants(R, inst, { holoR: 0.5, holoU: 0.2, shadowless: 0.08 });
+    rollVariants(R, inst, { scale: 0.8 });
     singles.push({ inst, price: Math.max(2, Math.ceil(cardValue(inst) * 1.3)), label: 'Near mint' });
   }
-  // The bargain: a chase variant the owner has misjudged.
-  const bl = R() < 0.5;
-  const inst = makeInst(R, bl ? 'bl' : 'gg', pickCard(R, bl ? 'bl' : 'gg').n, 'nice');
-  if (bl) { inst.v.shadowless = true; inst.v.first = R() < 0.4; } else inst.v.noYellow = true;
-  singles.splice(R.int(0, 3), 0, { inst, price: bl ? 4 : 3, label: bl ? 'Plain reprint' : 'Faded print?' });
-  S.eve = { day: S.day, singles };
+  // The bargain: a chase version Lou has misjudged.
+  const line = R.pick(lines.filter((l) => ['gg', 'bl', 'ml', 'hp', 'ic', 'ga'].includes(l)));
+  const inst = makeInst(R, line, pickCard(R, line).n, 'nice');
+  const chase = { gg: 'noYellow', bl: 'shadowless', ml: 'hidden', hp: 'vintage', ic: 'run1', ga: 'alpha' }[line];
+  inst.v[chase] = true;
+  singles.splice(R.int(0, 3), 0, { inst, price: Math.max(3, Math.ceil(cardValue({ ...inst, v: {} }) * 1.2)), label: 'Lou\'s price' });
+  S.eve = { ...(S.eve || {}), day: S.day, singles };
   return S.eve;
-}
-
-function cellHTML(inst, extra = '', cls = '') {
-  return `<button class="cardcell ${cls}" ${extra}>${cardSVG(inst)}</button>`;
 }
 
 function showShop() {
   setScene('shop');
   sfx('bell');
+  const root = locScreen('loc-shop', shopSVG(), `${eveClock()} · BRICK & MORTAR CARDS`, 'Lou\'s counter', 'Lou', louLine(S.flags, S.day));
   const stock = eveStock();
   let tab = 'packs';
-  const root = locScreen('loc-shop', shopSVG(), `${eveClock()} · BRICK & MORTAR CARDS`, 'Lou\'s counter', 'Lou', louLine(S.flags, S.day));
   root.innerHTML = `<p style="margin:0;color:var(--muted)" id="shopcash"></p>
     <div class="shop-tabs"><button data-t="packs">Packs</button><button data-t="singles">Under the glass</button><button data-t="sell">Sell to Lou</button></div>
     <div id="sbody"></div>`;
   $('#leave').onclick = () => { save(); leaveTo(); };
+  const mk = marketNowLabel();
   const draw = () => {
-    $('#shopcash').textContent = `Cash ${money(S.money)}.`;
+    $('#shopcash').textContent = `Cash ${money(S.money)}.${mk}`;
     $$('[data-t]', root).forEach((b) => b.setAttribute('aria-selected', b.dataset.t === tab ? 'true' : 'false'));
     const body = $('#sbody');
     if (tab === 'packs') {
-      body.innerHTML = `<div class="packs">${Object.entries(PACKS).map(([l, p]) => `<button class="packbtn" data-pack="${l}" ${S.money < p.price ? 'disabled' : ''}>${packSVG(l)}<b>${p.label}</b><span style="color:var(--muted)">${p.sub}</span><span class="mono" style="color:var(--lamp)">${money(p.price)}</span></button>`).join('')}</div>
+      const price = (l) => Math.max(3, Math.round(PACKS[l].price * (0.6 + weekOf(S.day).market * 0.4)));
+      body.innerHTML = `<div class="packs">${unlockedLines().map((l) => `<button class="packbtn" data-pack="${l}" ${S.money < price(l) ? 'disabled' : ''}>${packSVG(l)}<b>${PACKS[l].label}</b><span style="color:var(--muted)">${PACKS[l].sub}</span><span class="mono" style="color:var(--lamp)">${money(price(l))}</span></button>`).join('')}</div>
         <p style="color:var(--muted);font-size:13px;margin:0">Five cards a pack: three commons, an uncommon, and a shot at a rare.</p>`;
-      $$('[data-pack]', body).forEach((b) => b.onclick = () => { const l = b.dataset.pack; S.money -= PACKS[l].price; save(); openPack(l, draw); });
+      $$('[data-pack]', body).forEach((b) => b.onclick = () => { const l = b.dataset.pack; S.money -= price(l); save(); openPack(l, draw); });
     }
     if (tab === 'singles') {
       body.innerHTML = `<p style="color:var(--muted);font-size:13px;margin:0">Lou prices by eye, and his eyes are tired. Tap a card for a closer look.</p>
         <div class="cardgrid">${stock.singles.map((x, i) => x.sold ? '' : `<div class="cardcell" style="cursor:default"><button class="cardcell" data-look="${i}">${cardSVG(x.inst)}</button><span>${esc(cardTitle(x.inst))}</span><span class="price">${esc(x.label)} · ${money(x.price)}</span><button class="btn small primary" data-buy="${i}" ${S.money < x.price ? 'disabled' : ''}>Buy</button></div>`).join('') || '<p>Sold out.</p>'}</div>`;
-      $$('[data-buy]', body).forEach((b) => b.onclick = () => { const x = stock.singles[+b.dataset.buy]; S.money -= x.price; x.sold = true; S.collection.push(x.inst); sfx('cash'); toast('Added to your binder', 'good'); save(); draw(); });
-      $$('[data-look]', body).forEach((b) => b.onclick = () => viewer(stock.singles[+b.dataset.look].inst, { hideInfo: true }));
+      $$('[data-buy]', body).forEach((b) => b.onclick = () => { const x = stock.singles[+b.dataset.buy]; S.money -= x.price; x.sold = true; S.collection.push(x.inst); sfx('cash'); learnInst(x.inst); toast('Added to your binder', 'good'); checkSets(); save(); draw(); });
+      $$('[data-look]', body).forEach((b) => b.onclick = () => viewer(stock.singles[+b.dataset.look].inst, { hideInfo: true, tools: true }));
     }
     if (tab === 'sell') {
-      const list = S.collection.map((inst, i) => ({ inst, i, v: Math.floor(cardValue(inst) * 0.5) })).sort((a, b) => b.v - a.v);
-      body.innerHTML = `<p style="color:var(--muted);font-size:13px;margin:0">Lou pays half of what a card is worth. Cheap cards aren't worth his time.</p>
-        <div class="cardgrid">${list.map((x) => `<div class="cardcell" style="cursor:default"><button class="cardcell" data-look="${x.i}">${cardSVG(x.inst)}</button><span>${esc(cardTitle(x.inst))}</span><button class="btn small" data-sell="${x.i}" ${x.v < 1 ? 'disabled' : ''}>${x.v < 1 ? 'No offer' : 'Sell ' + money(x.v)}</button></div>`).join('') || '<p>Your binder is empty.</p>'}</div>`;
+      const list = S.collection.filter((i) => !i.atApex).map((inst) => ({ inst, v: Math.floor(cardValue(inst) * 0.5) })).sort((a, b) => b.v - a.v);
+      body.innerHTML = `<p style="color:var(--muted);font-size:13px;margin:0">Lou pays half of what a card is worth. Slabs sell better at the Saturday auction.</p>
+        <div class="cardgrid">${list.map((x) => `<div class="cardcell" style="cursor:default"><button class="cardcell" data-look="${x.inst.uid}">${thumb(x.inst)}</button><span>${esc(cardTitle(x.inst))}</span><button class="btn small" data-sell="${x.inst.uid}" ${x.v < 1 ? 'disabled' : ''}>${x.v < 1 ? 'No offer' : 'Sell ' + money(x.v)}</button></div>`).join('') || '<p>Your binder is empty.</p>'}</div>`;
       $$('[data-sell]', body).forEach((b) => b.onclick = () => {
-        if (b.dataset.armed) { const idx = +b.dataset.sell; const inst = S.collection[idx]; S.money += Math.floor(cardValue(inst) * 0.5); S.collection.splice(idx, 1); sfx('cash'); toast('Sold', 'good'); save(); draw(); return; }
+        if (b.dataset.armed) { const inst = S.collection.find((i) => i.uid === b.dataset.sell); S.money += Math.floor(cardValue(inst) * 0.5); S.collection.splice(S.collection.indexOf(inst), 1); sfx('cash'); toast('Sold', 'good'); save(); draw(); return; }
         b.dataset.armed = '1'; b.textContent = 'Tap again to sell'; b.classList.add('danger');
       });
-      $$('[data-look]', body).forEach((b) => b.onclick = () => viewer(S.collection[+b.dataset.look]));
+      $$('[data-look]', body).forEach((b) => b.onclick = () => viewer(S.collection.find((i) => i.uid === b.dataset.look)));
     }
   };
   $$('[data-t]', root).forEach((b) => b.onclick = () => { tab = b.dataset.t; draw(); });
   draw();
 }
+const marketNowLabel = () => { const m = weekOf(S.day).market; return m > 1.2 ? ' Prices are wild this week.' : m < 0.9 ? ' Prices have collapsed.' : ''; };
+const thumb = (inst) => (inst.slab ? slabHTML(inst, { grade: inst.slab.grade, by: inst.slab.by }) : cardSVG(inst));
 
 function packSVG(line) {
-  const col = { gg: ['#ffd400', '#6b3fa0', '#1a1a1a'], ns: ['#ff4fd8', '#12002b', '#2ee6ff'], bl: ['#4fb3e8', '#1d4e75', '#ffffff'] }[line];
-  const name = { gg: 'GRIM GROCERS', ns: 'NEON SAINTS', bl: 'BLOOMLINGS' }[line];
-  return `<svg viewBox="0 0 120 180" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="pk${line}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${col[0]}"/><stop offset=".5" stop-color="${col[1]}"/><stop offset="1" stop-color="${col[0]}"/></linearGradient></defs>
-    <path d="M6 14L114 14L114 168L6 168Z" fill="url(#pk${line})"/>
+  const col = { gg: ['#ffd400', '#6b3fa0', '#1a1a1a'], ns: ['#ff4fd8', '#12002b', '#2ee6ff'], bl: ['#4fb3e8', '#1d4e75', '#ffffff'], ml: ['#c9a96b', '#2a1a33', '#ecd9a8'], tb: ['#2a8c8f', '#0e3b43', '#e9f5ef'], rd: ['#ff3fa4', '#1b0f2a', '#c9a0ff'], ga: ['#cf7149', '#1f2e26', '#d9b86a'], hp: ['#f7e08a', '#0f0d0b', '#d9b86a'], ic: ['#c68a4a', '#3a2616', '#f1d9a6'], cf: ['#e6dcc3', '#6a5a3a', '#2a2418'], sp: ['#2a3d8f', '#f3ead2', '#c0392b'] }[line];
+  const name = LINES[line].name.toUpperCase();
+  return `<svg viewBox="0 0 120 180" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="pk${line}${Math.floor(Math.random() * 1e6)}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${col[0]}"/><stop offset=".5" stop-color="${col[1]}"/><stop offset="1" stop-color="${col[0]}"/></linearGradient></defs>
+    <path d="M6 14L114 14L114 168L6 168Z" fill="${col[0]}"/><path d="M6 14L114 14L114 168L6 168Z" fill="${col[1]}" opacity=".45"/>
     <path d="M6 14L12 6L18 14L24 6L30 14L36 6L42 14L48 6L54 14L60 6L66 14L72 6L78 14L84 6L90 14L96 6L102 14L108 6L114 14Z" fill="${col[1]}"/>
     <path d="M6 168L12 176L18 168L24 176L30 168L36 176L42 168L48 176L54 168L60 176L66 168L72 176L78 168L84 176L90 168L96 176L102 168L108 176L114 168Z" fill="${col[1]}"/>
     <rect x="6" y="14" width="108" height="14" fill="#000" opacity=".25"/>
-    <rect x="16" y="70" width="88" height="34" rx="6" fill="${col[1]}" stroke="${col[2]}" stroke-width="2"/>
-    <text x="60" y="${line === 'ns' ? 92 : 91}" text-anchor="middle" font-family="${line === 'ns' ? 'Monoton' : 'Fredoka'},sans-serif" font-weight="700" font-size="${line === 'ns' ? 9 : 11}" fill="${col[2] === '#1a1a1a' ? '#ffd400' : col[2]}">${name}</text>
+    <rect x="12" y="70" width="96" height="34" rx="6" fill="${col[1]}" stroke="${col[2]}" stroke-width="2"/>
+    <text x="60" y="91" text-anchor="middle" font-family="'Bricolage Grotesque',sans-serif" font-weight="800" font-size="${Math.min(11, 150 / name.length)}" fill="${col[2]}">${esc(name)}</text>
     <text x="60" y="150" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="7" fill="#ffffff" opacity=".85">5 CARDS</text></svg>`;
 }
 
@@ -905,26 +1215,35 @@ function rollPack(line) {
     const opts = CARDS[line].filter((c) => c.r === r);
     const c = R.pick(opts.length ? opts : CARDS[line]);
     const inst = makeInst(R, line, c.n, pickQuality(R, -0.25));
-    rollVariants(R, inst, { holoR: 0.35, holoU: 0.08, shadowless: 0, noYellow: 0.02 });
+    rollVariants(R, inst, { scale: 0.7, shadowless: 0, noYellow: 0.02 });
+    if (line === 'hp') inst.v.vintage = false; // shop stock is the 2003 reprint
+    if (line === 'ic') inst.v.run1 = false; // Run 2 stock
     return inst;
   });
 }
 
 // ------------------------------------------------------------------ pack opening
-// 1 common · 2 uncommon · 3 rare or holo · 4 chase variant
+// 1 common · 2 uncommon · 3 rare or holo · 4 chase version
 function rank(inst) {
   const r = CARDS[inst.line].find((x) => x.n === inst.n).r;
   let k = r === 'r' ? 3 : r === 'u' ? 2 : 1;
-  if (inst.v.holo) k = Math.max(k, 3);
-  if (inst.v.noYellow || inst.v.first || inst.v.shadowless) k = 4;
+  const v = inst.v;
+  if (v.holo || v.gold) k = Math.max(k, 3);
+  if (v.noYellow || v.first || v.shadowless || v.hidden || v.secret || v.alpha || v.serial || v.inverted || v.vintage || v.run1) k = 4;
   return k;
 }
 function rankLabel(inst) {
-  if (inst.v.noYellow) return 'MISPRINT!';
-  if (inst.v.first) return '1ST EDITION!';
-  if (inst.v.shadowless) return 'SHADOWLESS!';
+  const v = inst.v;
+  if (v.noYellow || v.inverted) return 'MISPRINT!';
+  if (v.secret) return 'SECRET RARE!';
+  if (v.first) return '1ST EDITION!';
+  if (v.shadowless) return 'SHADOWLESS!';
+  if (v.alpha) return 'ALPHA!';
+  if (v.hidden) return 'PRINT RUN A!';
+  if (v.serial) return 'SERIALIZED!';
+  if (v.gold) return 'GOLD NAME!';
   const r = CARDS[inst.line].find((x) => x.n === inst.n).r;
-  if (inst.v.holo) return r === 'r' ? 'HOLO RARE!' : 'HOLO!';
+  if (v.holo) return r === 'r' ? 'HOLO RARE!' : 'HOLO!';
   return r === 'r' ? 'RARE!' : r === 'u' ? 'Uncommon' : 'Common';
 }
 
@@ -992,11 +1311,7 @@ function openPack(line, after) {
     done = true;
     const fast = Date.now() - st.t0 < 260;
     st = null;
-    if (fast) {
-      cards[0].defects.push({ id: 90, cat: 'surface', sev: 3, kind: 'crease', x: 125, y: 175, ang: 12, face: 'front' });
-      sfx('crunch');
-      toast('Too fast. You creased a card.', 'bad');
-    }
+    if (fast) { cards[0].defects.push({ id: 90, cat: 'surface', sev: 3, kind: 'crease', x: 125, y: 175, ang: 12, face: 'front' }); sfx('crunch'); toast('Too fast. You creased a card.', 'bad'); }
     sfx('rip');
     pack.classList.add('torn');
     $('#poHint', ov).textContent = '';
@@ -1027,6 +1342,7 @@ function revealPack(ov, cards, owned, after) {
     sfx('whoosh');
     const isNew = !owned.has(c.line + ':' + c.n);
     if (isNew) owned.add(c.line + ':' + c.n);
+    if (k >= 4) achieve('pull_chase');
     setTimeout(() => {
       const b = $('#poBanner', ov);
       b.innerHTML = `<b>${esc(rankLabel(c))}</b><span>${esc(cardTitle(c))}${isNew ? ' <em>NEW</em>' : ''}</span>`;
@@ -1077,7 +1393,7 @@ function revealPack(ov, cards, owned, after) {
     const total = cards.reduce((a, c) => a + cardValue(c), 0);
     const best = cards[cards.length - 1];
     stage.innerHTML = `<div class="po-fan">${cards.map((c, n) => `<button class="po-fcard k${rank(c)}" style="--i:${n};--r:${(n - (cards.length - 1) / 2) * 9}deg;--y:${Math.abs(n - (cards.length - 1) / 2) * 12}px" data-k="${n}">${cardSVG(c)}</button>`).join('')}</div>`;
-    hint.innerHTML = `Worth about <b>${money(total)}</b>. Best pull: ${esc(cardTitle(best))}${variantLabels(best.v).length ? ' (' + esc(variantLabels(best.v).join(', ')) + ')' : ''}.`;
+    hint.innerHTML = `Worth about <b>${money(total)}</b>. Best pull: ${esc(cardTitle(best))}${variantLabels(best.v, best.line).length ? ' (' + esc(variantLabels(best.v, best.line).join(', ')) + ')' : ''}.`;
     const btn = document.createElement('button');
     btn.className = 'btn primary po-done';
     btn.textContent = 'Add to binder';
@@ -1085,6 +1401,8 @@ function revealPack(ov, cards, owned, after) {
     $$('[data-k]', stage).forEach((b) => b.onclick = () => viewer(cards[+b.dataset.k]));
     btn.onclick = () => {
       S.collection.push(...cards);
+      cards.forEach(learnInst);
+      checkSets();
       save();
       sfx('collect');
       ov.classList.add('closing');
@@ -1096,36 +1414,47 @@ function revealPack(ov, cards, owned, after) {
   show();
 }
 
+// ------------------------------------------------------------------ night market
 function showMarket() {
   setScene('market');
   let digs = 0, cards = [], picked = new Set();
   const root = locScreen('loc-market', marketSVG(), `${eveClock()} · THE NIGHT MARKET`, 'Under the tarp', '', sellerLine());
-  const keep = () => { picked.forEach((k) => S.collection.push(cards[k])); if (picked.size) toast(`${picked.size} added to your binder`, 'good'); picked = new Set(); };
+  const keep = () => {
+    picked.forEach((k) => { S.collection.push(cards[k]); learnInst(cards[k]); if (rank(cards[k]) >= 4 && !cards[k].fake) achieve('bin_gem'); });
+    if (picked.size) { toast(`${picked.size} added to your binder`, 'good'); checkSets(); }
+    picked = new Set();
+  };
   $('#leave').onclick = () => { keep(); save(); leaveTo(); };
   const dig = () => {
     const R = cityRng();
-    cards = [];
-    picked = new Set();
+    const lines = unlockedLines();
+    cards = []; picked = new Set();
     for (let k = 0; k < 10; k++) {
-      const line = R.pick(['gg', 'ns', 'bl']);
+      const line = R.pick(lines);
       const c = pickCard(R, line, { c: 8, u: 3, r: 0.5 });
       const inst = makeInst(R, line, c.n, R() < 0.5 ? 'played' : 'beat');
-      if (R() < 0.07) {
-        if (line === 'gg') inst.v.noYellow = true;
-        if (line === 'bl') { inst.v.shadowless = true; inst.v.first = R() < 0.4; }
-        if (line === 'ns' && c.r !== 'c') inst.v.holo = true;
-      }
-      if (R() < 0.08) makeFake(R, inst, DAYS[4], [R.pick(['print', 'copyright', 'uv'])]);
+      rollVariants(R, inst, { scale: 0.45, shadowless: 0.15, noYellow: 0.1 });
+      if (R() < 0.08) makeFake(R, inst, DAYS[Math.min(S.day, LAST_DAY) - 1], [R.pick(['print', 'copyright', 'uv'])]);
       cards.push(inst);
     }
     digs++;
     draw();
   };
+  const ghostNight = S.day === 24 && !S.flags.ghostFound && !S.collection.some((i) => i.v.ghost);
   const draw = () => {
     if (!cards.length) {
       root.innerHTML = `<p style="margin:0;color:var(--muted)">Cash ${money(S.money)}. Shoeboxes of loose cards, most of them soft at the corners. Somebody's childhood, sold by the pound.</p>
+        ${ghostNight ? (S.clues >= 3 ? '<div class="paper letter"><div class="from">Under the table</div><p>A shoebox, taped shut, with MARSH written on the lid in marker. The seller sees you looking. "Not for the bins. That one\'s been waiting for somebody who knew to ask."</p><button class="btn primary" id="ghost">Ask for the Marsh box</button></div>' : '<p class="speech">There is an empty space under the table, and a strip of tape with MARSH on it. "Sold this morning," the seller says. "Some guy from Apex."</p>') : ''}
         <button class="btn primary" data-dig ${S.money < 3 ? 'disabled' : ''}>Dig through a box ($3)</button>`;
       $('[data-dig]', root).onclick = () => { S.money -= 3; dig(); };
+      const g = $('#ghost', root);
+      if (g) g.onclick = () => {
+        const inst = blankInst('bl', 9); inst.v.ghost = true; inst.dx = 0.3; inst.dy = -0.2;
+        S.collection.push(inst); S.flags.ghostFound = true; learn('ghost'); achieve('ghost');
+        sfx('riser'); setTimeout(() => { sfx('impact'); sfx('fanfare'); }, 1000);
+        viewer(inst, { title: 'The Ghost Print' });
+        save(); draw();
+      };
       return;
     }
     root.innerHTML = `<p style="margin:0">Tap a card to look closer. Kept ${picked.size}/2.</p>
@@ -1133,7 +1462,7 @@ function showMarket() {
       <div class="row"><button class="btn primary" data-keep ${picked.size ? '' : 'disabled'}>Take ${picked.size || ''} and stop digging</button>${digs < 2 ? `<button class="btn" data-again ${S.money < 3 ? 'disabled' : ''}>Take them and dig again ($3)</button>` : ''}</div>`;
     $$('[data-k]', root).forEach((b) => b.onclick = () => {
       const k = +b.dataset.k;
-      viewer(cards[k], { hideInfo: true, action: { label: picked.has(k) ? 'Put it back' : 'Keep this one', disabled: !picked.has(k) && picked.size >= 2, run: () => { picked.has(k) ? picked.delete(k) : picked.add(k); draw(); } } });
+      viewer(cards[k], { hideInfo: true, tools: true, action: { label: picked.has(k) ? 'Put it back' : 'Keep this one', disabled: !picked.has(k) && picked.size >= 2, run: () => { picked.has(k) ? picked.delete(k) : picked.add(k); draw(); } } });
     });
     $('[data-keep]', root).onclick = () => { keep(); cards = []; save(); root.innerHTML = '<p style="margin:0;color:var(--muted)">You tuck the cards inside your jacket, away from the rain.</p>'; };
     const again = $('[data-again]', root);
@@ -1147,7 +1476,8 @@ function showDiner() {
   const root = locScreen('loc-diner', dinerSVG(), `${eveClock()} · LAST STOP DINER`, 'Behind the counter', 'Sal', salLine());
   let worked = false;
   $('#leave').onclick = () => { if (!worked) toast('You leave without working. The bus fare was for nothing.'); save(); leaveTo(); };
-  root.innerHTML = `<p style="margin:0;color:var(--muted)">Four hours. Thirty dollars cash, plus whatever the regulars leave on the counter. People talk around a waiter like he isn't there.</p>
+  const wage = weekOf(S.day).market < 0.9 ? 25 : 30;
+  root.innerHTML = `<p style="margin:0;color:var(--muted)">Four hours. ${money(wage)} cash, plus whatever the regulars leave on the counter. People talk around a waiter like he isn't there.</p>
     <button class="btn primary" id="work">Put on the apron</button>`;
   $('#work').onclick = () => {
     root.innerHTML = `<div class="shiftbar"><div class="fill"></div></div><p class="mono" id="orders" style="margin:0;color:var(--muted)">Coffee for table six…</p>`;
@@ -1158,11 +1488,11 @@ function showDiner() {
       clearInterval(iv);
       worked = true;
       const tips = Math.floor(Math.random() * 11);
-      S.money += 30 + tips;
+      S.money += wage + tips;
       sfx('cash');
       save();
       root.innerHTML = `<div class="paper letter"><div class="from">Overheard while pouring coffee</div><p>${esc(rumor(S.day, S.flags))}</p></div>
-        <p style="margin:0">Sal counts out <b>${money(30)}</b> and pushes the tip jar across: <b>${money(tips)}</b>. Cash ${money(S.money)}.</p>
+        <p style="margin:0">Sal counts out <b>${money(wage)}</b> and pushes the tip jar across: <b>${money(tips)}</b>. Cash ${money(S.money)}.</p>
         <button class="btn primary" id="out">Hang up the apron</button>`;
       $('#out').onclick = () => leaveTo('Waiting for the last bus home…');
     }, 2200);
@@ -1173,60 +1503,94 @@ function showHome() {
   setScene('home');
   const root = locScreen('loc-home', homeSVG(S.flags, S.day), `${eveClock()} · APARTMENT 3F`, 'Home', '', theoLine(S.flags, S.day), 'Head back out');
   $('#leave').onclick = () => { if (!S.actions) { toast('Everything is closed.'); return; } leaveTo('Back down the stairs…'); };
-  root.innerHTML = `<div class="places compact">
-      <button class="place" id="binder"><b>Your binder</b><small>${S.collection.length} cards · worth about ${money(collectionValue())}</small><span class="cost">free</span></button>
-      <button class="place" id="sleep"><b>Go to sleep</b><small>Tomorrow is ${dayName(S.day + 1)}.${S.actions ? ` You still have time for ${S.actions} more ${S.actions === 1 ? 'stop' : 'stops'}.` : ''}</small><span class="cost">end the day</span></button>
-    </div>`;
+  const next = S.weekend ? 'Monday' : dayName(S.day + 1);
+  root.innerHTML = `${meterHTML()}<div class="places compact">
+      <button class="place" id="binder"><b>Your binder</b><small>${S.collection.length} cards · ${S.fakes.length} fakes · worth about ${money(collectionValue())}</small><span class="cost">free</span></button>
+      <button class="place" id="codex"><b>Codex</b><small>${Object.keys(S.codex).length} tells and versions learned</small><span class="cost">free</span></button>
+      <button class="place" id="sleep"><b>Go to sleep</b><small>Tomorrow is ${next}.${S.actions ? ` You still have time for ${S.actions} more ${S.actions === 1 ? 'stop' : 'stops'}.` : ''}</small><span class="cost">end the day</span></button>
+    </div>
+    <div class="row"><button class="btn small" id="ach">Achievements</button><button class="btn small" id="set">Settings</button></div>`;
   if (!S.actions) $('#leave').disabled = true;
   $('#binder').onclick = openBinder;
-  $('#sleep').onclick = () => travel('Lights out. The rain doesn\'t stop.', () => { S.day++; S.phase = 'morning'; S.eve = null; save(); showMorning(); }, 1400);
+  $('#codex').onclick = showCodex;
+  $('#ach').onclick = showAchievements;
+  $('#set').onclick = showSettings;
+  $('#sleep').onclick = () => travel(S.weekend ? 'Sunday passes. The rain doesn\'t.' : 'Lights out. The rain doesn\'t stop.', () => {
+    S.day++; S.weekend = false; S.phase = 'morning'; S.eve = null; save(); showMorning();
+  }, 1400);
 }
 
 // Big card viewer with flip. In the city you only see the card, not its labels.
 function viewer(inst, o = {}) {
-  let face = 'front';
+  let face = 'front', mode = '';
   const m = modal(`<div class="viewer"><div class="big" id="vbig"></div><div class="info" id="vinfo"></div></div>
+    ${o.tools ? '<div class="row" id="vtools"><button class="btn small" data-m="">Plain</button><button class="btn small" data-m="micro">Loupe</button><button class="btn small" data-m="uv">Pocket UV</button></div>' : ''}
     <div class="row">${o.action ? `<button class="btn primary" data-act ${o.action.disabled ? 'disabled' : ''}>${esc(o.action.label)}</button>` : ''}<button class="btn" data-close>Close</button></div>`);
   const draw = () => {
-    $('#vbig', m).innerHTML = cardSVG(inst, { face });
-    const vl = variantLabels(inst.v);
-    $('#vinfo', m).innerHTML = `<b style="font-family:var(--f-display);font-size:20px">${esc(cardTitle(inst))}</b>
-      <span class="mono">${LINES[inst.line].name} · ${pad3(inst.n)}/${pad3(LINES[inst.line].total)} · ${rarityName(inst)}</span>
+    const big = $('#vbig', m);
+    big.classList.toggle('zoom', mode === 'micro');
+    big.innerHTML = inst.slab && !mode ? slabHTML(inst, { grade: inst.slab.grade, by: inst.slab.by }) : cardSVG(inst, { face, micro: mode === 'micro', uv: mode === 'uv' });
+    const vl = variantLabels(inst.v, inst.line);
+    $('#vinfo', m).innerHTML = `<b style="font-family:var(--f-display);font-size:20px">${esc(o.title || cardTitle(inst))}</b>
+      <span class="mono">${esc(LINES[inst.line].name)} · ${pad3(inst.n)}/${pad3(LINES[inst.line].total)} · ${rarityName(inst)}</span>
       ${o.hideInfo ? '<span style="color:var(--muted)">Tap the card to flip it. You\'ll have to judge it yourself.</span>' : `
-        <div class="chips">${vl.map((x) => `<span class="chipv">${esc(x)}</span>`).join('')}${inst.fake ? '<span class="chipv" style="color:#ff8a7a">Counterfeit</span>' : ''}</div>
-        <span>Condition: looks like about a ${fmtG(trueGrade(inst))}</span>
-        <span>Worth about ${money(cardValue(inst))} raw</span>`}`;
+        <div class="chips">${vl.map((x) => `<span class="chipv">${esc(x)}</span>`).join('')}${inst.fake ? '<span class="chipv" style="color:#ff8a7a">Counterfeit</span>' : ''}${inst.slab ? `<span class="chipv">${inst.slab.by === 'apex' ? 'Apex' : 'Gemline'} ${fmtG(inst.slab.grade)}</span>` : ''}</div>
+        ${inst.fake ? `<span>${esc(inst.fake.kinds.map((k) => CODEX[k] ? CODEX[k].name : k).join(', '))}</span>` : `<span>Your estimate: about a ${fmtG(trueGrade(inst))}</span>`}
+        <span>Worth about ${money(cardValue(inst))}${inst.slab ? ' slabbed' : ' raw'}</span>`}`;
+    if ($('#vtools', m)) $$('[data-m]', m).forEach((b) => b.setAttribute('aria-pressed', b.dataset.m === mode ? 'true' : 'false'));
   };
-  $('#vbig', m).onclick = () => { face = face === 'front' ? 'back' : 'front'; draw(); };
+  $('#vbig', m).onclick = () => { if (inst.slab && !mode) return; face = face === 'front' ? 'back' : 'front'; sfx('flip'); draw(); };
+  $$('[data-m]', m).forEach((b) => b.onclick = () => { mode = b.dataset.m; draw(); });
   $('[data-close]', m).onclick = () => m.close();
   if (o.action) $('[data-act]', m).onclick = () => { m.close(); o.action.run(); };
   draw();
 }
 
+// Set completion: owning every card of a line pays a reward once.
+function checkSets() {
+  unlockedLines().forEach((l) => {
+    if (S.sets[l]) return;
+    const have = new Set(S.collection.filter((i) => i.line === l && !i.fake).map((i) => i.n));
+    if (have.size < LINES[l].total) return;
+    S.sets[l] = true;
+    const reward = 20 * LINES[l].total;
+    S.money += reward;
+    meters({ rep: 5 });
+    achieve('set');
+    setTimeout(() => runEvents([{ from: 'Lou, by phone', body: [`"Heard you finished a full ${LINES[l].name} set. Do you know how many people in this city can say that? Four. Now five."`, `A collector pays you ${money(reward)} just to photograph the page.`] }], () => { if (S.phase === 'evening') showCity(); }), 400);
+  });
+}
+
 function openBinder() {
-  let tab = 'gg';
+  let tab = unlockedLines()[0];
+  const tabs = [...unlockedLines(), 'fakes'];
   const m = modal(`<div class="row" style="justify-content:space-between;align-items:center"><h2>Your binder</h2><button class="btn small" data-close>Close</button></div>
     <p style="margin:0;color:var(--muted)" id="btotal"></p>
-    <div class="shop-tabs">${Object.keys(LINES).map((l) => `<button data-t="${l}">${LINES[l].name}</button>`).join('')}</div>
+    <div class="shop-tabs scrolltabs">${tabs.map((l) => `<button data-t="${l}">${l === 'fakes' ? 'Fake Binder' : LINES[l].name}${S.sets[l] ? ' ★' : ''}</button>`).join('')}</div>
     <div id="bb"></div>`, { wide: true });
   $('[data-close]', m).onclick = () => m.close();
   const draw = () => {
     $('#btotal', m).textContent = `${S.collection.length} cards · worth about ${money(collectionValue())}`;
     $$('[data-t]', m).forEach((b) => b.setAttribute('aria-selected', b.dataset.t === tab ? 'true' : 'false'));
+    if (tab === 'fakes') {
+      $('#bb', m).innerHTML = `<p style="margin:0;color:var(--muted)">Counterfeits you've confiscated. Ring forgeries are evidence${weekOf(S.day).market < 0.9 ? ', and since the crash, collectors pay for them' : ''}.</p>
+        <div class="cardgrid">${S.fakes.map((f, k) => `<button class="cardcell" data-f="${k}">${cardSVG(f)}<span>${esc(f.fake.kinds.map((x) => CODEX[x] ? CODEX[x].name : x).join(', '))}</span></button>`).join('') || '<p>No fakes yet. Catch some.</p>'}</div>`;
+      $$('[data-f]', m).forEach((b) => b.onclick = () => viewer(S.fakes[+b.dataset.f]));
+      return;
+    }
     const owned = CARDS[tab].map((c) => {
-      const copies = S.collection.filter((i) => i.line === tab && i.n === c.n);
-      copies.sort((a, b) => cardValue(b) - cardValue(a));
+      const copies = S.collection.filter((i) => i.line === tab && i.n === c.n).sort((a, b) => cardValue(b) - cardValue(a));
       return { c, copies };
     });
     const have = owned.filter((o) => o.copies.length).length;
-    $('#bb', m).innerHTML = `<p class="mono" style="margin:0;font-size:12px;color:var(--muted)">${have}/${CARDS[tab].length} in the set</p>
+    $('#bb', m).innerHTML = `<p class="mono" style="margin:0;font-size:12px;color:var(--muted)">${have}/${CARDS[tab].length} in the set${S.sets[tab] ? ' · COMPLETE' : ` · complete it for ${money(20 * LINES[tab].total)}`}</p>
       <div class="cardgrid">${owned.map((o) => o.copies.length
-        ? `<button class="cardcell" data-n="${o.c.n}">${cardSVG(o.copies[0])}${o.copies.length > 1 ? `<span class="badge">×${o.copies.length}</span>` : ''}<span>${pad3(o.c.n)} ${esc(o.c.name)}</span></button>`
+        ? `<button class="cardcell" data-n="${o.c.n}">${thumb(o.copies[0])}${o.copies.length > 1 ? `<span class="badge">×${o.copies.length}</span>` : ''}<span>${pad3(o.c.n)} ${esc(o.c.name)}</span></button>`
         : `<div class="cardcell empty"><div class="slot">${pad3(o.c.n)}</div><span>${esc(o.c.name)}</span></div>`).join('')}</div>`;
     $$('[data-n]', m).forEach((b) => b.onclick = () => {
       const copies = S.collection.filter((i) => i.line === tab && i.n === +b.dataset.n).sort((a, c) => cardValue(c) - cardValue(a));
       if (copies.length === 1) return viewer(copies[0]);
-      const mm = modal(`<h2>${esc(cardTitle(copies[0]))}</h2><div class="cardgrid">${copies.map((c, k) => `<button class="cardcell" data-k="${k}">${cardSVG(c)}<span class="price">${money(cardValue(c))}</span><span>${esc(variantLabels(c.v).join(', ') || 'Regular')}</span></button>`).join('')}</div><button class="btn" data-close>Close</button>`, { wide: true });
+      const mm = modal(`<h2>${esc(cardTitle(copies[0]))}</h2><div class="cardgrid">${copies.map((c, k) => `<button class="cardcell" data-k="${k}">${thumb(c)}<span class="price">${money(cardValue(c))}</span><span>${esc(variantLabels(c.v, c.line).join(', ') || 'Regular')}</span></button>`).join('')}</div><button class="btn" data-close>Close</button>`, { wide: true });
       $('[data-close]', mm).onclick = () => mm.close();
       $$('[data-k]', mm).forEach((x) => x.onclick = () => viewer(copies[+x.dataset.k]));
     });
@@ -1237,92 +1601,54 @@ function openBinder() {
 
 // ------------------------------------------------------------------ endings
 function finale() {
-  const f = S.flags, ev = [];
-  const took = f.vince1 === 'took', took2 = f.vince2 === 'took';
-  const bad = S.history.filter((h) => !h.ok && !h.story);
-  if (took) {
-    ev.push({ from: 'Director Pike\'s office, 5:40 p.m.', body: [
-      'Pike has three of your slabs on his desk. One of them is the Ashowl you sealed as a 9.',
-      '"This isn\'t a nine," he says. He doesn\'t raise his voice. He doesn\'t call security.',
-      '"Carrow pays you. Fine. From Monday, Carrow pays me, through you. You\'ll keep grading his walk-ins. You\'ll keep the envelopes. Half of each one comes to this office."',
-      'The audit report on his desk already says CLEAN. You realize the audit was never about the cards.',
-    ] });
-  } else if (bad.length >= 4) {
-    ev.push({ from: 'Director Pike\'s office, 5:40 p.m.', body: [
-      `Pike lays out ${Math.min(bad.length, 5)} of your slabs in a row. Every one of them is wrong.`,
-      '"One more week like this," he says, "and you can go back to whatever you did before. I hear the diner is hiring."',
-    ] });
-  } else {
-    ev.push({ from: 'Director Pike\'s office, 5:40 p.m.', body: [
-      'Pike re-grades three of your slabs at his desk, slowly, with his own loupe.',
-      '"Clean," he says, like the word costs him something. Then, without looking up: "Carrow\'s people have been asking about you. Whatever you\'re doing, keep doing it."',
-    ] });
-  }
-  if (f.vince1 === 'refused' || (took && f.vince2 === 'refused')) {
-    const best = [...S.collection].sort((a, b) => cardValue(b) - cardValue(a))[0];
-    const body = ['When you get home the door is open. Not broken. Open. Someone had a key.', 'Your binder is on the kitchen floor, every page turned.'];
-    if (best) {
-      S.collection.splice(S.collection.indexOf(best), 1);
-      body.push(`Your ${cardTitle(best)} is gone. Its sleeve is on the table, cut in half with scissors.`);
-    }
-    body.push('On Theo\'s pillow, face up: a Neon Saints card. Midnight Magnus. "The lights go out. So do you."', 'Theo is at the neighbor\'s. He doesn\'t know. You put the card in your pocket before you go and get him.');
-    ev.push({ from: 'Home, 7:15 p.m.', body });
-  }
-  if (took && took2) ev.push({ from: 'Home, 7:15 p.m.', body: ['There is a new lock on your door. The key is taped to it, with a note: "For your protection. — V."', 'You don\'t have a copy. You never will.'] });
-  if (f.mina === 'truth' && f.minaPay === 'yes') ev.push({ from: 'A letter, no stamp', body: ['Inside is a crayon drawing of a wrestler with a pink mohawk, and four words in careful handwriting:', '"Thank you for checking."', 'There is no return address. There doesn\'t need to be.'] });
-  else if (f.mina === 'truth') ev.push({ from: 'Saturday paper, classifieds', body: ['Apartment for rent, Sorensen building, 3rd floor. Available immediately. Furniture included, if wanted.'] });
-  else if (f.mina === 'lied') ev.push({ from: 'Three weeks later', body: ['The Thunder Mama sells at auction for $310. The buyer has it re-graded at Apex.', 'The lawyer\'s letter goes to Mina\'s mother. It names Gemline Authentication, and it names the grader.', 'Pike will want to see you about it.'] });
-  if (f.inhaler === 'no') ev.push({ from: 'Theo', body: ['He doesn\'t talk about the hospital. He sleeps with the new inhaler under his pillow now, and checks it twice before school.'] });
-  if (f.rent === 'evicted') ev.push({ from: 'Mr. Gaunt', body: ['He changes the locks at six. Your binder and Theo\'s school bag are on the landing, in a garbage bag.', '"I told you," he says through the door. "I don\'t care about the boy."'] });
-  app.innerHTML = '<div class="screen city"></div>';
-  runEvents(ev, endScreen);
+  const f = S.flags;
+  achieve('survivor');
+  let kind = null;
+  if (f.whistle === 'yes') kind = 'whistle';
+  else if (f.kingpinOffer === 'yes') kind = 'kingpin';
+  if (kind) return endScreen(kind);
+  const choices = pickEndingChoices(S, f, collectionValue());
+  const m = modal(`${letterHTML({ from: 'Friday, 6:00 p.m.', body: ['The quarter is over. The Board has finished its audit. Pike\'s door is closed.', 'For the first time in five weeks, nobody is telling you what to do next.'] })}
+    <div class="col">${choices.map((c) => `<button class="btn ${c.id === 'standing' ? '' : 'primary'}" data-e="${c.id}">${esc(c.label)}</button>`).join('')}</div>`, { dismiss: false });
+  $$('[data-e]', m).forEach((b) => b.onclick = () => { m.close(); endScreen(b.dataset.e); });
 }
 
-function endScreen() {
+function endScreen(kind) {
   setScene('end');
-  const f = S.flags;
-  let title = 'Still Standing', line = 'You made it through your first week at Gemline. Barely, and not cleanly, but you made it.';
-  if (f.rent === 'evicted') { title = 'Out on the Street'; line = 'You graded cards all week and still couldn\'t make rent. Gemline doesn\'t care where you sleep, as long as you\'re at your desk by nine.'; }
-  else if (f.vince1 === 'took') { title = 'Bought and Paid For'; line = 'Carrow owns your grades. Pike owns you. The envelopes keep coming, and so do the walk-ins.'; }
-  else if (f.vince1 === 'refused') { title = 'Clean Hands, Open Door'; line = 'You said no to Vince Carrow. Your grades are honest. Your door doesn\'t lock anymore.'; }
+  closeAllModals();
+  const E = ENDINGS[kind];
+  if (E.ach) achieve(E.ach);
   S.phase = 'end';
   save();
   const acc = S.stats.graded ? Math.round((S.stats.correct / S.stats.graded) * 100) : 0;
   const best = [...S.collection].sort((a, b) => cardValue(b) - cardValue(a))[0];
   app.innerHTML = `<div class="screen end scroll">
-    <div class="kicker">End of week one</div>
-    <h1>${esc(title)}</h1>
-    <p style="max-width:52ch;text-align:center;color:var(--muted)">${esc(line)}</p>
+    <div class="kicker">${kind === 'fired' || kind === 'evicted' || kind === 'arrested' ? `Week ${Math.ceil(S.day / 5)}, ${dayName(S.day)}` : 'The end of the quarter'}</div>
+    <h1>${esc(E.title)}</h1>
+    <div style="max-width:56ch;display:flex;flex-direction:column;gap:10px;color:var(--muted)">${E.text.map((p) => `<p style="margin:0">${esc(p)}</p>`).join('')}</div>
     <div class="paper ledger"><table>
+      <tr><td>Days worked</td><td class="amt">${S.day}</td></tr>
       <tr><td>Cards graded</td><td class="amt">${S.stats.graded}</td></tr>
       <tr><td>Correct calls</td><td class="amt">${acc}%</td></tr>
-      <tr><td>Citations</td><td class="amt">${S.citations}</td></tr>
+      <tr><td>Counterfeits caught</td><td class="amt">${S.stats.fakesCaught || 0}</td></tr>
+      <tr><td>Reputation · Suspicion</td><td class="amt">${Math.round(S.rep)} · ${Math.round(S.sus)}</td></tr>
       <tr><td>Cash</td><td class="amt">${money(S.money)}</td></tr>
       <tr><td>Binder</td><td class="amt">${S.collection.length} cards · ${money(collectionValue())}</td></tr>
-      <tr><td>Best card</td><td class="amt">${best ? esc(cardTitle(best)) + (variantLabels(best.v).length ? ' (' + variantLabels(best.v).join(', ') + ')' : '') : 'none'}</td></tr>
-      <tr><td>Mina's card</td><td class="amt">${{ truth: 'Told the truth', lied: 'Passed it', returned: 'Sent it back' }[f.mina] || 'Never saw it'}</td></tr>
-      <tr><td>Vince Carrow</td><td class="amt">${f.vince1 === 'took' ? 'Took the money' : f.vince1 === 'refused' ? 'Refused' : 'Never met'}</td></tr>
+      <tr><td>Best card</td><td class="amt">${best ? esc(cardTitle(best)) + (variantLabels(best.v, best.line).length ? ' (' + esc(variantLabels(best.v, best.line).join(', ')) + ')' : '') : 'none'}</td></tr>
+      <tr><td>Ghost Print clues</td><td class="amt">${S.clues || 0} of 4${S.flags.ghostFound ? ' · FOUND' : ''}</td></tr>
+      <tr><td>Codex</td><td class="amt">${Object.keys(S.codex).length} of ${Object.keys(CODEX).length}</td></tr>
     </table></div>
-    <p style="max-width:52ch;text-align:center">This is the end of the first slice. Week two brings Moth &amp; Lantern, Tidebound and Rift Duelists, the tilt stand, the registry, and whatever Pike has planned for you.</p>
-    <button class="btn primary" id="again">Start over</button>
+    <div class="row"><button class="btn" id="ach">Achievements</button><button class="btn primary" id="again">Start over</button></div>
   </div>`;
+  $('#ach').onclick = showAchievements;
   $('#again').onclick = () => { clearSave(); showTitle(); };
 }
 
-function gameOver(kind) {
-  setScene('end');
-  S.phase = 'end';
-  save();
-  app.innerHTML = `<div class="screen end scroll">
-    <div class="kicker">${dayName(S.day)}</div>
-    <h1>Fired</h1>
-    <p style="max-width:50ch;text-align:center;color:var(--muted)">Pike doesn't look up from his desk. "Clear your desk. Leave the loupe." Seven citations in a week. Somewhere across town, Mr. Gaunt is already looking for a new tenant.</p>
-    <button class="btn primary" id="again">Start over</button>
-  </div>`;
-  $('#again').onclick = () => { clearSave(); showTitle(); };
-}
+function gameOver(kind) { endScreen(kind); }
 
-// Sound starts on the first tap (browsers block audio until then).
+// ------------------------------------------------------------------ boot
+initCollect({ S: () => S, save, toast, sfx, setScene, modal, viewer, locScreen, leaveTo, eveClock, money, esc, dayName, achieve, checkSets });
+
 document.addEventListener('pointerdown', unlockAudio, true);
 document.addEventListener('keydown', unlockAudio, true);
 const soundBtn = document.createElement('button');

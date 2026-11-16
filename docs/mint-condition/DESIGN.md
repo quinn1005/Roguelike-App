@@ -1,4 +1,4 @@
-# Mint Condition: design
+# Mint Condition: design (v1.0)
 
 A dark card-grading game. You're a new grader at **Gemline Authentication**, in a city
 caught in a card-collecting craze. By day you inspect submissions, catch fakes and assign
@@ -13,100 +13,80 @@ from corruption. The crooked paths have real victims, including you.
 2. What you learn at work makes you a better collector.
 3. Your choices cost you something you care about.
 
-Status key: ✅ in the first slice (v0.1.0) · ⏳ planned
-
 ---
 
-## Loops
+## Structure
 
-| Loop | Length | What happens |
-|---|---|---|
-| Card | 30–90 s | Check the form, authenticate, grade condition, give a verdict |
-| Day | 10–15 min | Bulletin → Shift → Payday → Evening |
-| Campaign | ~30 days | New card lines and tools, story arcs, a boom and a crash, endings |
+| Week | Name | Rent | Pay | Market | New lines | New tools |
+|---|---|---|---|---|---|---|
+| 1 | Onboarding | $220 | 100% | 1.0 | Grim Grocers, Neon Saints, Bloomlings | hand, loupe, ruler, reference, UV (day 2) |
+| 2 | Expansion | $260 | 100% | 1.1 | Moth & Lantern, Tidebound, Rift Duelists | tilt stand, dropper, registry |
+| 3 | The Boom | $320 | 125% | 1.6 | Grimoire Accord, Hollow Pantheon, Ironclad Derby | scale, microscope, light box |
+| 4 | The Crash | $320 | 75% | 0.55 | Cryptid Field Notes, Starpost | |
+| 5 | Reckoning | $340 | 90% | 0.8 | | |
 
-## The desk ✅
+- **Day:** bulletin → 9-to-5 shift (one real second per in-game minute by default) → payday → evening (2 stops). Shifts save mid-way.
+- **Friday:** rent. Then the weekend: 3 stops and the Saturday auction.
+- **Monday:** weekly citations reset; suspicion cools by 5.
 
-Each submission is a card plus a form: client, service tier, card name, set, number,
-claimed variant, declared value, and sometimes a note.
+## The desk
 
-1. **Paperwork:** name, number and claimed variant must match the card, or it's returned.
-2. **Authenticate:** front and back against the reference binder, with the tools you have.
-3. **Condition:** four sub-grades.
-   - Centering from border ratios: ≤55/45 → 10, 60/40 → 9, 65/35 → 8, 70/30 → 7, 75/25 → 6, 80/20 → 5.
-   - Corners, edges, surface: the worst flaw caps the category (minor 9, moderate 8, major 6), each extra flaw −0.5.
-   - Final grade: the average rounded down to the half point, never more than 1 above the lowest sub-grade. Four 10s is a **Pristine 10**.
-4. **Verdict:** Grade · Authentic Error · Altered · Counterfeit · Return to client.
+Each submission is a card plus a form (client, tier, name, set, number, claimed variant, declared value, sometimes a note).
 
-Minor flaws are only visible under the loupe. Tool use costs in-game minutes; a loupe tap
-on nothing costs a minute. The worksheet grade comes from what you tagged and measured.
-You can override it, which is how bribes are paid for.
+1. **Paperwork:** name, number and claimed variant must match, or it's returned.
+2. **Authenticate:** front, back and the line's own tell.
+3. **Condition:** four sub-grades. Centering from border ratios (≤55/45 = 10, 60/40 = 9 …). Corners, edges, surface: worst flaw caps the category (minor 9, moderate 8, major 6), each extra flaw −0.5. Final = average rounded down to the half point, never more than 1 above the lowest sub-grade. Fronts and backs carry separate flaws.
+4. **Verdict:** Grade and Authentic Error seal the card in a slab (animated). Altered, Counterfeit and Return leave with a sticky note. Wrong calls print an instant citation slip that explains the miss.
 
 ### Tools
-| Tool | Status | Reveals |
-|---|---|---|
-| Hand | ✅ | Flip the card |
-| Loupe | ✅ | Print rosette vs blurry fakes, minor flaws, copyright line, holo swirl direction |
-| Ruler | ✅ | Centering and card size (trimmed cards measure short) |
-| Reference binder | ✅ | Official front and back, set list, line notes |
-| UV lamp | ✅ day 2 | Modern paper glows (fake), recolored touch-ups glow in patches |
-| Tilt stand | ⏳ | Holo swirl, foil, Rift hex hologram |
-| Precision scale | ⏳ | Weight vs reference |
-| Registry terminal | ⏳ | Serials, stolen-card flags, population counts |
-| Light box, thickness gauge, microscope, water dropper | ⏳ | Trimming, pressing, late forgeries, Tidebound water test |
+| Tool | Reveals |
+|---|---|
+| Loupe | Print rosette, minor flaws, copyright line, holo swirl curl |
+| Microscope | Microprint (ring forgeries), gold-leaf flakes |
+| Ruler | Centering, card size, Alpha corner radius, Starpost perforations |
+| UV lamp | Modern paper glows, touch-ups glow in patches, Moth & Lantern hidden ink |
+| Tilt stand | Holograms and foil shift; flat hex = fake |
+| Light box | Thin stock shines white; trimmed edges glow |
+| Dropper | Tidebound beads water, fakes soak it; water on anything else is damage |
+| Scale | Weight against the reference (±0.05 g) |
+| Registry | Population report; serial lookups (duplicates = fake) |
+| Reference | Official images, notes, Derby stat sheets, rules, codex |
 
-### Fakes and alterations
-- ✅ Counterfeit tells: blurry print, wrong copyright line, UV glow, counter-clockwise Neon Saints holo swirl, wrong back detail.
-- ✅ Alterations: 1st Edition stamp on a shadowed Bloomlings print, recolored corners, trimming.
-- ⏳ Tier 4 ring forgeries that are perfect except one detail hinted in the bulletin.
+### Counterfeits and alterations
+Generic tells: smeared print, wrong copyright, modern paper (UV), wrong back, wrong weight, thin stock, ring forgery (microprint only). Line tells: backwards Neon Saints swirl, missing Moth & Lantern hidden ink, absorbent Tidebound stock, flat Rift hex, painted Pantheon gold, impossible Derby stats, duplicate Cryptid serials, wrong Starpost perfs. Alterations: added 1st Edition stamp, recolored damage, trimming, recut Alpha corners.
 
-## Card lines
+## Economy and meters
 
-| Line | Status | Front tell | Chase versions |
-|---|---|---|---|
-| Grim Grocers (1994) | ✅ | Copyright "©1994 GRISTLE TOYS" | Missing-yellow misprint |
-| Neon Saints (1987) | ✅ | Holo swirl clockwise | Holo |
-| Bloomlings (1999) | ✅ | Shadowless art box = first print | Shadowless 1st Edition, holo |
-| Moth & Lantern | ⏳ wk 2 | Hidden UV ink | UV secret-art prints |
-| Tidebound | ⏳ wk 2 | Water test | 1st Edition, holo |
-| Rift Duelists | ⏳ wk 2 | Hex hologram shifts on tilt | Gold name, secret rare |
-| Grimoire Accord | ⏳ wk 3 | Alpha corner radius | Alpha, foil |
-| Hollow Pantheon | ⏳ wk 3 | Gold-leaf tarnish dates a print | Old tarnished prints |
-| Ironclad Derby | ⏳ wk 3 | Stats match the print run | Run 1 vs Run 2 |
-| Cryptid Field Notes | ⏳ wk 4 | Serial matches registry | Serialized /50 |
-| Starpost | ⏳ wk 4 | Perforation count | Inverted-centre error |
-
-## Day loop ✅
-
-- **Bulletin:** rules (cumulative), quota, lines in the queue, new tools, letters.
-- **Shift:** 9:00–5:00, one real second per in-game minute. Clock out early once the quota is met.
-- **Payday:** tier pay (Economy $8, Standard $12, Express $18), +$4 for an exact call, citations (first each day is a warning, then −$5), −$5 per card short of quota, −$6 food. Rent ($220) on Friday. Seven citations in the week and you're fired.
-- **Evening:** two actions. Card shop, bulk bins, a diner shift (+$30). Binder is free.
+- Pay per card by tier (Economy $8, Standard $11, Express $16, VIP $30) × the week's rate, +$2 at Reputation 75+. +$4 for exact calls. Citations: first each day is a warning, then −$5. −$5 per card short of quota. Food $8/day.
+- **Reputation** (0–100): +1 per correct call, −3 per citation, +2 clean quota day, +5 per completed set. Zero means fired.
+- **Suspicion** (0–100): bribes, passing Carrow's fakes, inflating grades, the ring deal. 100 means arrested.
+- **Integrity** (hidden): honest and dishonest choices; shapes which endings are offered.
+- **Value** = base (c $2, u $6, r $30) × variant × condition (raw) or grade (slab) × market. Slabs are worth more than raw cards. Every 10 you hand out raises the population count and lowers what 10s are worth.
 
 ## Collecting
 
-- ✅ Packs: tear the top yourself; tear too fast and the front card creases.
-- ✅ Singles: the owner misjudges one card a night (a shadowless Bloomling, a misprint).
-- ✅ Bulk bins: $3 a dig, keep two. Hidden variants and the odd fake.
-- ✅ Selling at half value. Binder with set pages and copies.
-- ⏳ Auctions, unclaimed submissions, payment in cards, Fake Binder, coworker trades, rival grader Apex, Ghost Print hunt, population report.
-
-Value = base (common $2, uncommon $6, rare $30) × variant (holo ×4, shadowless ×4 or ×10 with 1st Ed., misprint ×25) × condition (10 → ×6, 9 → ×2.2, 8 → ×1.3, 7 → ×1).
+- **Lou's shop:** packs for every unlocked line, priced with the market; one misjudged chase card under the glass each night; sell at half value.
+- **Pack opening:** tear the seam (too fast creases a card), flip cards one by one, rares charge and land with rays, sparks and fanfare.
+- **Night market bins:** $3 a dig, keep two; hidden chase versions and the odd fake.
+- **Apex Grading:** $12–15 a card, back in two days in an Apex slab. They make mistakes (more in the boom). Dispute for $8.
+- **Saturday auction:** live bidding against collectors. Lots include slabs you graded yourself, Apex-slabbed chase cards, an Apex-slabbed fake, and in week 4 a mystery proof card. Consign your own cards (10% fee).
+- **Sets:** completing a line pays $20 per card and +5 Reputation.
+- **Fake Binder:** confiscated counterfeits. Ring forgeries are evidence, and become collectible after the crash.
 
 ## Story
 
-**Cast:** Director Harlan Pike (boss), Dot (the next desk), Vince Carrow (dealer, as "C. Vance"),
-Mina Sorensen (11), Theo (your little brother, asthmatic), Mr. Gaunt (landlord).
+**Cast:** Director Harlan Pike, Dot (next desk), Vince Carrow, Mina Sorensen, Theo (your brother), Mr. Gaunt (landlord), Lou, Sal, June Okafor (reporter), Ellis Marsh (dead printer).
 
-**Week one (✅):**
-- Mon: training card, Pike's welcome, the rent warning.
-- Tue: Theo's inhaler is empty. Dot warns about walk-ins. Mina's grandfather's Thunder Mama, a fake. Tell the truth, slip her $40, or pass it.
-- Wed: Carrow's walk-in Ashowl (really a 7.5) with $200 to make it a 9.
-- Thu: refuse and your door is scarred; accept and a counterfeit Corn Reaper arrives with "you don't get to say no twice". Skip the inhaler and Theo ends up in the ER ($60).
-- Fri: the audit. Pike owns you if you took the money; if you refused, your home is broken into and your best card destroyed. Mina's and Theo's outcomes. Rent or eviction.
+- **Week 1:** the bribe, Mina's fake heirloom, Theo's inhaler, the first audit.
+- **Week 2:** Pike takes half of Carrow's envelopes; Carrow keeps sending walk-ins; Dot names the Halloway printer.
+- **Week 3:** the Boom. A VIP walk-in with Pike's note: "This is a 10." Ring forgeries appear. June Okafor asks for evidence.
+- **Week 4:** the Crash. Pay cut, a widower's card, Carrow's thousand-dollar ring deal, a brick through the window.
+- **Week 5:** the Board's review, June's deadline (hand over 3 pieces of evidence), Carrow's partnership offer, the final audit.
 
-**Endings (slice):** Bought and Paid For · Clean Hands, Open Door · Out on the Street · Still Standing · Fired.
+**Ghost Print hunt:** four clues on story cards, each visible only with one tool (UV, light box, registry, flipping the back). With three or more, the Marsh box is waiting at the night market on Thursday of week 5. Otherwise it may surface at the week 4 auction.
 
-**Campaign (⏳):** wk 2 Expansion, wk 3 The Boom, wk 4 The Crash, wk 5 Reckoning. Full endings:
-honest grader, whistleblower, crooked kingpin, the collector, fired and broke.
-Meters planned: Reputation, Suspicion, Integrity.
+**Endings:** Whistleblower, Kingpin, Head Grader, The Collector, Still Standing, Fired, Evicted, Arrested.
+
+## Extras
+
+Codex of 28 tells and versions (unlocked by catching, being cited, or finding them), 24 achievements kept across runs, music and effects volume, and three shift speeds.

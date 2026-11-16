@@ -197,6 +197,36 @@ export function homeSVG(flags, day) {
 </svg>`;
 }
 
+// ------------------------------------------------------------------ Apex Grading counter
+export function apexSVG() {
+  return `<svg viewBox="0 0 400 220" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+  <rect width="400" height="220" fill="#dfe6ee"/><rect width="400" height="150" fill="#eef2f6"/>
+  ${[60, 160, 260, 360].map((x) => `<rect x="${x - 30}" y="0" width="60" height="6" fill="#ffffff"/><rect x="${x - 30}" y="6" width="60" height="3" fill="#cfe4ff" opacity=".8"/>`).join('')}
+  <rect x="120" y="24" width="160" height="34" rx="4" fill="#1d4ea8"/><text x="200" y="47" text-anchor="middle" font-family="'Bricolage Grotesque',sans-serif" font-weight="800" font-size="18" fill="#ffffff" letter-spacing="3">APEX</text>
+  <text x="200" y="72" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="7" fill="#5a6a7a" letter-spacing="2">GRADING · AUTHENTICATION · SINCE 1991</text>
+  <g>${[30, 70, 330, 360].map((x, i) => `<rect x="${x}" y="80" width="26" height="40" rx="3" fill="#ffffff" stroke="#9fb0c4"/><rect x="${x + 3}" y="84" width="20" height="8" fill="#1d4ea8"/><rect x="${x + 4}" y="96" width="18" height="20" fill="${['#ffd400', '#4fb3e8', '#ff4fd8', '#7fd1c1'][i]}"/>`).join('')}</g>
+  <g transform="translate(200 104)"><path d="M-26 70Q-28 30 0 24Q28 30 26 70Z" fill="#1d4ea8"/><circle cx="0" cy="10" r="14" fill="#e0b08a"/><path d="M-14 4Q0 -12 14 4Q8 -4 0 -4Q-8 -4 -14 4Z" fill="#2a1a12"/><rect x="-6" y="24" width="12" height="16" fill="#ffffff"/><circle cx="0" cy="30" r="2" fill="#1d4ea8"/></g>
+  <rect x="0" y="150" width="400" height="70" fill="#9fb0c4"/><rect x="0" y="146" width="400" height="8" fill="#ffffff"/>
+  <rect x="150" y="128" width="40" height="24" fill="#ffffff" stroke="#9fb0c4"/><rect x="154" y="132" width="32" height="6" fill="#1d4ea8"/><rect x="210" y="132" width="50" height="18" rx="2" fill="#2a2a2e"/><rect x="214" y="135" width="42" height="8" fill="#3fe08a" opacity=".7"/>
+  </svg>`;
+}
+
+// ------------------------------------------------------------------ the Corn Exchange auction hall
+export function auctionSVG() {
+  return `<svg viewBox="0 0 400 220" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+  <defs><radialGradient id="au-spot" cx="200" cy="80" r="120" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffe3a8" stop-opacity=".5"/><stop offset="1" stop-color="#ffe3a8" stop-opacity="0"/></radialGradient></defs>
+  <rect width="400" height="220" fill="#2a1a14"/>
+  ${[40, 120, 280, 360].map((x) => `<rect x="${x - 14}" y="0" width="28" height="160" fill="#3a2418"/><rect x="${x - 18}" y="0" width="36" height="8" fill="#4a3020"/>`).join('')}
+  <path d="M0 0H400V30Q300 50 200 30Q100 50 0 30Z" fill="#6a1a1a"/>
+  <rect width="400" height="220" fill="url(#au-spot)"/>
+  <rect x="160" y="60" width="80" height="70" fill="#1a1210" stroke="#c9a96b" stroke-width="2"/><rect x="176" y="70" width="48" height="52" fill="#efe9dc"/><rect x="186" y="78" width="28" height="36" fill="#ffd400" stroke="#1a1a1a"/>
+  <path d="M168 130L160 160M232 130L240 160" stroke="#5a3a20" stroke-width="3"/>
+  <g transform="translate(300 96)"><rect x="-26" y="10" width="52" height="54" fill="#5a3a20"/><rect x="-30" y="6" width="60" height="6" fill="#7a5230"/><circle cx="0" cy="-8" r="12" fill="#d9b08a"/><path d="M-12 -12Q0 -26 12 -12Z" fill="#7a7a7a"/><path d="M-16 6Q0 -4 16 6V12H-16Z" fill="#1a1a1a"/><path d="M14 0L30 -14" stroke="#7a5230" stroke-width="3"/><rect x="26" y="-20" width="10" height="7" rx="2" fill="#7a5230"/></g>
+  <g fill="#120a08">${Array.from({ length: 14 }, (_, i) => `<circle cx="${20 + i * 28}" cy="${182 + (i % 2) * 6}" r="11"/><rect x="${9 + i * 28}" y="${190 + (i % 2) * 6}" width="22" height="40" rx="8"/>`).join('')}</g>
+  <g fill="#efe9dc">${[2, 7, 11].map((i) => `<rect x="${16 + i * 28}" y="${156 + (i % 2) * 6}" width="10" height="13" rx="1"/><text x="${21 + i * 28}" y="${166 + (i % 2) * 6}" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="6" fill="#1a1a1a">${i * 7}</text>`).join('')}</g>
+  </svg>`;
+}
+
 // ------------------------------------------------------------------ what people say
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
@@ -237,6 +267,25 @@ export function rumor(day, flags) {
     2: 'Two men in the back booth don\'t order anything. One of them says "walk-in" and "Express" and laughs. When they leave, they tip Sal a twenty and look straight at you.',
     3: 'A regular with ink on his fingers brags that he can buy a "1st Edition" rubber stamp for five bucks at the copy shop. "Put it on any Bloomling. Graders never check the shadow."',
     4: 'Dot again, tired. "Pike audits Friday. He pulls the walk-ins first. Always the walk-ins." She looks at you a second too long.',
+    5: 'A man at the counter says the Moth & Lantern reprints coming in "don\'t have the ghost writing on them". He means the hidden ink. Real ones do.',
+    6: 'A fisherman says he dunked a Tidebound card in his coffee to prove it was real. "Water just sat there. Like it was scared of it."',
+    7: 'Two kids argue over a Rift Duelists card. "If the hexagon doesn\'t go rainbow when you tilt it, it\'s fake. Everybody knows that."',
+    8: 'Sal says a guy tried to pay in Cryptid cards. "Said the serial numbers made them money. I said the serial number on a dollar makes it money."',
+    9: 'Dot, on her third coffee: "Starting Monday it\'s VIPs. Pike calls it \'care\'. It means you inflate their grades and smile."',
+    10: 'A Grimoire collector at the counter: "Alpha corners are fat and round, all four the same. Somebody\'s been sanding corners down at the copy shop."',
+    11: 'An old man tells Sal that real 1987 Pantheon gold "goes brown like an old spoon". The shiny ones are the 2003 reprint.',
+    12: 'Someone from the Halloway works drinks alone and mutters about microprint. "Perfect cards. One wrong letter at the bottom. Nobody looks at the bottom."',
+    13: 'A Derby fan explains that Run 1 and Run 2 cards have different stats. "The footer tells you which run. The numbers have to agree with it."',
+    14: 'Dot says the Board is coming. "When the bubble bursts, they look for someone to blame. Make sure it isn\'t you."',
+    15: 'The radio over the grill says collectible prices fell forty percent overnight. Nobody in the diner says anything for a while.',
+    16: 'A Starpost collector says he counts perforations "like rosary beads. Twenty-eight by twenty. Any other number, it\'s a forgery."',
+    17: 'Carrow\'s men eat at the back booth. One of them says "Thursday" and "the market" and laughs. The other one doesn\'t.',
+    18: 'Sal says there\'s been a man asking which bus the Gemline kid takes home. "I told him nobody takes the bus anymore."',
+    19: 'A reporter in the corner booth, notebook open, watching the door. She catches your eye and nods once.',
+    20: 'Dot: "Pike asked me what you\'ve been saying. I told him you never say anything. Keep it that way, or say it all at once."',
+    21: 'An old woman says Ellis Marsh used to run the night press at Halloway. "He printed ghosts, they said. One-of-ones. Never sold a single one."',
+    22: 'Sal, closing up: "Whatever you\'re deciding, kid, decide it before Friday. Fridays have a way of deciding for you."',
+    23: 'The night market vendor eats a slice of pie at the counter. "Thursday I\'ve got the Marsh boxes," he tells Sal. "Somebody\'s been asking."',
   }[day];
   return r || 'Nobody says anything worth remembering tonight.';
 }

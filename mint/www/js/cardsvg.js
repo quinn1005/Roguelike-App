@@ -4,6 +4,8 @@
 //     fake:{kinds:[]}|null, alt:{kind, corner?}|null }
 import { LINES, CARDS } from './data.js';
 import { centerPct } from './grading.js';
+import { FRONT2, BACK2, STOCK2, copyrightText, microText, mlHidden, spPerfs } from './cardsvg2.js';
+export { copyrightText, icStats, spPerfs } from './cardsvg2.js';
 
 let uidc = 0;
 export const def = (inst) => CARDS[inst.line].find((c) => c.n === inst.n);
@@ -22,19 +24,21 @@ export function cardSVG(inst, o = {}) {
   const dy = o.clean ? 0 : inst.dy || 0;
   const fakePrint = !o.clean && inst.fake && inst.fake.kinds.includes('print');
   let printed = face === 'front' ? FRONT[inst.line](inst, p, o) : BACK[inst.line](inst, p, o);
+  if (inst.v && inst.v.ghost) printed = face === 'front' ? `<g filter="url(#${p}ghost)">${printed}</g><text x="200" y="300" font-family="'Special Elite',monospace" font-size="11" fill="#5a5a5a" transform="rotate(-8 200 300)">E.M. 1/1</text>` : ghostBack();
+  if (o.microprint) printed += `<text x="125" y="343.6" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="2.3" letter-spacing=".2" fill="${MICROCOL[inst.line] || '#555'}">${microText(inst)}</text>`;
   const stock = STOCK[inst.line];
   let filt = '';
   if (face === 'front' && inst.v && inst.v.noYellow) filt = `filter="url(#${p}ny)"`;
   if (o.micro && fakePrint) filt = `filter="url(#${p}blur)"`;
 
   let s = `<defs>
-    <clipPath id="${p}card"><rect width="250" height="350" rx="12"/></clipPath>
+    <clipPath id="${p}card"><path d="${cardPath(cornerRadii(inst))}"/></clipPath>
     <filter id="${p}ny" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 0 0 1  0 0 0 1 0"/></filter>
     <filter id="${p}blur"><feGaussianBlur stdDeviation="0.9"/></filter>
     <filter id="${p}glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="5"/></filter>
     <filter id="${p}noise" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.35" numOctaves="2" seed="4"/><feColorMatrix type="matrix" values="0 0 0 0 0.3  0 0 0 0 0.2  0 0 0 0 0.3  0 0 0 1.6 -0.7"/></filter>
     <pattern id="${p}ros" width="3" height="3" patternUnits="userSpaceOnUse" patternTransform="rotate(15)"><circle cx="1.5" cy="1.5" r="0.6" fill="#000"/></pattern>
-    <marker id="${p}arr" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto"><path d="M0 0L6 3L0 6Z" fill="#ffffff"/></marker>
+    <filter id="${p}ghost" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0.25 0.25 0.25 0 0.5  0.25 0.25 0.25 0 0.5  0.27 0.27 0.27 0 0.52  0 0 0 1 0"/></filter>
   </defs>`;
   const tr = trimmed ? 'transform="translate(2.2 3.2) scale(0.982)"' : '';
   s += `<g ${tr}><g clip-path="url(#${p}card)">`;
@@ -42,8 +46,11 @@ export function cardSVG(inst, o = {}) {
   s += `<g transform="translate(${dx} ${dy})" ${filt}>${printed}</g>`;
   if (face === 'front' && inst.v && inst.v.holo) s += holoLayer(inst, p, o, dx, dy);
   if (!o.clean) s += defectsSVG(inst, o, face);
-  if (o.micro) s += microLayer(inst, p, fakePrint);
+  if (o.micro) s += microLayer(inst, p, fakePrint, o, face, dx, dy);
+  if (o.tilt && face === 'front' && inst.v && inst.v.holo) s += holoLayer(inst, p, o, dx + 18, dy - 12);
   if (o.uv) s += uvLayer(inst, p, face);
+  if (o.light) s += lightLayer(inst, trimmed);
+  if (o.water && o.water.length) s += waterLayer(inst, o.water);
   s += `</g>`;
   if (o.ruler) s += rulerLayer(inst, dx, dy, trimmed);
   s += `</g>`;
@@ -55,7 +62,46 @@ export function cardSize(inst) {
   return inst.alt && inst.alt.kind === 'trim' ? '2.46 × 3.44 in' : '2.50 × 3.50 in';
 }
 
-const STOCK = { gg: '#ffd400', ns: '#0b0618', bl: '#c9d3e0' };
+const STOCK = { gg: '#ffd400', ns: '#0b0618', bl: '#c9d3e0', ...STOCK2 };
+const MICROCOL = { gg: '#1a1a1a', ns: '#2ee6ff', bl: '#4a6075', ml: '#c9a96b', tb: '#7fd1c1', rd: '#f2e9d8', ga: '#f3e8d2', hp: '#b8892d', ic: '#c68a4a', cf: '#6a5a3a', sp: '#1b2a6b' };
+
+// Corner radii in card units: 12 is a normal 2.0 mm corner, 18 is an Alpha 3.0 mm corner.
+export function cornerRadii(inst) {
+  if (inst.alt && inst.alt.kind === 'alphatrim') return [18, 18, 14, 18];
+  if (inst.v && inst.v.alpha) return [18, 18, 18, 18];
+  return [12, 12, 12, 12];
+}
+function cardPath([a, b, c, d]) {
+  return `M${a} 0H${250 - b}A${b} ${b} 0 0 1 250 ${b}V${350 - c}A${c} ${c} 0 0 1 ${250 - c} 350H${d}A${d} ${d} 0 0 1 0 ${350 - d}V${a}A${a} ${a} 0 0 1 ${a} 0Z`;
+}
+// Weight on the precision scale, in grams.
+export function cardWeight(inst) {
+  const L = LINES[inst.line];
+  const jitter = ((inst.n * 7 + (inst.dx || 0) * 13) % 5) / 100 - 0.02;
+  let w = L.weight + jitter;
+  if (inst.fake && inst.fake.kinds.includes('weight')) w += inst.fake.wd || 0.22;
+  return w.toFixed(2) + ' g';
+}
+function ghostBack() {
+  return `<rect x="8" y="8" width="234" height="334" rx="8" fill="#f2efe6" stroke="#cfc8b8"/>
+  <text x="125" y="170" text-anchor="middle" font-family="'Special Elite',monospace" font-size="14" fill="#4a4a4a">E.M. · 1 of 1</text>
+  <text x="125" y="192" text-anchor="middle" font-family="'Special Elite',monospace" font-size="9" fill="#6a6a6a">for whoever finds it</text>
+  <text x="125" y="320" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="6" fill="#8a8a8a">HALLOWAY PRINT WORKS · PROOF SHEET 9</text>`;
+}
+function lightLayer(inst, trimmed) {
+  const thin = inst.fake && inst.fake.kinds.includes('stock');
+  let s = `<rect width="250" height="350" fill="#000" opacity=".62"/>`;
+  s += thin ? `<rect width="250" height="350" fill="#ffffff" opacity=".78" style="mix-blend-mode:screen"/>` : `<rect width="250" height="350" fill="#ffb060" opacity=".38" style="mix-blend-mode:screen"/>`;
+  if (trimmed) s += `<rect x="1.5" y="1.5" width="247" height="347" rx="11" fill="none" stroke="#fffbe8" stroke-width="3" stroke-dasharray="14 3 6 4"/>`;
+  if (inst.clue === 'light') s += `<g font-family="'Special Elite',monospace" fill="#3a2a1a" opacity=".75" text-anchor="middle"><text x="125" y="120" font-size="11" transform="rotate(6 125 120)">Proof sheet 9.</text><text x="125" y="138" font-size="11" transform="rotate(6 125 138)">The tarp. Thursday.</text><text x="150" y="158" font-size="11" transform="rotate(6 150 158)">— E.M.</text></g>`;
+  return s;
+}
+function waterLayer(inst, drops) {
+  const beads = inst.line === 'tb' && !(inst.fake && inst.fake.kinds.includes('absorb'));
+  return drops.map(({ x, y }) => beads
+    ? `<circle cx="${x}" cy="${y}" r="6" fill="#bfe6ff" opacity=".45" stroke="#ffffff" stroke-width=".7"/><circle cx="${x - 2}" cy="${y - 2}" r="1.6" fill="#ffffff" opacity=".9"/>`
+    : `<ellipse cx="${x}" cy="${y}" rx="15" ry="12" fill="#6a4a20" opacity=".32"/><ellipse cx="${x}" cy="${y}" rx="15" ry="12" fill="none" stroke="#4a2f10" stroke-width="1.2" opacity=".5"/>`).join('');
+}
 
 // ---------------------------------------------------------------- GRIM GROCERS
 function ggFront(inst, p) {
@@ -308,15 +354,8 @@ function blBack(inst, p) {
   <text x="125" y="276" text-anchor="middle" font-family="Fredoka,sans-serif" font-weight="600" font-size="12" fill="#ffffff">Catch · Raise · Bloom</text>`;
 }
 
-const FRONT = { gg: ggFront, ns: nsFront, bl: blFront };
-const BACK = { gg: ggBack, ns: nsBack, bl: blBack };
-
-// Counterfeit copyright lines: plausible but wrong.
-const BAD_CR = { gg: ['©1995 GRISTLE TOYS', '©1994 GRISTLE TOY', '©1994 GRISTEL TOYS'], ns: ['©1988 SAINTS WRESTLING LEAGUE', '©1987 SAINTS WRESTLING LEAUGE', '©1987 SAINT WRESTLING LEAGUE'], bl: ['©1999 BLOOM WORKS', '©2001 BLOOMWORKS', '©1999 BLOOMWORK'] };
-export function copyrightText(inst) {
-  if (inst.fake && inst.fake.kinds.includes('copyright')) return BAD_CR[inst.line][inst.fake.cr || 0];
-  return LINES[inst.line].copyright;
-}
+const FRONT = { gg: ggFront, ns: nsFront, bl: blFront, ...FRONT2 };
+const BACK = { gg: ggBack, ns: nsBack, bl: blBack, ...BACK2 };
 
 // ---------------------------------------------------------------- layers
 function holoLayer(inst, p, o, dx, dy) {
@@ -373,25 +412,43 @@ function defectShape(d) {
   return '';
 }
 
-function microLayer(inst, p, fakePrint) {
+function swirl(cx, cy, dir) {
+  const cols = ['#ff7ad9', '#7af0ff', '#fff27a', '#9dffb0'];
+  let out = '';
+  for (let k = 0; k < 14; k++) {
+    const th0 = (k / 14) * Math.PI * 2;
+    let d = '';
+    for (let t = 0; t <= 1.0001; t += 0.05) {
+      const r = 4 + t * 92, th = th0 + dir * t * 2.6;
+      d += (t === 0 ? 'M' : 'L') + (cx + Math.cos(th) * r).toFixed(1) + ' ' + (cy + Math.sin(th) * r).toFixed(1);
+    }
+    out += `<path d="${d}" fill="none" stroke="${cols[k % 4]}" stroke-width="${1.6 - (k % 3) * 0.3}" opacity=".32" stroke-linecap="round"/>`;
+  }
+  return `<g style="mix-blend-mode:screen">${out}</g>`;
+}
+
+function microLayer(inst, p, fakePrint, o = {}, face = 'front', dx = 0, dy = 0) {
   let s = '';
   if (fakePrint) s += `<rect width="250" height="350" filter="url(#${p}noise)" opacity=".55"/>`;
   else s += `<rect width="250" height="350" fill="url(#${p}ros)" opacity=".22" style="mix-blend-mode:multiply"/>`;
-  if (inst.v && inst.v.holo) {
+  if (face === 'front' && inst.v && inst.v.holo) {
     const ccw = inst.fake && inst.fake.kinds.includes('swirl');
-    const cx = 125 + inst.dx, cy = (inst.line === 'bl' ? 117 : 131) + inst.dy;
-    for (let i = 0; i < 4; i++) {
-      const r = 16 + i * 14, a0 = i * 80;
-      const pt = (deg) => [cx + r * Math.cos(deg * Math.PI / 180), cy + r * Math.sin(deg * Math.PI / 180)];
-      const [x1, y1] = pt(a0), [x2, y2] = pt(ccw ? a0 - 120 : a0 + 120);
-      s += `<path d="M${x1.toFixed(1)} ${y1.toFixed(1)}A${r} ${r} 0 0 ${ccw ? 0 : 1} ${x2.toFixed(1)} ${y2.toFixed(1)}" fill="none" stroke="#ffffff" stroke-width="1.3" opacity=".85" marker-end="url(#${p}arr)"/>`;
-    }
+    const box = inst.line === 'bl' ? [22, 48, 206, 138] : inst.line === 'rd' ? [30, 64, 190, 152] : inst.line === 'ga' ? [24, 46, 202, 150] : [22, 46, 206, 170];
+    s += `<clipPath id="${p}sw"><rect x="${box[0] + dx}" y="${box[1] + dy}" width="${box[2]}" height="${box[3]}"/></clipPath><g clip-path="url(#${p}sw)">${swirl(box[0] + box[2] / 2 + dx, box[1] + box[3] / 2 + dy, ccw ? -1 : 1)}</g>`;
+  }
+  // Gold leaf flakes on genuine Hollow Pantheon, under the microscope only.
+  if (o.microprint && inst.line === 'hp' && !(inst.fake && inst.fake.kinds.includes('paint'))) {
+    let f = '';
+    for (let k = 0; k < 120; k++) { const x = (k * 37) % 250, y = (k * 53) % 350; f += `<path d="M${x} ${y}l2.2 .6-.8 1.8-1.9-.4z"/>`; }
+    s += `<g fill="#fff6c9" opacity=".55">${f}</g>`;
   }
   return s;
 }
 
 function uvLayer(inst, p, face) {
   let s = `<rect width="250" height="350" fill="#1a0640" opacity=".84" style="mix-blend-mode:multiply"/>`;
+  if (inst.line === 'ml' && face === 'front') s += `<g filter="url(#${p}glow)" opacity=".7">${mlHidden(inst)}</g>${mlHidden(inst)}`;
+  if (inst.clue === 'uv' && face === 'front') s += `<g font-family="'Special Elite',monospace" fill="#ffe7a6" text-anchor="middle" filter="url(#${p}glow)"><text x="125" y="236" font-size="9" transform="rotate(-4 125 236)">E.M. · FIVE GHOSTS · HALLOWAY</text></g><g font-family="'Special Elite',monospace" fill="#fff4cf" text-anchor="middle"><text x="125" y="236" font-size="9" transform="rotate(-4 125 236)">E.M. · FIVE GHOSTS · HALLOWAY</text><text x="125" y="250" font-size="9" transform="rotate(-4 125 250)">FIND THEM</text></g>`;
   if (inst.fake && inst.fake.kinds.includes('uv')) s += `<rect width="250" height="350" fill="#cfe6ff" opacity=".58" style="mix-blend-mode:screen"/>`;
   if (inst.alt && inst.alt.kind === 'recolor') {
     const d = inst.defects.find((x) => x.id === inst.alt.hidden);
@@ -415,7 +472,16 @@ function rulerLayer(inst, dx, dy, trimmed) {
     <line x1="118" y1="${T}" x2="132" y2="${T}"/><line x1="118" y1="${350 - B}" x2="132" y2="${350 - B}"/></g>
     ${lab(L + 4, 166, Math.round(c.lr), 'start')}${lab(250 - R - 4, 166, Math.round(100 - c.lr), 'end')}
     ${lab(148, T + 12, Math.round(c.tb))}${lab(148, 350 - B - 6, Math.round(100 - c.tb))}
-    <g><rect x="80" y="60" width="90" height="14" rx="3" fill="#001018" opacity=".88"/><text x="125" y="70.5" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="8" fill="${col}">${cardSize(inst)}</text></g>`;
+    <g><rect x="80" y="60" width="90" height="14" rx="3" fill="#001018" opacity=".88"/><text x="125" y="70.5" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="8" fill="${col}">${cardSize(inst)}</text></g>
+    ${extraReadings(inst).map((t, k) => `<g><rect x="62" y="${78 + k * 16}" width="126" height="14" rx="3" fill="#001018" opacity=".88"/><text x="125" y="${88.5 + k * 16}" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="7.5" fill="${col}">${t}</text></g>`).join('')}`;
+}
+
+// Extra ruler readings for lines that need them.
+export function extraReadings(inst) {
+  const out = [];
+  if (inst.line === 'ga') out.push('Corners ' + cornerRadii(inst).map((r) => (r / 6).toFixed(1)).join(' / ') + ' mm');
+  if (inst.line === 'sp') { const [a, b] = spPerfs(inst); out.push(`Perforations ${a} × ${b}`); }
+  return out;
 }
 
 // Where to tag a defect (card coordinates).

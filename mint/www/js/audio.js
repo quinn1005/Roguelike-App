@@ -16,8 +16,8 @@ export function unlockAudio() {
   if (!ctx) {
     try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
     master = ctx.createGain(); master.gain.value = muted ? 0 : 0.9; master.connect(ctx.destination);
-    musicBus = ctx.createGain(); musicBus.gain.value = 0.6; musicBus.connect(master);
-    sfxBus = ctx.createGain(); sfxBus.gain.value = 0.85; sfxBus.connect(master);
+    musicBus = ctx.createGain(); musicBus.gain.value = musicVol; musicBus.connect(master);
+    sfxBus = ctx.createGain(); sfxBus.gain.value = sfxVol; sfxBus.connect(master);
     noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
     const d = noiseBuf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
@@ -33,10 +33,20 @@ export function toggleMute() {
   return muted;
 }
 
+// Volumes from settings (0 to 1).
+let musicVol = 0.6, sfxVol = 0.85;
+try { const s = JSON.parse(localStorage.getItem('mint-settings') || '{}'); if (s.music != null) musicVol = s.music; if (s.sfx != null) sfxVol = s.sfx; } catch (e) { /* ignore */ }
+export function setVolumes(m, s) {
+  musicVol = m; sfxVol = s;
+  if (!ctx) return;
+  musicBus.gain.setTargetAtTime(musicVol, ctx.currentTime, 0.1);
+  sfxBus.gain.setTargetAtTime(sfxVol, ctx.currentTime, 0.1);
+}
+
 // Lower the music while something exciting happens (pack openings).
 export function duck(on) {
   if (!ctx) return;
-  musicBus.gain.setTargetAtTime(on ? 0.15 : 0.6, ctx.currentTime, 0.3);
+  musicBus.gain.setTargetAtTime(on ? musicVol * 0.25 : musicVol, ctx.currentTime, 0.3);
 }
 
 // ------------------------------------------------------------------ building blocks
@@ -253,6 +263,26 @@ const SCENES = {
     let k = 0;
     sc.every(900, (t) => { const m = tune[k++ % tune.length]; if (k % 14 !== 0) bell(sc.g, mtof(m + 12), t, 0.014, 1.8); });
     chordLoop(sc, [[50, 57, 62], [46, 53, 58], [48, 55, 60], [45, 52, 57]], 7.2, { gain: 0.008, lp: 500, type: 'triangle' });
+    return sc;
+  },
+  apex() {
+    const sc = new Scene();
+    sc.drone(120, { type: 'sawtooth', gain: 0.003, lp: 1800 });
+    sc.noise({ type: 'lowpass', freq: 400, gain: 0.02 });
+    const muzak = ctx.createBiquadFilter(); muzak.type = 'bandpass'; muzak.frequency.value = 1400; muzak.Q.value = 0.5; muzak.connect(sc.g);
+    const mel = [72, 74, 76, 79, 76, 74, 72, 67];
+    let k = 0;
+    sc.every(600, (t) => { tone(muzak, mtof(mel[k++ % mel.length]), t, { type: 'triangle', gain: 0.03, r: 0.5 }); });
+    chordLoop(sc, [[60, 64, 67], [57, 60, 64], [53, 57, 60], [55, 59, 62]], 4.8, { gain: 0.01, lp: 1200, type: 'triangle' });
+    sc.every(7000, (t) => { for (let i = 0; i < 14; i++) burst(sc.g, t + i * 0.04, { freq: 2200, q: 3, gain: 0.015, r: 0.02 }); }, 3000);
+    return sc;
+  },
+  auction() {
+    const sc = new Scene();
+    sc.noise({ type: 'bandpass', freq: 500, q: 0.5, gain: 0.05, lfo: 0.3, lfoDepth: 0.02 });
+    sc.every(300, (t) => { if (Math.random() < 0.3) burst(sc.g, t, { freq: rnd(300, 900), q: 4, gain: 0.02, r: 0.12 }); });
+    chordLoop(sc, [[50, 57, 62, 66], [52, 59, 64, 67], [47, 54, 59, 62], [45, 52, 57, 61]], 3.6, { gain: 0.016, lp: 1600, type: 'sawtooth' });
+    sc.every(900, (t) => pluck(sc.g, mtof(pick([74, 76, 78, 81, 83])), t, 0.03, 0.8), 200);
     return sc;
   },
   end() {

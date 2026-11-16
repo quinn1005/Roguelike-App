@@ -1,52 +1,55 @@
 # Mint Condition
 
 A dark card-grading game in the style of a document-inspection sim. You work the desk at
-Gemline Authentication: check each submission against its form, hunt for flaws, measure
-centering, catch counterfeits and altered cards, and stamp a verdict. At night you spend
-what you earn (and what you've learned) building your own collection, and you decide
-what your honesty is worth.
-
-This folder holds the **first slice**: 5 in-game days, 3 card lines, 4 tools.
+Gemline Authentication: check each submission against its form, hunt for flaws on both
+sides, measure centering, catch counterfeits and altered cards, and seal a verdict. At
+night you spend what you earn (and what you've learned) building your own collection, and
+you decide what your honesty is worth.
 
 - Play in a browser: https://quinn1005.github.io/Roguelike-App/mint-condition/play/
 - Card line showcase: https://quinn1005.github.io/Roguelike-App/mint-condition/
 - Full design: [`docs/mint-condition/DESIGN.md`](../docs/mint-condition/DESIGN.md)
 
-## What's in the slice
+## The game
 
-- **Card lines:** Grim Grocers (1994), Neon Saints (1987), Bloomlings (1999). 26 cards,
-  all drawn in code from data, each with chase variants: holos, shadowless and 1st Edition
-  Bloomlings, and the missing-yellow-ink Grim Grocers misprint.
-- **The desk:** a real-time shift from 9 to 5. Every card comes with a submission form.
-  Tools: Hand (flip), Loupe (magnify and tag flaws), Ruler (centering and card size),
-  UV lamp (from day 2), Reference binder.
+- **Five weeks, 25 working days:** Onboarding, Expansion, The Boom, The Crash, Reckoning.
+  Rent is due every Friday. Pay and card prices follow the market. Weekends have three
+  stops and the Saturday auction.
+- **Eleven card lines,** all drawn in code from data, each with chase versions and its
+  own tell: Grim Grocers, Neon Saints, Bloomlings, Moth & Lantern, Tidebound, Rift
+  Duelists, Grimoire Accord, Hollow Pantheon, Ironclad Derby, Cryptid Field Notes, Starpost.
+- **Eleven tools:** hand, loupe, microscope, ruler, UV lamp, tilt stand, light box,
+  dropper, scale, registry terminal and the reference binder (with rules and codex).
 - **Grading:** four sub-grades (centering, corners, edges, surface). The worst flaw in a
   category caps it, extra flaws take off half a point each, and the final grade is the
   average rounded down, never more than 1 above the lowest sub-grade.
-- **Verdicts:** Grade, Authentic Error, Altered, Counterfeit, Return to client.
-- **Fakes and tricks:** blurry print, wrong copyright lines, modern paper that glows
-  under UV, backwards holo swirls, wrong card backs, added 1st Edition stamps, recolored
-  corners, trimmed cards, and forms that don't match their card.
-- **Payday:** pay per card, accuracy bonuses, citations and fines, food, rent on Friday.
-  Seven citations and you're fired.
-- **Evenings:** you step out onto the street and walk to a place. Two stops a night.
-  Brick & Mortar Cards (packs you tear open yourself, singles, selling to Lou), the night
-  market bulk bins, a diner shift (pay, tips and gossip about tomorrow), and home (binder,
-  sleep). Each place has its own scene and a character whose lines follow your choices.
-- **Feedback:** a wrong verdict prints a citation slip on the spot that says exactly what
-  you missed. The reference binder has a Rules tab.
-- **Story:** a bribe from Vince Carrow, a kid's counterfeit heirloom, your brother's
-  inhaler, the rent, and an audit on Friday. Several endings.
+- **Verdicts:** Grade and Authentic Error seal the card into a slab with a printed label.
+  Altered, Counterfeit and Return send it back with a sticky note. A wrong call prints a
+  citation slip that says exactly what you missed.
+- **Meters:** Reputation, Suspicion and a hidden Integrity. Seven citations in a week,
+  or no reputation left, and you're fired. Suspicion at 100 and you're arrested.
+- **Evenings:** walk the street to Lou's card shop (packs you tear open yourself), the
+  night market bins, the diner (pay, tips, and gossip about tomorrow), Apex Grading
+  (slab your own cards, dispute their mistakes), the Saturday auction, and home.
+- **Collecting:** binder pages with set rewards, a Fake Binder, slabbed values, a
+  population report that makes 10s less rare every time you hand one out.
+- **Story:** Vince Carrow and his envelopes, Director Pike's cut, Mina's counterfeit
+  heirloom, Theo, a VIP who wants a 10, a reporter who needs evidence, and Ellis Marsh's
+  Ghost Print. Eight endings.
+- **Extras:** codex of learned tells, 24 achievements kept across runs, music and effects
+  volume, shift speed, and mid-shift saves.
 
 ## Controls
 
 - **Hand:** tap the card to flip it. Fronts and backs have their own flaws.
-- **Loupe:** drag over the card to magnify it. Tap a flaw to tag it (a tap on nothing
-  costs a minute). On a phone, the lens floats above your finger; lifting your finger
-  after a drag tags only if the crosshair is on a flaw.
-- **Ruler / UV lamp:** toggle the overlay. The first use on each card costs time.
+- **Loupe / Microscope:** drag over the card to magnify it. Tap a flaw to tag it (a tap on
+  nothing costs a minute). On a phone the lens floats above your finger; lifting after a
+  drag tags only if the crosshair is on a flaw. The microscope reads microprint.
+- **Ruler, UV lamp, tilt stand, light box:** toggle their views. Scale and registry give
+  readings. The dropper places water (Tidebound only). First use on each card costs time.
 - **Verdict:** pick a verdict, adjust the grade if you must, and stamp it.
-- Keyboard: `H` `L` `R` `U` `B` for tools, `F` to flip, `V` or `Enter` for the verdict.
+- Keyboard: `H` hand, `L` loupe, `M` microscope, `R` ruler, `U` UV, `T` tilt, `X` light box,
+  `W` dropper, `S` scale, `G` registry, `B` reference, `F` flip, `V` or `Enter` verdict.
 
 ## Running it locally
 
@@ -70,13 +73,17 @@ same stable key as Neon Bastion, so updates install over older versions.
 
 | File | What it does |
 |---|---|
-| `www/js/data.js` | Card lines, set lists, days, rules, prices |
-| `www/js/cardsvg.js` | Draws every card front and back as SVG, plus flaws, loupe detail, UV and ruler overlays |
-| `www/js/grading.js` | Sub-grades, final grade, centering, value multipliers |
-| `www/js/gen.js` | Card instances, flaws, variants, fakes, altered cards, submissions |
-| `www/js/story.js` | Story submissions, letters, evening events |
-| `www/js/scenes.js` | Street and location illustrations, and what Lou, Sal, the seller and Theo say |
+| `www/js/data.js` | Card lines, set lists, tools, weeks, days, rules, prices |
+| `www/js/cardsvg.js` | Card renderer: the first three lines, flaws, loupe and microscope detail, UV, tilt, light box, water and ruler views |
+| `www/js/cardsvg2.js` | Faces and backs for the eight later lines, copyright and microprint text |
+| `www/js/grading.js` | Sub-grades, final grade, centering, condition multipliers |
+| `www/js/gen.js` | Card instances, flaws, variants, counterfeits, alterations, submissions, values |
+| `www/js/story.js` | Story cards, letters, evening and weekend events, clues, evidence, endings |
+| `www/js/scenes.js` | Street and location illustrations, and what people say there |
+| `www/js/collect.js` | Apex Grading and the Saturday auction |
+| `www/js/slab.js` | Slab (graded card holder) markup |
+| `www/js/extras.js` | Codex, achievements and settings |
 | `www/js/audio.js` | Procedural music and ambience for each screen, and all sound effects (Web Audio, no files) |
-| `www/js/game.js` | Screens: title, bulletin, desk, payday, city, shop, packs, bins, binder, endings |
+| `www/js/game.js` | Screens and flow: title, bulletin, desk, payday, city, shop, packs, bins, binder, endings |
 
 Fonts are bundled in `www/fonts` (SIL Open Font License, except Special Elite: Apache 2.0).

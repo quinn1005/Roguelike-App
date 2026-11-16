@@ -1,5 +1,20 @@
 # Mint Condition changelog
 
+## v1.0.0
+
+The full game: five weeks at Gemline Authentication.
+
+- **The whole quarter.** 25 working days in five weeks: Onboarding, Expansion, The Boom, The Crash and Reckoning. Rent is now due every Friday and rises with the boom; pay jumps 25% in the boom and is cut 25% in the crash, and card prices follow the market.
+- **Eight new card lines** with their own art, backs and tells: Moth & Lantern (hidden UV ink), Tidebound (water test), Rift Duelists (hologram on the tilt stand), Grimoire Accord (Alpha corners), Hollow Pantheon (gold-leaf tarnish), Ironclad Derby (print-run stats), Cryptid Field Notes (registry serials) and Starpost (perforation counts and the inverted error).
+- **Six new tools:** tilt stand, dropper, registry terminal, precision scale, microscope and light box. Ring forgeries are perfect except for the microprint along the bottom border.
+- **Slabs.** Graded cards are sealed into a PSA-style slab with a printed label, grade and barcode. Rejected and returned cards leave with a sticky note.
+- **Subtle holo swirls.** The loupe now shows the natural spiral of the foil instead of arrows; you read the direction from its curl.
+- **Meters.** Reputation (raises your pay and your options), Suspicion (too high and you're arrested) and a hidden Integrity.
+- **Story.** Carrow's escalating walk-ins and Pike's cut, a VIP who wants a 10, a reporter collecting evidence, a widower, a brick through the window, Carrow's ring deal and his partnership offer. Seven endings: Whistleblower, Kingpin, Head Grader, The Collector, Still Standing, Fired, Evicted, Arrested.
+- **The Ghost Print hunt.** Four clues hidden on cards, each visible only with the right tool, lead to Ellis Marsh's one-of-one.
+- **Collecting.** Apex Grading on Mill Street (mail-in slabs, mistakes you can dispute), the Saturday auction at the Corn Exchange (live bidding against collectors, consign your own cards), set completion rewards, and a Fake Binder of confiscated counterfeits.
+- **Codex, achievements and settings.** A codex of every tell you've learned, 24 achievements kept across runs, music and effects volume, and shift speed. Shifts save mid-way and resume where you left off.
+
 ## v0.3.0
 
 Sound, a bigger desk, and pack openings worth opening.
