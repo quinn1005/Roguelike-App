@@ -1,0 +1,120 @@
+name: Build Mint Condition APK
+
+# Builds Mint Condition (mint/www) as its own Android app, separate from Neon Bastion,
+# and publishes it as a GitHub Release tagged mint-v<version>.
+on:
+  push:
+    branches: ['**']
+    paths: ['mint/**', '.github/workflows/build-mint-apk.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Read version
+        id: ver
+        run: |
+          VERSION=$(sed -n "s/.*VERSION = '\(.*\)'.*/\1/p" mint/www/js/version.js)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building Mint Condition $VERSION (code ${{ github.run_number }})"
+
+      - name: Set up a separate build folder
+        run: |
+          mkdir build-mint
+          cp package.json build-mint/
+          cp mint/capacitor.config.json build-mint/
+          cp -r mint/www build-mint/www
+          cp -r mint/resources build-mint/resources
+          cp -r keys build-mint/keys
+
+      - name: Install dependencies
+        working-directory: build-mint
+        run: npm install
+
+      - name: Create Android project
+        working-directory: build-mint
+        run: npx cap add android
+
+      - name: Generate icons and splash screens
+        working-directory: build-mint
+        run: npx @capacitor/assets generate --android --iconBackgroundColor '#0d100f' --iconBackgroundColorDark '#0d100f' --splashBackgroundColor '#0d100f' --splashBackgroundColorDark '#0d100f'
+
+      - name: Portrait + fullscreen
+        working-directory: build-mint
+        run: |
+          sed -i 's/<activity/<activity android:screenOrientation="portrait"/' android/app/src/main/AndroidManifest.xml
+          sed -i 's#<item name="windowNoTitle">true</item>#<item name="windowNoTitle">true</item>\n        <item name="android:windowFullscreen">true</item>#' android/app/src/main/res/values/styles.xml
+          grep -n screenOrientation android/app/src/main/AndroidManifest.xml
+
+      - name: Set app version
+        working-directory: build-mint
+        run: |
+          sed -i 's/versionCode [0-9]*/versionCode ${{ github.run_number }}/' android/app/build.gradle
+          sed -i 's/versionName "[^"]*"/versionName "${{ steps.ver.outputs.version }}"/' android/app/build.gradle
+          grep -n "versionCode\|versionName" android/app/build.gradle
+
+      - name: Sign every build with the same key (so updates install over old versions)
+        working-directory: build-mint
+        run: |
+          cat >> android/app/build.gradle <<'GRADLE'
+
+          android {
+              signingConfigs {
+                  stable {
+                      storeFile rootProject.file('../keys/debug.keystore')
+                      storePassword 'android'
+                      keyAlias 'androiddebugkey'
+                      keyPassword 'android'
+                  }
+              }
+              buildTypes {
+                  debug { signingConfig signingConfigs.stable }
+              }
+          }
+          GRADLE
+
+      - name: Sync web assets
+        working-directory: build-mint
+        run: npx cap sync android
+
+      - name: Build debug APK
+        working-directory: build-mint/android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Name the APK
+        run: cp build-mint/android/app/build/outputs/apk/debug/app-debug.apk mint-condition-v${{ steps.ver.outputs.version }}.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mint-condition-v${{ steps.ver.outputs.version }}
+          path: mint-condition-v${{ steps.ver.outputs.version }}.apk
+
+      - name: Release notes from mint/CHANGELOG.md
+        run: |
+          awk -v v="${{ steps.ver.outputs.version }}" '$0 == "## v" v {f=1; next} /^## v/ {f=0} f' mint/CHANGELOG.md > release-notes.md
+          test -s release-notes.md || echo "Mint Condition v${{ steps.ver.outputs.version }}" > release-notes.md
+          cat release-notes.md
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: mint-v${{ steps.ver.outputs.version }}
+          name: Mint Condition v${{ steps.ver.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          body_path: release-notes.md
+          files: mint-condition-v${{ steps.ver.outputs.version }}.apk

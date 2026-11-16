@@ -1,0 +1,9 @@
+{
+  "appId": "com.mintcondition.game",
+  "appName": "Mint Condition",
+  "webDir": "www",
+  "backgroundColor": "#0d100f",
+  "android": {
+    "backgroundColor": "#0d100f"
+  }
+}
