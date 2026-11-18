@@ -201,14 +201,14 @@ export function weekendEvents(week, flags, S) {
 // Evidence for June Okafor: confiscated ring forgeries, Pike's note, Carrow's envelope cards.
 export function evidenceList(S, flags) {
   const out = [];
-  const rings = (S.fakes || []).filter((f) => f.fake && f.fake.kinds.includes('micro')).length;
+  const rings = (S.fakes || []).filter((f) => f.fake && f.fake.kinds.includes('micro')).length + (S.collection || []).filter((i) => i.rook && i.fake).length;
   if (rings) out.push(`${rings} ring forger${rings === 1 ? 'y' : 'ies'}`);
   if (flags.pikeNote) out.push('Pike\'s VIP note');
   if (flags.vince1 === 'took' || flags.carrowPassed) out.push('Carrow\'s envelope cards');
   return out;
 }
 export function evidenceCount(S, flags) {
-  const rings = (S.fakes || []).filter((f) => f.fake && f.fake.kinds.includes('micro')).length;
+  const rings = (S.fakes || []).filter((f) => f.fake && f.fake.kinds.includes('micro')).length + (S.collection || []).filter((i) => i.rook && i.fake).length;
   return Math.min(rings, 3) + (flags.pikeNote ? 1 : 0) + (flags.vince1 === 'took' || flags.carrowPassed ? 1 : 0);
 }
 
@@ -218,14 +218,16 @@ export const ENDINGS = {
   kingpin: { ach: 'end_kingpin', title: 'Kingpin', text: ['Carrow wanted a partner. He gets a successor. By spring the Halloway press runs on your schedule, and every perfect fake that passes through Gemline passes through your desk.', 'Pike works for you now. He doesn\'t like it. He doesn\'t have to.', 'Theo has a new inhaler, a new school and a new lock on his door. He doesn\'t ask where the money comes from anymore.'] },
   honest: { ach: 'end_honest', title: 'Head Grader', text: ['The Board pulls every slab you sealed this quarter. They find what you found: the truth, card after card.', 'Pike is "encouraged to retire". His office smells of cigars and fear for a week. Then it smells of you.', 'You still check every walk-in yourself.'] },
   collector: { ach: 'end_collector', title: 'The Collector', text: ['You hand in your loupe on Friday afternoon. Pike doesn\'t look up.', 'The Ghost Print sells to a museum in another city for more money than Gemline paid you in ten years. You keep the rest of the binder.', 'Theo picks the new apartment. It has a window that faces the sun.'] },
+  curator: { ach: 'end_curator', title: 'The Curator', text: ['You hand in your loupe on Friday. Pike asks what you\'ll do now. You tell him the truth: you\'re opening a gallery.', 'It\'s a narrow room above the diner, rented cheap from Sal. Every binder page you finished hangs on the wall behind glass, with Lou\'s crooked brass plaques underneath. People come on Saturdays to look. Kids press their noses to the cases.', 'Theo runs the front desk. He charges a dollar and tells everyone which cards were hardest to find, and where they came from.'] },
   standing: { ach: null, title: 'Still Standing', text: ['The quarter ends. You still have a job, a binder, and a little brother who believes you when you say it will be fine.', 'Nobody gave you a medal. Nobody took you away in a car. In this city that counts as winning.'] },
   fired: { ach: 'end_fired', title: 'Fired', text: ['Pike doesn\'t look up from his desk. "Clear your desk. Leave the loupe."', 'Somewhere across town, Mr. Gaunt is already looking for a new tenant.'] },
   evicted: { ach: 'end_evicted', title: 'Out on the Street', text: ['Gaunt changes the locks at six. Your binder and Theo\'s school bag are on the landing, in a garbage bag.', '"I told you," he says through the door. "I don\'t care about the boy."'] },
   arrested: { ach: 'end_arrested', title: 'Cuffed', text: ['They come for you at the desk, in front of everyone. Somebody talked. Maybe Pike. Maybe Carrow. Maybe the envelopes just added up.', 'Dot watches you go and doesn\'t say anything. Theo goes to stay with a neighbor. Then with strangers.'] },
 };
 
-export function pickEndingChoices(S, flags, collectionValue) {
+export function pickEndingChoices(S, flags, collectionValue, rank = 0) {
   const out = [{ id: 'standing', label: 'Keep your head down and come back Monday' }];
+  if (rank >= 4) out.unshift({ id: 'curator', label: 'Open the gallery: put the whole collection on display' });
   const clean = flags.vince1 !== 'took' && !flags.carrowPassed && flags.vip !== 'obeyed' && flags.ringDeal !== 'yes';
   if (clean && S.rep >= 60) out.unshift({ id: 'honest', label: 'Take the Head Grader job the Board is offering' });
   if (S.collection.some((i) => i.v.ghost) || collectionValue >= 400) out.unshift({ id: 'collector', label: 'Sell up and retire on the binder' });

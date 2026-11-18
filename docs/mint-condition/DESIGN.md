@@ -1,4 +1,4 @@
-# Mint Condition: design (v1.3)
+# Mint Condition: design (v1.4)
 
 A dark card-grading game. You're a new grader at **Gemline Authentication**, in a city
 caught in a card-collecting craze. By day you inspect submissions, catch fakes and assign
@@ -75,8 +75,23 @@ Generic tells: smeared print, wrong copyright, modern paper (UV), wrong back, wr
 - **Night market bins:** $3 a dig, keep two; hidden chase versions and the odd fake.
 - **Apex Grading:** $12–15 a card, back in two days in an Apex slab. They make mistakes (more in the boom). Dispute for $8.
 - **Saturday auction:** live bidding against collectors. Lots include slabs you graded yourself, Apex-slabbed chase cards, an Apex-slabbed fake, and in week 4 a mystery proof card. Consign your own cards (10% fee).
-- **Sets:** completing a line pays $20 per card and +5 Reputation.
+- **Booster boxes:** 12 packs, one guaranteed holo rare topper. Lou shelves two a week and takes one special order a week ($15 deposit, three days). Box price = 12 packs − 15%, on the same market curve as packs. Sealed value follows that curve; old-stock sets gain 6% a week (Bloomlings, Rift Duelists and Hollow Pantheon are in print and don't). Sold at the auction with a 10% cut.
+- **Resealed boxes:** the night market offers a box at 50–62% of list on some nights; 40% are resealed (no rares, no topper). Tells: a melted seam under the loupe, 5–10 g light on the scale (factory 404 g). The auction pays 30% for a resealed box.
+- **Set goals:** 10 per line (8 core + 2 themed), 110 in all. Rewards: reputation, page cosmetics, Lou's 10% discount (every uncommon), a weekly set-aside single (every rare), missing cards at trade night (both mythics), and a plaque (master set). No cash.
+- **Collector rank:** Bronze 3 goals, Silver 10 (Rook −15 points), Gold 20 (the room bids 20% less on the top auction lot), Platinum 32 (the Curator ending).
+- **Display case:** six cards. Score from rarity, holo, chase, full art, 9+ slabs, set variety and plaques. 25+ gives 5% better trade-night terms, 40+ gives 10%.
 - **Fake Binder:** confiscated counterfeits. Ring forgeries are evidence, and become collectible after the crash.
+
+## The city
+
+- **Regulars:** Mrs. Delacroix (days 2, 7, 12, 17, 22; genuine cards, honest grades earn a gift), Marty Kessler (days 3, 8, 11, 14, 19, 24; a new alteration or fake each visit), Pip (days 4, 9, 13, 18, 23; his Bloomlings). Notes change with your last result.
+- **Arcs:** Lou's shop (buy his card on day 17 or it closes), Sal's son (day 19), Mikey (give him a spare holo in weeks 3–4), Rook (offers one of Carrow's ring forgeries in weeks 3–4, which counts as evidence; gone in week 5), the Stranger (Marsh's old apprentice; hints track your clues).
+- **Weather:** a fixed pattern over 25 days. Day 19 is a blackout: the night market and diner close.
+
+## Modes
+
+- **Endless:** no story. After day 25 the quota rises a card a week, rent rises $15 a week, and the market swings.
+- **New Game+ (1–3):** unlocked by finishing the quarter. Fakes 25% more common per level, quota +1 per level (max +2), citation limit 5 then 4, codex carried over.
 
 ## Story
 
@@ -90,8 +105,8 @@ Generic tells: smeared print, wrong copyright, modern paper (UV), wrong back, wr
 
 **Ghost Print hunt:** four clues on story cards, each visible only with one tool (UV, light box, registry, flipping the back). With three or more, the Marsh box is waiting at the night market on Thursday of week 5. Otherwise it may surface at the week 4 auction.
 
-**Endings:** Whistleblower, Kingpin, Head Grader, The Collector, Still Standing, Fired, Evicted, Arrested.
+**Endings:** Whistleblower, Kingpin, Head Grader, The Collector, The Curator (Platinum rank), Still Standing, Fired, Evicted, Arrested.
 
 ## Extras
 
-Codex of 29 tells and versions (unlocked by catching, being cited, or finding them), 26 achievements kept across runs, music and effects volume, and three shift speeds.
+Codex of 29 tells and versions (unlocked by catching, being cited, or finding them), 30 achievements kept across runs, three save slots, music and effects volume, three shift speeds, accessibility options, provenance on every card, a What's new note and an update check.

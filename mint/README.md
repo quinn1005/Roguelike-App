@@ -37,8 +37,14 @@ you decide what your honesty is worth.
 - **Story:** Vince Carrow and his envelopes, Director Pike's cut, Mina's counterfeit
   heirloom, Theo, a VIP who wants a 10, a reporter who needs evidence, and Ellis Marsh's
   Ghost Print. Eight endings.
-- **Extras:** codex of learned tells, 26 achievements kept across runs, music and effects
-  volume, shift speed, and mid-shift saves.
+- **Collecting extras:** booster boxes (open them or keep them sealed), resealed boxes to catch at
+  the night market, set goals and a collector rank, a display case at home, and card provenance.
+- **The city:** regular customers who remember you, stories for Lou, Sal, Mikey, Rook and the
+  Stranger, weather, and a blackout night.
+- **Modes:** the five-week story, New Game+ (harder, codex carries over) and Endless.
+- **Extras:** codex of learned tells, 30 achievements kept across runs, three save slots, music
+  and effects volume, shift speed, mid-shift saves, accessibility options (text size, high
+  contrast, colorblind cues, reduced motion), and a check for newer versions.
 
 ## Controls
 
@@ -84,6 +90,10 @@ same stable key as Neon Bastion, so updates install over older versions.
 | `www/js/story.js` | Story cards, letters, evening and weekend events, clues, evidence, endings |
 | `www/js/scenes.js` | Street and location illustrations, and what people say there |
 | `www/js/collect.js` | Apex Grading and the Saturday auction |
+| `www/js/boxes.js` | Booster boxes: prices, sealed value, contents, box and wrap art |
+| `www/js/goals.js` | Set goals, collector ranks |
+| `www/js/world.js` | Regular customers, character arcs, weather |
+| `www/js/meta.js` | Save slots, New Game+ carry-over, version checks |
 | `www/js/filters.js` | Search, filter and sort bar for picking cards to sell, trade, consign or grade |
 | `www/js/packs.js` | Booster pack wrappers |
 | `www/js/slab.js` | Slab (graded card holder) markup |

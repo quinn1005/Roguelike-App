@@ -5,6 +5,7 @@ import { makeRng, makeInst, pickCard, rollVariants, makeFake, cardValue, cardTit
 import { trueGrade } from './grading.js';
 import { slabHTML } from './slab.js';
 import { cardFilter, spareUids } from './filters.js';
+import { sealedValue, boxSVG } from './boxes.js';
 import { apexSVG, auctionSVG } from './scenes.js';
 
 let X = null; // shared helpers from game.js
@@ -159,7 +160,9 @@ function bidLot(lot, back) {
   const real = lot.mystery ? 150 : (inst.fake ? cardValue({ ...inst, fake: null }) : cardValue(inst));
   const R = makeRng(Date.now() % 1e9);
   const est = Math.max(5, Math.round(real));
-  const rivals = [0, 1, 2].map(() => ({ name: R.pick(BIDDERS), max: Math.round(est * R.range(0.55, lot.mystery ? 0.9 : 1.3)) }));
+  // Gold Collectors get first look at the top lot: the room comes in lower on it.
+  const firstLook = X.rank() >= 3 && S.eve.lots[0] === lot;
+  const rivals = [0, 1, 2].map(() => ({ name: R.pick(BIDDERS), max: Math.round(est * R.range(0.55, lot.mystery ? 0.9 : 1.3) * (firstLook ? 0.8 : 1)) }));
   let bid = Math.max(2, Math.round(est * 0.3)), leader = null, timeLeft = 7, alive = true;
   const step = () => Math.max(1, Math.round(bid * 0.1 / 5) * 5 || 1);
   const m = X.modal(`<div class="auction">
@@ -181,7 +184,7 @@ function bidLot(lot, back) {
     alive = false; clearInterval(iv);
     if (sold && leader === 'you') {
       S.money -= bid; delete inst.mystery;
-      S.collection.push(inst);
+      X.gain(inst, 'auction', X.money(bid));
       lot.done = 'Won for ' + X.money(bid);
       X.sfx('impact'); X.toast(`Yours for ${X.money(bid)}.`, 'good'); X.achieve('auction');
       if (inst.v.ghost) { S.flags.ghostFound = true; X.achieve('ghost'); }
@@ -210,8 +213,22 @@ function bidLot(lot, back) {
 function consign(back) {
   const S = X.S();
   const list = S.collection.filter((i) => !i.atApex && cardValue(i) >= 2);
-  const m = X.modal(`<h2>Consign a card</h2><p style="margin:0;color:var(--muted);font-size:13px">Only cards worth $2 or more. The room pays roughly what a card is worth, less the house cut.</p><div id="cbar"></div><div class="cardgrid" id="cgrid"></div><button class="btn" data-x>Close</button>`, { wide: true });
+  const boxes = S.boxes || [];
+  const m = X.modal(`<h2>Consign to the room</h2>
+    ${boxes.length ? `<h3 class="sub-h">Sealed boxes</h3><div class="boxrow">${boxes.map((b) => `<button class="boxcell" data-bx="${b.id}">${boxSVG(b.line)}<b>${X.esc(LINES[b.line].name)}</b><span class="price">≈ ${X.money(sealedValue(b, S.day))}</span></button>`).join('')}</div>` : ''}
+    <h3 class="sub-h">Cards</h3><p style="margin:0;color:var(--muted);font-size:13px">Only cards worth $2 or more. The room pays roughly what a card is worth, less the house cut.</p><div id="cbar"></div><div class="cardgrid" id="cgrid"></div><button class="btn" data-x>Close</button>`, { wide: true });
   $('[data-x]', m).onclick = () => m.close();
+  $$('[data-bx]', m).forEach((b) => b.onclick = () => {
+    const bx = boxes.find((x) => x.id === b.dataset.bx);
+    S.boxes.splice(S.boxes.indexOf(bx), 1);
+    const v = sealedValue(bx, S.day);
+    // The auction house checks the wrap. A resealed box sells as opened stock.
+    const price = bx.resealed ? Math.round(v * 0.3) : Math.round(v * (0.85 + Math.random() * 0.3) * 0.9);
+    S.money += price;
+    X.sfx('stamp'); setTimeout(() => X.sfx('cash'), 250);
+    X.toast(bx.resealed ? `The auctioneer slits the wrap. "Resealed." It goes as opened stock: ${X.money(price)}.` : `"Sold!" A sealed ${LINES[bx.line].name} box goes for ${X.money(price)} after the house cut.`, bx.resealed ? '' : 'good');
+    X.save(); m.close(); back();
+  });
   cardFilter('consign', { spares: spareUids(S.collection) }).mount($('#cbar', m), $('#cgrid', m), list, {
     render: (out) => out.map((i) => `<button class="cardcell" data-c="${i.uid}">${i.slab ? slabHTML(i, { grade: i.slab.grade, by: i.slab.by }) : cardSVG(i)}<span>${X.esc(cardTitle(i))}</span><span class="price">≈ ${X.money(cardValue(i))}</span></button>`).join(''),
     wire: (g) => $$('[data-c]', g).forEach((b) => b.onclick = () => {

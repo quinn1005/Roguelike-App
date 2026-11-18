@@ -1,5 +1,23 @@
 # Mint Condition changelog
 
+## v1.4.0
+
+A much bigger city.
+
+- **Booster boxes.** Every set has a 12-pack box with a guaranteed holo rare topper. Lou has two on the shelf each week and takes one special order a week ($15 down, three days). Boxes don't count against the nightly pack limit. Open them at home, pack by pack or all at once, or keep them sealed: a sealed box follows the market and, for sets out of print, gains about 6% a week. Sell sealed boxes at the Saturday auction.
+- **Resealed boxes.** The night market sometimes has a cheap box under the table. Some have been opened, picked clean of rares and wrapped again. Check the wrap with the loupe (a melted seam) and weigh it on the scale (a factory box weighs 404 g) before you pay.
+- **Set goals.** Every binder page has 10 goals: every common, every uncommon, three holos, a chase version, a 9+ slab, every rare, both mythics, the master set, and two themed goals per set. Rewards are reputation, cosmetics for the page, Lou's discount, a card Lou sets aside for you each week, and missing cards brought to trade night. Master sets earn a brass plaque, not cash.
+- **Collector rank.** Goals add up to Bronze, Silver, Gold and Platinum. Silver gets Rook's markup down, Gold gets first look at the Saturday auction's top lot, and Platinum opens a new ending: The Curator.
+- **Display case.** Six cards behind glass at home. Theo comments on it, and an impressive case gets you better terms at trade night.
+- **Provenance.** Every card remembers how and when you got it.
+- **Regular customers.** Mrs. Delacroix brings her grandson's cards, Marty Kessler tests you with a new trick every week, and nine-year-old Pip brings his Bloomlings. They remember how you graded them last time.
+- **Stories for the people of the night.** Lou fights to keep his shop, Sal waits to hear from his son, Mikey loses his holos, Rook is connected to Carrow, and the Stranger knew Ellis Marsh.
+- **Weather.** Rain, downpours, fog, clear nights, snow, and one night the power goes out across the block.
+- **New modes.** Endless (no story, no last day, rising quota and rent) and New Game+ (after finishing the quarter: more fakes, a higher quota, a stricter Pike, and your codex carries over).
+- **Three save slots**, a "What's new" note after updates, and a notice when a newer version is out (the Android app links straight to the download).
+- **Accessibility:** larger text, high contrast, colorblind cues (holo labels and a hologram readout on the tilt stand) and reduced motion.
+- Four new achievements.
+
 ## v1.3.1
 
 - **Fixed: wrong colors on some phones.** Phones with a forced dark mode (for example Samsung's dark mode for apps and Samsung Internet) were repainting the game with their own dark theme, turning light card faces navy and washing out the art. The game now tells browsers and the Android app that it is already dark, so they leave its colors alone.

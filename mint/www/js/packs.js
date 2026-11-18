@@ -4,7 +4,7 @@ import { LINES, CARDS } from './data.js';
 import { cardSVG, ART_BOX } from './cardsvg.js';
 import { blankInst } from './gen.js';
 
-const STYLE = {
+export const STYLE = {
   gg: { foil: ['#ffe14d', '#f4a020', '#6b3fa0'], ink: '#1a1a1a', logo: '#ffffff', font: 'Fredoka,sans-serif', weight: 700, tag: 'SPOOKY SNACKS · SERIES 1' },
   ns: { foil: ['#ff4fd8', '#7a1aa0', '#12002b'], ink: '#12002b', logo: '#2ee6ff', font: 'Monoton,sans-serif', weight: 400, tag: 'WRESTLING · 1987' },
   bl: { foil: ['#9fe0ff', '#3fa0d8', '#1d4e75'], ink: '#13283d', logo: '#ffffff', font: 'Fredoka,sans-serif', weight: 700, tag: 'CATCH · RAISE · BLOOM' },
@@ -20,7 +20,7 @@ const STYLE = {
 let uid = 0;
 
 // The art window: the headline card's front, cropped to its illustration.
-function artWindow(line, x, y, w, h) {
+export function artWindow(line, x, y, w, h) {
   const c = CARDS[line].find((k) => k.r === 'm') || CARDS[line][0];
   const [ax, ay, aw, ah] = ART_BOX[line];
   const card = cardSVG(blankInst(line, c.n), { clean: true });

@@ -36,6 +36,10 @@ export const CODEX = {
 };
 
 export const ACHIEVEMENTS = [
+  ['rank_gold', 'Gold Collector', 'Complete 20 set goals.'],
+  ['end_curator', 'The Curator', 'End the quarter by opening a gallery.'],
+  ['box_reseal', 'Not Born Yesterday', 'Spot a resealed box at the night market and walk away.'],
+  ['endless20', 'Lifer', 'Last 20 days in Endless mode.'],
   ['mythic', 'Mythic pull', 'Pull a mythic rare from a pack.'],
   ['fullart_holo', 'Full shine', 'Pull a full art holo.'],
   ['first_slab', 'First slab', 'Seal your first graded card.'],
@@ -77,7 +81,7 @@ export function unlockAch(id) {
   return ACHIEVEMENTS.find((a) => a[0] === id) || null;
 }
 
-const DEFAULTS = { music: 0.6, sfx: 0.85, speed: 'normal' };
+const DEFAULTS = { music: 0.6, sfx: 0.85, speed: 'normal', text: 'normal', contrast: false, cues: false, motion: 'full' };
 let settings = { ...DEFAULTS, ...read('mint-settings', {}) };
 export const getSettings = () => settings;
 export function setSetting(k, v) { settings = { ...settings, [k]: v }; write('mint-settings', settings); return settings; }

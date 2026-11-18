@@ -4,9 +4,9 @@
 //     fake:{kinds:[]}|null, alt:{kind, corner?}|null }
 import { LINES, CARDS } from './data.js';
 import { centerPct } from './grading.js';
-import { FRONT2, BACK2, STOCK2, RSYM, copyrightText, microText, mlHidden, spPerfs } from './cardsvg2.js';
+import { FRONT2, BACK2, STOCK2, RSYM, CUES, copyrightText, microText, mlHidden, spPerfs } from './cardsvg2.js';
 import { ggArt, nsArt, blArt, EL, WEAK, RES, mlArt, tbArt, rdArt, gaArt, hpSym, icArt, cfPhoto, spArt } from './art.js';
-export { copyrightText, icStats, spPerfs } from './cardsvg2.js';
+export { copyrightText, icStats, spPerfs, setCues } from './cardsvg2.js';
 
 let uidc = 0;
 export const def = (inst) => CARDS[inst.line].find((c) => c.n === inst.n);
@@ -51,6 +51,11 @@ export function cardSVG(inst, o = {}) {
   if (o.micro) s += microLayer(inst, p, fakePrint, o, face, dx, dy);
   if (o.tilt && face === 'front' && inst.v && inst.v.holo) s += holoLayer(inst, p, o, dx + 18, dy - 12);
   if (o.uv) s += uvLayer(inst, p, face);
+  if (CUES && face === 'front' && inst.v && (inst.v.holo || inst.v.fullart)) {
+    const tag = inst.v.fullart ? (inst.v.holo ? 'FULL ART HOLO' : 'FULL ART') : 'HOLO';
+    const w = tag.length * 5.2 + 10;
+    s += `<g><rect x="${242 - w}" y="56" width="${w}" height="13" rx="3" fill="#000" opacity=".82"/><text x="${237}" y="65.5" text-anchor="end" font-family="'JetBrains Mono',monospace" font-size="8" font-weight="700" fill="#fff">${tag}</text></g>`;
+  }
   if (o.light) s += lightLayer(inst, trimmed);
   if (o.water && o.water.length) s += waterLayer(inst, o.water);
   s += `</g>`;

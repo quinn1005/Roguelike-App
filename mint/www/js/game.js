@@ -1,23 +1,26 @@
 // Mint Condition: five weeks at Gemline Authentication.
 // Screens, desk interaction, economy, meters, collecting and story flow.
-import { LINES, CARDS, DAYS, TOOLS, TIERS, FOOD, START_MONEY, MAX_CITATIONS, PACKS, weekOf, LAST_DAY, WEEKS } from './data.js';
-import { cardSVG, hitPoint, defectName, cardSize, copyrightText, cardWeight, extraReadings, icStats } from './cardsvg.js';
+import { LINES, CARDS, DAYS, dayCfg, TOOLS, TIERS, FOOD, START_MONEY, MAX_CITATIONS, PACKS, weekOf, LAST_DAY, WEEKS } from './data.js';
+import { cardSVG, setCues, hitPoint, defectName, cardSize, copyrightText, cardWeight, extraReadings, icStats } from './cardsvg.js';
 import { subsFrom, finalGrade, centerPct, gradeName, trueGrade } from './grading.js';
 import { makeRng, makeSubmission, truthOf, makeInst, rollVariants, pickCard, pickQuality, cardValue, cardTitle, variantLabels, rarityName, blankInst, makeFake, setMarket } from './gen.js';
 import { storySubs, onStoryStamp, morningLetters, eveningEvents, weekendEvents, dayName, isFriday, isMonday, CLUES, ENDINGS, pickEndingChoices, evidenceCount } from './story.js';
-import { VERSION } from './version.js';
+import { VERSION, NEWS } from './version.js';
+import { SLOTS, currentSlot, setSlot, slotKey, readSlot, writeSlot, clearSlot, meta, setMeta, unseenVersion, markSeen, newerVersion, isApp, releaseUrl, cmpVer } from './meta.js';
 import { unlockAudio, setScene, sfx, toggleMute, isMuted, duck, setVolumes } from './audio.js';
 import { streetSVG, shopSVG, marketSVG, dinerSVG, homeSVG, louLine, sellerLine, salLine, rumor, theoLine } from './scenes.js';
 import { slabHTML } from './slab.js';
 import { packSVG } from './packs.js';
 import { cardFilter, spareUids } from './filters.js';
+import { regularSubs, recordRegular, regularLetters, louArc, salArc, mikeyArc, rookArc, strangerArc, arcEvents, WEATHER, weatherFor } from './world.js';
+import { goalsFor, goalKey, hasGoal, goalCount, GOALS_TOTAL, RANKS, rankOf, checkGoals } from './goals.js';
+import { PACKS_PER_BOX, IN_PRINT, ORDER_DEPOSIT, FACTORY_WEIGHT, boxBase, boxPrice, sealedValue, rollBox, boxWeight, boxSVG, seamSVG } from './boxes.js';
 import { initCollect, showApex, showAuction } from './collect.js';
 import { CODEX, ACHIEVEMENTS, achievements, unlockAch, getSettings, setSetting, SPEEDS } from './extras.js';
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
 const app = $('#app');
-const SAVE = 'mint-condition-save-v2';
 const pad3 = (n) => String(n).padStart(3, '0');
 const money = (n) => (n < 0 ? '−$' : '$') + Math.abs(Math.round(n));
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
@@ -64,9 +67,9 @@ function toast(msg, cls = '') {
   $('#toasts').appendChild(t);
   setTimeout(() => t.remove(), 2600);
 }
-function save() { try { localStorage.setItem(SAVE, JSON.stringify(S)); } catch (e) { /* storage unavailable */ } }
-function loadSave() { try { const s = localStorage.getItem(SAVE); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
-function clearSave() { try { localStorage.removeItem(SAVE); } catch (e) { /* ignore */ } }
+function save() { writeSlot(currentSlot(), S); }
+function loadSave() { return readSlot(currentSlot()); }
+function clearSave() { clearSlot(currentSlot()); }
 
 const modals = [];
 function modal(html, opts = {}) {
@@ -99,9 +102,37 @@ function achieve(id) {
 function learn(key) {
   if (!CODEX[key] || S.codex[key]) return;
   S.codex[key] = true;
+  setMeta({ codex: { ...meta().codex, [key]: true } });
   toast(`Codex: ${CODEX[key].name}`, 'good');
   if (Object.keys(S.codex).length >= 20) achieve('codex');
 }
+// Provenance: every card remembers how and when it reached your binder.
+function gain(cards, how, note = '') {
+  (Array.isArray(cards) ? cards : [cards]).forEach((c) => {
+    if (!c.from) c.from = { how, day: S.day, note };
+    else { if (c.from.day == null) c.from.day = S.day; if (c.from.note == null) c.from.note = note; }
+    S.collection.push(c);
+  });
+}
+const FROM = {
+  starter: () => 'One of the three cards you started with',
+  pack: (n) => `Pulled from a ${n} pack`,
+  box: (n) => `Pulled from a ${n} booster box`,
+  topper: (n) => `The box topper in a ${n} booster box`,
+  single: (n) => `Bought under Lou's glass for ${n}`,
+  bin: () => 'Dug out of a night market bin',
+  trade: (n) => `Traded with ${n} at the Last Stop`,
+  stranger: () => 'Swapped blind with the Stranger',
+  auction: (n) => `Won at the Corn Exchange auction for ${n}`,
+  ghost: () => 'The Marsh box, under the tarp',
+  gift: (n) => `A gift from ${n}`,
+};
+function fromText(inst) {
+  const f = inst.from;
+  if (!f) return 'Where it came from is anyone\'s guess.';
+  return `${(FROM[f.how] || (() => 'Acquired'))(f.note)} · ${dayName(f.day)}, week ${Math.ceil(f.day / 5)}${inst.slab ? ` · slabbed by ${inst.slab.by === 'apex' ? 'Apex' : 'Gemline'}` : ''}`;
+}
+
 function learnInst(inst) {
   Object.keys(inst.v || {}).forEach((k) => { if (inst.v[k] && CODEX[k] && k !== 'holo' && k !== 'first' && k !== 'gold' && k !== 'serial') learn(k); });
 }
@@ -133,9 +164,13 @@ function runEvents(list, done) {
 }
 
 // ------------------------------------------------------------------ title, settings, codex, achievements
+const modeLabel = (g) => (g.mode === 'endless' ? 'Endless' : g.ng ? `New Game+${g.ng > 1 ? ' ' + g.ng : ''}` : 'Story');
+const slotSummary = (g) => (g ? `${modeLabel(g)} · ${g.phase === 'end' ? 'finished' : `week ${Math.ceil(g.day / 5)}, ${dayName(g.day)}`} · ${money(g.money)} · ${(g.collection || []).length} cards` : 'Empty');
+
 function showTitle() {
   setScene('title');
   closeAllModals();
+  const slot = currentSlot();
   const saved = loadSave();
   const live = saved && saved.phase !== 'end';
   const t = (l, n, v = {}) => { const i = blankInst(l, n); Object.assign(i.v, v); return cardSVG(i, { clean: true }); };
@@ -144,22 +179,74 @@ function showTitle() {
     <h1>Mint<span>Condition</span></h1>
     <p>You grade trading cards for a living. Every fake you catch costs someone. Every one you miss costs you.</p>
     <div class="title-actions">
-      ${live ? `<button class="btn primary" id="cont">Continue · Week ${Math.ceil(saved.day / 5)}, ${dayName(saved.day)}</button>` : ''}
+      ${live ? `<button class="btn primary" id="cont">Continue · ${modeLabel(saved)} · Week ${Math.ceil(saved.day / 5)}, ${dayName(saved.day)}</button>` : ''}
       <button class="btn ${live ? '' : 'primary'}" id="new">New game</button>
-      <div class="row" style="justify-content:center"><button class="btn small" id="ach">Achievements</button><button class="btn small" id="set">Settings</button></div>
+      <button class="btn" id="modes">More modes</button>
+      <div class="row" style="justify-content:center"><button class="btn small" id="slots">Save slot ${slot + 1}</button><button class="btn small" id="ach">Achievements</button><button class="btn small" id="set">Settings</button></div>
     </div>
+    <div id="update" class="update" hidden></div>
     <p class="mono" style="font-size:11px">v${VERSION} · 5 weeks · 11 card lines</p>
   </div>`;
   if ($('#cont')) $('#cont').onclick = () => { S = migrate(saved); resume(); };
-  $('#new').onclick = () => {
-    if (live) {
-      const m = modal(`<h2>Start over?</h2><p>Your current run will be lost. Achievements are kept.</p><div class="row"><button class="btn" data-x>Keep playing</button><button class="btn danger" data-y>Start over</button></div>`);
-      $('[data-x]', m).onclick = () => m.close();
-      $('[data-y]', m).onclick = () => { m.close(); newGame(); };
-    } else newGame();
+  const overwrite = (go) => {
+    if (!live) return go();
+    const m = modal(`<h2>Start over in slot ${slot + 1}?</h2><p>The run in this slot will be lost. Achievements and your codex for New Game+ are kept. Use another save slot to keep it.</p><div class="row"><button class="btn" data-x>Keep playing</button><button class="btn danger" data-y>Start over</button></div>`);
+    $('[data-x]', m).onclick = () => m.close();
+    $('[data-y]', m).onclick = () => { m.close(); go(); };
   };
+  $('#new').onclick = () => overwrite(() => newGame('story', 0));
+  $('#modes').onclick = () => {
+    const M = meta();
+    const m = modal(`<h2>More modes</h2>
+      <div class="places compact">
+        <button class="place" id="mEndless"><b>Endless</b><small>No story, no last day. Shifts, rent and collecting go on until you're fired, evicted or arrested. The market keeps swinging and the quota keeps rising.</small><span class="cost">${M.bestEndless ? `best: ${M.bestEndless} days` : 'new'}</span></button>
+        ${[1, 2, 3].map((n) => `<button class="place" data-ng="${n}" ${M.ngUnlocked >= n ? '' : 'disabled'}><b>New Game+${n > 1 ? ' ' + n : ''}</b><small>${M.ngUnlocked >= n ? `The story again, harder: fakes ${25 * n}% more common, quota +${Math.min(2, n)}, Pike fires you at ${Math.max(4, 7 - 2 * n)} citations a week. You start with every codex entry you've ever learned.` : `Finish the quarter${n > 1 ? ` in New Game+${n > 2 ? ' ' + (n - 1) : ''}` : ''} to unlock.`}</small><span class="cost">${M.ngUnlocked >= n ? 'unlocked' : 'locked'}</span></button>`).join('')}
+      </div><button class="btn" data-x>Close</button>`);
+    $('[data-x]', m).onclick = () => m.close();
+    $('#mEndless', m).onclick = () => { m.close(); overwrite(() => newGame('endless', 0)); };
+    $$('[data-ng]', m).forEach((b) => b.onclick = () => { m.close(); overwrite(() => newGame('story', +b.dataset.ng)); });
+  };
+  $('#slots').onclick = showSlots;
   $('#ach').onclick = showAchievements;
   $('#set').onclick = showSettings;
+  // What's new after an update.
+  const prevSeen = unseenVersion();
+  if (prevSeen) {
+    const fresh = NEWS.filter((n) => cmpVer(n.v, prevSeen) > 0);
+    if (fresh.length) {
+      const m = modal(`<h2>What's new</h2>${fresh.map((n) => `<h3 class="sub-h">Version ${esc(n.v)}</h3><ul class="news">${n.items.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`).join('')}<button class="btn primary" data-x>Got it</button>`, { onClose: markSeen });
+      $('[data-x]', m).onclick = () => m.close();
+    } else markSeen();
+  }
+  // Is a newer version out? The app links to the download; the web version offers a reload.
+  newerVersion().then((v) => {
+    const box = $('#update');
+    if (!v || !box) return;
+    box.hidden = false;
+    box.innerHTML = isApp()
+      ? `<b>Version ${esc(v)} is out.</b> You have ${esc(VERSION)}. <a class="btn small primary" href="${releaseUrl(v)}" target="_blank" rel="noopener">Download the update</a>`
+      : `<b>Version ${esc(v)} is live.</b> You're running ${esc(VERSION)}. <button class="btn small primary" id="reload">Reload</button>`;
+    if ($('#reload')) $('#reload').onclick = () => location.reload();
+  });
+}
+
+function showSlots() {
+  const m = modal(`<h2>Save slots</h2><p style="margin:0;color:var(--muted)">Each slot holds one run. Pick a slot to play in it.</p><div class="places compact" id="slotlist"></div><button class="btn" data-x>Close</button>`);
+  const draw = () => {
+    const cur = currentSlot();
+    $('#slotlist', m).innerHTML = Array.from({ length: SLOTS }, (_, i) => {
+      const g = readSlot(i);
+      return `<div class="place slot ${i === cur ? 'cur' : ''}"><b>Slot ${i + 1}${i === cur ? ' · in use' : ''}</b><small>${esc(slotSummary(g))}</small>
+        <div class="row"><button class="btn small ${i === cur ? '' : 'primary'}" data-use="${i}" ${i === cur ? 'disabled' : ''}>Use this slot</button>${g ? `<button class="btn small danger" data-del="${i}">Delete</button>` : ''}</div></div>`;
+    }).join('');
+    $$('[data-use]', m).forEach((b) => b.onclick = () => { setSlot(+b.dataset.use); m.close(); showTitle(); });
+    $$('[data-del]', m).forEach((b) => b.onclick = () => {
+      if (!b.dataset.armed) { b.dataset.armed = '1'; b.textContent = 'Tap again to delete'; return; }
+      clearSlot(+b.dataset.del); draw();
+    });
+  };
+  $('[data-x]', m).onclick = () => { m.close(); showTitle(); };
+  draw();
 }
 
 function showSettings() {
@@ -169,12 +256,32 @@ function showSettings() {
     <label class="setrow"><span>Sound effects</span><input type="range" id="sSfx" min="0" max="1" step="0.05" value="${st.sfx}"></label>
     <div class="setrow"><span>Shift speed</span><div class="shop-tabs" id="sSpeed">${Object.entries(SPEEDS).map(([k, v]) => `<button data-sp="${k}" aria-selected="${st.speed === k}">${v.label}</button>`).join('')}</div></div>
     <p style="margin:0;color:var(--muted);font-size:13px">Shift speed changes how fast the clock runs at the desk. Relaxed gives you about 12 minutes a shift, Fast about 5.</p>
+    <h3 class="sub-h">Accessibility</h3>
+    <div class="setrow"><span>Text size</span><div class="shop-tabs" id="sText">${[['normal', 'Normal'], ['large', 'Large'], ['larger', 'Larger']].map(([k, l]) => `<button data-tx="${k}" aria-selected="${st.text === k}">${l}</button>`).join('')}</div></div>
+    ${[['contrast', 'High contrast', 'Brighter text and borders, no grain or vignette.'], ['cues', 'Colorblind cues', 'Holo cards say HOLO, and the Rift hologram says whether it shifts on the tilt stand.'], ['motion', 'Reduce motion', 'Stops flickering lights, rain, shimmer and most animation.']].map(([k, l, d]) => `<div class="setrow"><span>${l}<small>${d}</small></span><button class="btn small toggle" data-tg="${k}" aria-pressed="${k === 'motion' ? st.motion === 'reduce' : !!st[k]}">${(k === 'motion' ? st.motion === 'reduce' : st[k]) ? 'On' : 'Off'}</button></div>`).join('')}
     <button class="btn primary" data-x>Done</button>`);
+  $$('[data-tx]', m).forEach((b) => b.onclick = () => { setSetting('text', b.dataset.tx); $$('[data-tx]', m).forEach((x) => x.setAttribute('aria-selected', x === b ? 'true' : 'false')); applyA11y(); });
+  $$('[data-tg]', m).forEach((b) => b.onclick = () => {
+    const k = b.dataset.tg, cur = getSettings();
+    const on = k === 'motion' ? cur.motion !== 'reduce' : !cur[k];
+    setSetting(k, k === 'motion' ? (on ? 'reduce' : 'full') : on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false'); b.textContent = on ? 'On' : 'Off';
+    applyA11y();
+  });
   const vol = () => { const s = setSetting('music', +$('#sMusic', m).value); setSetting('sfx', +$('#sSfx', m).value); setVolumes(s.music, getSettings().sfx); };
   $('#sMusic', m).oninput = vol;
   $('#sSfx', m).oninput = () => { vol(); sfx('tag'); };
   $$('[data-sp]', m).forEach((b) => b.onclick = () => { setSetting('speed', b.dataset.sp); $$('[data-sp]', m).forEach((x) => x.setAttribute('aria-selected', x === b ? 'true' : 'false')); if (D && D.timer) { clearInterval(D.timer); D.timer = setInterval(tick, SPEEDS[b.dataset.sp].ms); } });
   $('[data-x]', m).onclick = () => m.close();
+}
+
+// Accessibility options live on the <html> element so the stylesheet can act on them.
+function applyA11y() {
+  const st = getSettings(), h = document.documentElement;
+  h.dataset.text = st.text || 'normal';
+  h.dataset.contrast = st.contrast ? 'high' : 'normal';
+  h.dataset.motion = st.motion === 'reduce' ? 'reduce' : 'full';
+  setCues(!!st.cues);
 }
 
 function showAchievements() {
@@ -199,16 +306,24 @@ function showCodex() {
 }
 
 // ------------------------------------------------------------------ new game and saves
-function freshState() {
+function freshState(mode = 'story', ng = 0) {
   const seed = Math.floor(Math.random() * 1e9);
   const R = makeRng(seed);
-  const starter = [['bl', 1], ['gg', 2], ['ns', 4]].map(([l, n]) => makeInst(R, l, n, 'nice'));
+  const starter = [['bl', 1], ['gg', 2], ['ns', 4]].map(([l, n]) => Object.assign(makeInst(R, l, n, 'nice'), { from: { how: 'starter', day: 1 } }));
   return { v: 2, day: 1, money: START_MONEY, rent: WEEKS[0].rent, citations: 0, flags: {}, collection: starter, seed, phase: 'morning', actions: 2, eve: null,
     rep: 50, sus: 0, integ: 0, fakes: [], apex: [], graded: [], pop: {}, codex: {}, sets: {}, clues: 0, weekend: false, shift: null,
-    stats: { graded: 0, correct: 0, cited: 0, earned: 0, fakesCaught: 0 }, history: [] };
+    stats: { graded: 0, correct: 0, cited: 0, earned: 0, fakesCaught: 0 }, history: [],
+    mode, ng, boxes: [], orders: [], display: [], goals: {}, regulars: {}, perks: {} , ...(ng ? { codex: { ...meta().codex } } : {}) };
 }
-function migrate(s) { return { ...freshState(), ...s }; }
-function newGame() { S = freshState(); save(); showMorning(); }
+function migrate(s) { const base = freshState(s.mode || 'story', s.ng || 0); delete base.codex; return { ...base, codex: {}, ...s }; }
+function newGame(mode = 'story', ng = 0) { S = freshState(mode, ng); save(); showMorning(); }
+const isStory = () => S.mode !== 'endless';
+// New Game+ makes the desk harder: more fakes, a higher quota, a stricter Pike.
+const maxCites = () => (S.ng ? Math.max(4, MAX_CITATIONS - 2 * S.ng) : MAX_CITATIONS);
+function cfgToday() {
+  const c = dayCfg(S.day), ng = S.ng || 0;
+  return ng ? { ...c, quota: c.quota + Math.min(2, ng), fake: Math.min(0.5, c.fake * (1 + 0.25 * ng)) } : c;
+}
 
 function resume() {
   setMarket(weekOf(S.day).market, S.pop);
@@ -221,6 +336,16 @@ function resume() {
 function meterHTML() {
   const bar = (n, v, cls) => `<div class="meter ${cls}"><span>${n}</span><div><i style="width:${v}%"></i></div><b>${Math.round(v)}</b></div>`;
   return `<div class="meters">${bar('Reputation', S.rep, 'rep')}${bar('Suspicion', S.sus, 'sus')}</div>`;
+}
+
+// Endless mode has no story, just the landlord and the market.
+function endlessLetters() {
+  const L = [];
+  const wk = weekOf(S.day);
+  if (S.day === 1) L.push({ from: 'Gemline Authentication', body: ['Endless mode. No story, no last day. The quota rises every week and so does the rent.', 'Last as long as you can.'] });
+  if (isMonday(S.day) && S.day > 1) L.push({ from: 'Mr. Gaunt', body: [`Rent this week is ${money(wk.rent)}. Friday.`] });
+  if (isMonday(S.day) && S.day > 25) L.push({ from: 'The market report', body: [wk.market >= 1.2 ? 'Card prices are up again. Everybody\'s buying.' : wk.market < 0.9 ? 'Card prices are sliding. Sellers are nervous.' : 'A quiet week on the market.'] });
+  return L;
 }
 
 function showMorning() {
@@ -236,19 +361,25 @@ function showMorning() {
   }
   S.rent = wk.rent;
   setMarket(wk.market, S.pop);
+  if (S.mode === 'endless' && S.day >= 21) achieve('endless20');
   save();
-  const cfg = DAYS[S.day - 1];
-  const prev = S.day > 1 ? DAYS[S.day - 2] : null;
+  const cfg = cfgToday();
+  const prev = S.day > 1 ? dayCfg(S.day - 1) : null;
   const fresh = cfg.rules.map((r) => ({ r, isNew: true }));
   const newTools = prev ? cfg.tools.filter((t) => !prev.tools.includes(t)) : [];
   const newLines = prev ? cfg.lines.filter((l) => !prev.lines.includes(l)) : cfg.lines;
-  const letters = morningLetters(S.day, S.flags, S);
+  const letters = [...(isStory() ? morningLetters(S.day, S.flags, S) : endlessLetters()), ...regularLetters(S)];
+  letters.forEach((l) => {
+    if (l.rep) meters({ rep: l.rep });
+    if (l.gift) { const gi = blankInst(l.gift.line, l.gift.n); Object.assign(gi.v, l.gift.v || {}); gain(gi, 'gift', l.gift.who); }
+  });
+  if (letters.some((l) => l.gift)) checkSets();
   app.innerHTML = `<div class="screen scroll"><div class="memo-wrap">
     ${isMonday(S.day) ? `<div class="weekcard"><span class="kicker">Week ${wk.n} of 5</span><b>${esc(wk.name)}</b></div>` : ''}
     <div class="paper memo">
       <div class="head"><h2>GEMLINE AUTHENTICATION · BULLETIN</h2><span>Week ${wk.n} · ${dayName(S.day)}</span></div>
       ${fresh.length ? `<ol>${fresh.map((x) => `<li class="new"><span class="tag">NEW</span>${esc(x.r)}</li>`).join('')}</ol>` : '<p style="margin:0">No new rules today. All standing rules apply (Reference → Rules).</p>'}
-      <div class="stats"><span>QUOTA: ${cfg.quota} CARDS</span>${newLines.length ? `<span>NEW LINE: ${newLines.map((l) => LINES[l].name.toUpperCase()).join(', ')}</span>` : ''}${newTools.length ? `<span>NEW TOOL: ${newTools.map((t) => TOOLS[t].name.toUpperCase()).join(', ')}</span>` : ''}<span>CITATIONS THIS WEEK: ${S.citations}/${MAX_CITATIONS}</span><span>CASH: ${money(S.money)}</span><span>RENT ${isFriday(S.day) ? 'DUE TONIGHT' : 'FRIDAY'}: ${money(S.rent)}</span>${wk.pay !== 1 ? `<span>PAY RATE: ${Math.round(wk.pay * 100)}%</span>` : ''}</div>
+      <div class="stats"><span>QUOTA: ${cfg.quota} CARDS</span>${newLines.length ? `<span>NEW LINE: ${newLines.map((l) => LINES[l].name.toUpperCase()).join(', ')}</span>` : ''}${newTools.length ? `<span>NEW TOOL: ${newTools.map((t) => TOOLS[t].name.toUpperCase()).join(', ')}</span>` : ''}<span>CITATIONS THIS WEEK: ${S.citations}/${maxCites()}</span><span>CASH: ${money(S.money)}</span><span>RENT ${isFriday(S.day) ? 'DUE TONIGHT' : 'FRIDAY'}: ${money(S.rent)}</span>${wk.pay !== 1 ? `<span>PAY RATE: ${Math.round(wk.pay * 100)}%</span>` : ''}</div>
       ${meterHTML()}
     </div>
     ${letters.map(letterHTML).join('')}
@@ -291,13 +422,20 @@ const TIPS = {
   25: '<b>Final audit.</b> Everything you stamp today counts.',
 };
 
+function queueStory(R) {
+  const list = [...(isStory() ? storySubs(R, S.day, S.flags) : []), ...regularSubs(R, S.day, S)].sort((a, b) => a.at - b.at);
+  const used = new Set();
+  list.forEach((x) => { while (used.has(x.at)) x.at++; used.add(x.at); });
+  return list;
+}
+
 function startShift(resuming) {
   closeAllModals();
-  const cfg = DAYS[S.day - 1];
+  const cfg = cfgToday();
   setMarket(weekOf(S.day).market, S.pop);
   const sh = resuming ? S.shift : null;
   const R = makeRng(S.seed + S.day * 7919, sh ? sh.rng : undefined);
-  D = { cfg, R, story: sh ? sh.story : storySubs(R, S.day, S.flags), served: sh ? sh.served : 0, minute: sh ? sh.minute : 0, sub: null,
+  D = { cfg, R, story: sh ? sh.story : queueStory(R), served: sh ? sh.served : 0, minute: sh ? sh.minute : 0, sub: null,
     face: 'front', tool: 'hand', uv: false, ruler: false, tilt: false, light: false, water: [], measured: false, weighed: false, registry: null,
     found: new Set(), paid: {}, log: sh ? sh.log : [], ended: false, cites: sh ? sh.cites : 0, tip: TIPS[S.day] || null, tipSeen: sh ? true : false,
     coach: S.day === 1 && !sh ? 0 : -1, timer: null, busy: false, ticks: 0 };
@@ -394,7 +532,7 @@ function updateTop() {
   $('#quota').textContent = `${D.served}/${D.cfg.quota}`;
   $('#quota').title = 'Cards graded / quota';
   $('#cash').textContent = money(S.money);
-  $('#cites').textContent = `⚠ ${S.citations + D.cites}/${MAX_CITATIONS}`;
+  $('#cites').textContent = `⚠ ${S.citations + D.cites}/${maxCites()}`;
   $('#clockout').hidden = D.served < D.cfg.quota;
 }
 
@@ -827,6 +965,7 @@ function stamp(verdict, grade) {
 // Bookkeeping after each verdict: meters, codex, achievements, Fake Binder, population.
 function afterStamp(e) {
   const inst = e.sub.inst, walkIn = e.res === 'story';
+  if (e.sub.regular) recordRegular(S, e.sub.regular, e.res === 'ok');
   if (!walkIn) meters(e.res === 'ok' ? { rep: 1 } : { rep: -3, sus: e.grade != null && e.grade > e.sheet && e.truth.grade < e.grade ? 3 : 0 });
   if (inst.fake && (e.res === 'cite' || e.verdict === 'counterfeit')) inst.fake.kinds.forEach(learn);
   if (inst.alt && (e.res === 'cite' || e.verdict === 'altered')) learn(inst.alt.kind);
@@ -1032,7 +1171,7 @@ function showPayday() {
         ${rentLine}
         <tr class="total"><td>Cash on hand</td><td class="amt">${money(S.money)}</td></tr>
       </table>
-      <p class="mono" style="font-size:12px;color:var(--ink-soft);margin:10px 0 0">Citations this week: ${S.citations}/${MAX_CITATIONS}${weekOf(S.day).pay !== 1 ? ` · Pay rate ${Math.round(weekOf(S.day).pay * 100)}%` : ''}${S.rep >= 75 ? ' · Senior rate +$2/card' : ''}</p>
+      <p class="mono" style="font-size:12px;color:var(--ink-soft);margin:10px 0 0">Citations this week: ${S.citations}/${maxCites()}${weekOf(S.day).pay !== 1 ? ` · Pay rate ${Math.round(weekOf(S.day).pay * 100)}%` : ''}${S.rep >= 75 ? ' · Senior rate +$2/card' : ''}</p>
       ${meterHTML()}
     </div>
     <button class="btn primary" id="home">Go home</button>
@@ -1045,19 +1184,26 @@ function showPayday() {
 function afterPayday() {
   if (S.flags.evicted) return gameOver('evicted');
   if (S.sus >= 100) return gameOver('arrested');
-  if (S.citations >= MAX_CITATIONS || S.rep <= 0) return gameOver('fired');
-  const evs = eveningEvents(S.day, S.flags, S);
+  if (S.citations >= maxCites() || S.rep <= 0) return gameOver('fired');
+  const evs = isStory() ? [...eveningEvents(S.day, S.flags, S), ...arcEvents(S)] : [];
   if (S.day === 5) evs.push(...weekOneAudit());
   app.innerHTML = '<div class="screen city"></div>';
   runEvents(evs, () => {
+    if (S.flags.louHelped === 'yes' && !S.flags.louCard) {
+      S.flags.louCard = true;
+      const lc = blankInst('ns', 8); lc.v.holo = true; lc.dx = 0.6; lc.dy = -0.4;
+      gain(lc, 'gift', 'Lou, for forty bucks and a promise');
+      checkSets();
+    }
+    if (S.flags.salAsk === 'home') S.flags.salSon = true;
     if (S.sus >= 100) return gameOver('arrested');
-    if (S.day >= LAST_DAY) return finale();
+    if (isStory() && S.day >= LAST_DAY) return finale();
     S.phase = 'evening';
     S.eve = null;
     if (isFriday(S.day)) {
       S.weekend = true; S.actions = 3;
       if (S.day === 20) achieve('survivor');
-      return runEvents(weekendEvents(S.day / 5, S.flags, S), () => { save(); showCity(); });
+      return runEvents(isStory() ? weekendEvents(S.day / 5, S.flags, S) : [], () => { save(); showCity(); });
     }
     S.weekend = false; S.actions = 2;
     save();
@@ -1082,7 +1228,7 @@ function weekOneAudit() {
 }
 
 // ------------------------------------------------------------------ the city
-function collectionValue() { return S.collection.reduce((s, i) => s + cardValue(i), 0); }
+function collectionValue() { return S.collection.reduce((s, i) => s + cardValue(i), 0) + (S.boxes || []).reduce((s, b) => s + sealedValue(b, S.day), 0); }
 
 function eveClock() {
   if (S.weekend) return ['SATURDAY MORNING', 'SATURDAY AFTERNOON', 'SATURDAY EVENING', 'SATURDAY NIGHT'][3 - S.actions] || 'SATURDAY';
@@ -1120,12 +1266,15 @@ function showCity() {
   const a = S.actions;
   const open = { shop: a > 0, market: a > 0, diner: a > 0 };
   const places = Object.entries(PLACES).filter(([, p]) => !p.weekend || S.weekend);
-  app.innerHTML = `<div class="screen street-screen">
+  const wx = weatherFor(S.day), blackout = wx === 'blackout' && !S.weekend;
+  if (blackout) { open.market = false; open.diner = false; }
+  app.innerHTML = `<div class="screen street-screen wx-${wx}">
     <div class="street-scene">${streetSVG(open, S.flags, S.day)}</div>
     <div class="street-panel scroll">
       <div class="loc-head"><div><div class="kicker">${eveClock()} · ${S.weekend ? 'WEEKEND' : dayName(S.day).toUpperCase() + ' NIGHT'}</div><h2>${S.weekend ? 'The weekend' : 'Outside Gemline'}</h2></div><span class="chip mono">${money(S.money)}</span></div>
+      <p class="wxline"><span class="mono">${esc(WEATHER[wx].label)}</span> ${esc(WEATHER[wx].line)}</p>
       <p class="sub">${a ? `You have time for ${a} more ${a === 1 ? 'stop' : 'stops'}.` : 'Everything is closing. Time to go home.'} Rent ${money(weekOf(S.day + (S.weekend ? 1 : 0)).rent)} on Friday.${weekOf(S.day).market !== 1 ? ` Market: ${weekOf(S.day).market > 1 ? 'booming' : 'crashed'}.` : ''}</p>
-      <div class="places compact">${places.map(([k, p]) => `<button class="place" data-p="${k}" ${k !== 'home' && !a ? 'disabled' : ''}><b>${esc(p.name)}</b><small>${esc(k === 'diner' && !S.weekend && isThursday(S.day) ? 'Thursday: trade night in the back booth. Or four hours on the floor.' : p.blurb)}</small><span class="cost">${k === 'home' ? 'free' : a ? 'uses one stop' : 'closed'}</span></button>`).join('')}</div>
+      <div class="places compact">${places.map(([k, p]) => `<button class="place" data-p="${k}" ${(k !== 'home' && !a) || (blackout && (k === 'market' || k === 'diner')) ? 'disabled' : ''}><b>${esc(p.name)}</b><small>${esc(k === 'diner' && !S.weekend && isThursday(S.day) ? 'Thursday: trade night in the back booth. Or four hours on the floor.' : p.blurb)}</small><span class="cost">${k === 'home' ? 'free' : a ? 'uses one stop' : 'closed'}</span></button>`).join('')}</div>
       <button class="btn small" id="quit">Save and quit to title</button>
     </div>
   </div>`;
@@ -1147,7 +1296,7 @@ function leaveTo(text = 'Back out into the rain…') { travel(text, showCity, 65
 function locScreen(cls, svg, kicker, title, speaker, line, leaveLabel = 'Leave') {
   closeAllModals();
   $('#toasts').innerHTML = '';
-  app.innerHTML = `<div class="screen loc ${cls}">
+  app.innerHTML = `<div class="screen loc ${cls} wx-${weatherFor(S.day)}">
     <div class="scene">${svg}</div>
     <div class="loc-body scroll">
       <div class="loc-head"><div><div class="kicker">${kicker}</div><h2>${title}</h2></div><button class="btn small" id="leave">${leaveLabel}</button></div>
@@ -1180,6 +1329,15 @@ function eveStock() {
   const chase = { gg: 'noYellow', bl: 'shadowless', ml: 'hidden', hp: 'vintage', ic: 'run1', ga: 'alpha' }[line];
   inst.v[chase] = true;
   singles.splice(R.int(0, 3), 0, { inst, price: Math.max(3, Math.ceil(cardValue({ ...inst, v: {} }) * 1.2)), label: 'Lou\'s price' });
+  // "Every rare" goal: Lou sets aside a card you're missing from that set, once a week.
+  const wk = weekOf(S.day).n;
+  lines.filter((l) => hasGoal(S, l, 'rares')).forEach((l) => {
+    const key = `aside_${l}_${wk}`;
+    const missing = CARDS[l].filter((c) => !S.collection.some((i) => i.line === l && i.n === c.n));
+    if (S.flags[key] || !missing.length) return;
+    const inst = makeInst(R, l, R.pick(missing).n, 'nice');
+    singles.push({ inst, price: Math.max(2, Math.ceil(cardValue(inst))), label: 'Set aside for you', aside: key });
+  });
   S.eve = { ...(S.eve || {}), day: S.day, singles };
   return S.eve;
 }
@@ -1187,11 +1345,11 @@ function eveStock() {
 function showShop() {
   setScene('shop');
   sfx('bell');
-  const root = locScreen('loc-shop', shopSVG(), `${eveClock()} · BRICK & MORTAR CARDS`, 'Lou\'s counter', 'Lou', louLine(S.flags, S.day));
+  const root = locScreen('loc-shop', shopSVG(), `${eveClock()} · BRICK & MORTAR CARDS`, 'Lou\'s counter', 'Lou', (isStory() && louArc(S)) || louLine(S.flags, S.day));
   const stock = eveStock();
   let tab = 'packs';
   root.innerHTML = `<p style="margin:0;color:var(--muted)" id="shopcash"></p>
-    <div class="shop-tabs"><button data-t="packs">Packs</button><button data-t="singles">Under the glass</button><button data-t="sell">Sell to Lou</button></div>
+    <div class="shop-tabs"><button data-t="packs">Packs</button><button data-t="singles">Under the glass</button><button data-t="boxes">Boxes</button><button data-t="sell">Sell to Lou</button></div>
     <div id="sbody"></div>`;
   $('#leave').onclick = () => { save(); leaveTo(); };
   const mk = marketNowLabel();
@@ -1200,7 +1358,7 @@ function showShop() {
     $$('[data-t]', root).forEach((b) => b.setAttribute('aria-selected', b.dataset.t === tab ? 'true' : 'false'));
     const body = $('#sbody');
     if (tab === 'packs') {
-      const price = (l) => Math.max(3, Math.round(PACKS[l].price * (0.6 + weekOf(S.day).market * 0.4)));
+      const price = (l) => Math.max(3, Math.round(PACKS[l].price * (0.6 + weekOf(S.day).market * 0.4) * louDiscount(l)));
       const left = packsLeft();
       const ration = left > 0
         ? `"${packLimit() === 2 ? 'Two' : 'Three'} packs a customer, a night. Everybody wants them, and the distributor's shorting me." <span class="mono" style="color:var(--lamp)">${left} left tonight</span>`
@@ -1213,9 +1371,10 @@ function showShop() {
     if (tab === 'singles') {
       body.innerHTML = `<p style="color:var(--muted);font-size:13px;margin:0">Lou prices by eye, and his eyes are tired. Tap a card for a closer look.</p>
         <div class="cardgrid">${stock.singles.map((x, i) => x.sold ? '' : `<div class="cardcell" style="cursor:default"><button class="cardcell" data-look="${i}">${cardSVG(x.inst)}</button><span>${esc(cardTitle(x.inst))}</span><span class="price">${esc(x.label)} · ${money(x.price)}</span><button class="btn small primary" data-buy="${i}" ${S.money < x.price ? 'disabled' : ''}>Buy</button></div>`).join('') || '<p>Sold out.</p>'}</div>`;
-      $$('[data-buy]', body).forEach((b) => b.onclick = () => { const x = stock.singles[+b.dataset.buy]; S.money -= x.price; x.sold = true; S.collection.push(x.inst); sfx('cash'); learnInst(x.inst); toast('Added to your binder', 'good'); checkSets(); save(); draw(); });
+      $$('[data-buy]', body).forEach((b) => b.onclick = () => { const x = stock.singles[+b.dataset.buy]; S.money -= x.price; x.sold = true; if (x.aside) S.flags[x.aside] = true; gain(x.inst, 'single', money(x.price)); sfx('cash'); learnInst(x.inst); toast('Added to your binder', 'good'); checkSets(); save(); draw(); });
       $$('[data-look]', body).forEach((b) => b.onclick = () => viewer(stock.singles[+b.dataset.look].inst, { hideInfo: true, tools: true }));
     }
+    if (tab === 'boxes') { boxesTab(body, draw); }
     if (tab === 'sell') {
       const list = S.collection.filter((i) => !i.atApex);
       const till = tillCash();
@@ -1238,6 +1397,146 @@ function showShop() {
 }
 const marketNowLabel = () => { const m = weekOf(S.day).market; return m > 1.2 ? ' Prices are wild this week.' : m < 0.9 ? ' Prices have collapsed.' : ''; };
 const thumb = (inst) => (inst.slab ? slabHTML(inst, { grade: inst.slab.grade, by: inst.slab.by }) : cardSVG(inst));
+
+// ------------------------------------------------------------------ booster boxes
+const newBoxId = () => 'bx' + Date.now().toString(36) + Math.floor(Math.random() * 1e4);
+// Lou gets two boxes a week from the distributor, from different sets each week.
+function boxShelf() {
+  const wk = weekOf(S.day).n;
+  if (!S.shelf || S.shelf.week !== wk) {
+    const R = makeRng(S.seed + wk * 131);
+    const lines = unlockedLines().slice();
+    for (let k = lines.length - 1; k > 0; k--) { const j = Math.floor(R() * (k + 1)); [lines[k], lines[j]] = [lines[j], lines[k]]; }
+    S.shelf = { week: wk, lines: lines.slice(0, 2), sold: [] };
+  }
+  return S.shelf;
+}
+const boxNote = (line) => (IN_PRINT.includes(line) ? 'Still in print: a sealed one won\'t gain value.' : 'Old stock: sealed boxes gain about 6% a week, plus the market.');
+
+function boxesTab(body, redraw) {
+  const shelf = boxShelf();
+  const wk = weekOf(S.day).n;
+  const ready = S.orders.filter((o) => o.due <= S.day);
+  const waiting = S.orders.filter((o) => o.due > S.day);
+  const ordered = S.orders.some((o) => o.week === wk) || (S.flags.orderWeek === wk);
+  body.innerHTML = `<p class="speech" style="margin:0">"Two boxes a week, that's what the distributor sends me. Want something else, I can order it. Fifteen down, the rest when it comes in. Three days."</p>
+    ${ready.length ? `<h3 class="sub-h">Ready for pickup</h3><div class="boxrow">${ready.map((o, k) => `<div class="boxcell">${boxSVG(o.line)}<b>${esc(LINES[o.line].name)}</b><span class="mono">${money(o.price - o.deposit)} still owed</span><button class="btn small primary" data-pick="${k}" ${S.money < o.price - o.deposit ? 'disabled' : ''}>Pay and take it</button></div>`).join('')}</div>` : ''}
+    <h3 class="sub-h">On the shelf this week</h3>
+    <div class="boxrow">${shelf.lines.map((l) => { const sold = shelf.sold.includes(l), pr = louBoxPrice(l); return `<div class="boxcell ${sold ? 'sold' : ''}">${boxSVG(l)}<b>${esc(LINES[l].name)}</b><span class="mono" style="color:var(--lamp)">${sold ? 'Sold' : money(pr)}</span><small>${esc(boxNote(l))}</small><button class="btn small primary" data-buybox="${l}" ${sold || S.money < pr ? 'disabled' : ''}>${sold ? 'Sold' : 'Buy the box'}</button></div>`; }).join('')}</div>
+    <h3 class="sub-h">Special order</h3>
+    ${waiting.length ? `<p style="margin:0;color:var(--muted)">On order: ${waiting.map((o) => `${esc(LINES[o.line].name)} (arrives ${dayName(o.due)}${o.due - S.day >= 5 ? ', next week' : ''})`).join(', ')}.</p>` : ''}
+    ${ordered ? '<p style="margin:0;color:var(--muted)">One special order a week. Lou\'s distributor only takes one.</p>'
+      : `<div class="row"><select id="ordline" class="cf-q" style="flex:1">${unlockedLines().map((l) => `<option value="${l}">${esc(LINES[l].name)} · ${money(louBoxPrice(l))}</option>`).join('')}</select><button class="btn" id="order" ${S.money < ORDER_DEPOSIT ? 'disabled' : ''}>Order (${money(ORDER_DEPOSIT)} down)</button></div>`}
+    <p style="margin:0;color:var(--muted);font-size:13px">${PACKS_PER_BOX} packs a box, one with a guaranteed holo rare. Boxes don't count against Lou's pack limit. Open them at home, or keep them sealed and sell them at the Saturday auction.</p>`;
+  $$('[data-buybox]', body).forEach((b) => b.onclick = () => {
+    const l = b.dataset.buybox, pr = louBoxPrice(l);
+    if (S.money < pr) return;
+    S.money -= pr; shelf.sold.push(l);
+    S.boxes.push({ id: newBoxId(), line: l, paid: pr, day: S.day, resealed: false, wobble: Math.floor(Math.random() * 3) - 1, src: 'shelf' });
+    sfx('cash'); toast(`A sealed ${LINES[l].name} box. It's heavier than you expected.`, 'good'); save(); redraw();
+  });
+  $$('[data-pick]', body).forEach((b) => b.onclick = () => {
+    const o = ready[+b.dataset.pick], owe = o.price - o.deposit;
+    if (S.money < owe) return;
+    S.money -= owe; S.orders.splice(S.orders.indexOf(o), 1);
+    S.boxes.push({ id: newBoxId(), line: o.line, paid: o.price, day: S.day, resealed: false, wobble: 0, src: 'order' });
+    sfx('cash'); toast(`Your ${LINES[o.line].name} box came in.`, 'good'); save(); redraw();
+  });
+  if ($('#order', body)) $('#order', body).onclick = () => {
+    const l = $('#ordline', body).value;
+    S.money -= ORDER_DEPOSIT;
+    S.orders.push({ line: l, due: S.day + 3, week: wk, price: louBoxPrice(l), deposit: ORDER_DEPOSIT });
+    S.flags.orderWeek = wk;
+    toast(`Ordered a ${LINES[l].name} box. It'll be in on ${dayName(S.day + 3)}.`, 'good'); save(); redraw();
+  };
+}
+
+// Your sealed boxes: watch their value, or open one.
+function showBoxes() {
+  const m = modal(`<div class="row" style="justify-content:space-between;align-items:center"><h2>Sealed boxes</h2><button class="btn small" data-close>Close</button></div><div id="bxl"></div>`, { wide: true });
+  $('[data-close]', m).onclick = () => m.close();
+  const draw = () => {
+    $('#bxl', m).innerHTML = S.boxes.length ? `<div class="boxrow">${S.boxes.map((b) => {
+      const v = sealedValue(b, S.day), d = v - b.paid;
+      return `<div class="boxcell">${boxSVG(b.line, { resealed: b.resealed && b.inspected })}<b>${esc(LINES[b.line].name)}</b>
+        <span class="mono">Paid ${money(b.paid)} · worth about <b style="color:${d >= 0 ? 'var(--good)' : 'var(--stamp)'}">${money(v)}</b></span>
+        <small>${esc(`Bought ${dayName(b.day)}, week ${Math.ceil(b.day / 5)}${b.src === 'market' ? ', at the night market' : ''}. ${IN_PRINT.includes(b.line) ? 'Still in print.' : 'Old stock.'}`)}</small>
+        <button class="btn small primary" data-open="${b.id}">Open it</button></div>`;
+    }).join('')}</div><p style="margin:0;color:var(--muted);font-size:13px">Sealed boxes count toward what your binder is worth. Sell them sealed at the Saturday auction.</p>` : '<p>No sealed boxes. Lou has two on the shelf each week.</p>';
+    $$('[data-open]', m).forEach((x) => x.onclick = () => {
+      if (!x.dataset.armed) { x.dataset.armed = '1'; x.textContent = 'Tap again to open'; return; }
+      const b = S.boxes.find((y) => y.id === x.dataset.open);
+      S.boxes.splice(S.boxes.indexOf(b), 1);
+      S.opening = { line: b.line, resealed: b.resealed, packs: rollBox(cityRng(), b.line, b.resealed) };
+      save(); m.close(); openBox();
+    });
+  };
+  draw();
+}
+
+// Opening a box: the packs come out one at a time, or all at once.
+function openBox() {
+  const ob = S.opening;
+  if (!ob) return;
+  sfx('rustle');
+  const m = modal(`<h2>${esc(LINES[ob.line].name)} booster box</h2><p style="margin:0;color:var(--muted)" id="bxleft"></p><div class="boxpacks" id="bxp"></div>
+    <div class="row"><button class="btn primary" id="bxone">Open the next pack</button><button class="btn" id="bxall">Open all the rest</button></div>`, { wide: true, dismiss: false });
+  const finish = () => {
+    S.opening = null; save();
+    if (ob.resealed) runEvents([{ from: 'The bottom of the box', body: ['Every pack has been opened and glued shut again. Not one rare in the whole box.', 'Somebody got here first, and sold you what was left.'] }], () => {});
+    else toast('Box finished. The cardboard goes out with the recycling.', 'good');
+  };
+  const draw = () => {
+    if (!ob.packs.length) { m.close(); finish(); return; }
+    $('#bxleft', m).textContent = `${ob.packs.length} of ${PACKS_PER_BOX} packs left.`;
+    $('#bxp', m).innerHTML = ob.packs.map(() => `<div class="bxpack">${packSVG(ob.line)}</div>`).join('');
+  };
+  $('#bxone', m).onclick = () => {
+    const cards = ob.packs.shift(); save();
+    m.style.display = 'none';
+    openPack(ob.line, () => { m.style.display = ''; draw(); }, cards, 'box');
+  };
+  $('#bxall', m).onclick = () => {
+    const all = ob.packs.flat(); ob.packs = [];
+    gain(all, 'box', PACKS[ob.line].label);
+    all.forEach(learnInst); checkSets(); save(); sfx('collect');
+    m.close();
+    const top = [...all].sort((a, b) => cardValue(b) - cardValue(a));
+    const r = modal(`<h2>${all.length} cards</h2><p style="margin:0;color:var(--muted)">Worth about ${money(all.reduce((s, c) => s + cardValue(c), 0))} together. The best of them:</p>
+      <div class="cardgrid">${top.slice(0, 12).map((c, k) => `<button class="cardcell" data-k="${k}">${cardSVG(c)}<span>${esc(cardTitle(c))}</span><span class="price">${esc(variantLabels(c.v, c.line).join(', ') || rarityName(c))}</span></button>`).join('')}</div><button class="btn primary" data-x>Into the binder</button>`, { wide: true });
+    $$('[data-k]', r).forEach((b) => b.onclick = () => viewer(top[+b.dataset.k]));
+    $('[data-x]', r).onclick = () => { r.close(); finish(); };
+  };
+  draw();
+}
+
+// A box under the night market table: maybe genuine, maybe resealed. Check it before you pay.
+function marketBox() {
+  if (!S.eve || S.eve.day !== S.day) S.eve = { day: S.day };
+  if (S.eve.mbox !== undefined) return S.eve.mbox;
+  const R = cityRng();
+  if (S.day < 3 || R() > 0.45) return (S.eve.mbox = null);
+  const line = R.pick(unlockedLines());
+  return (S.eve.mbox = { line, price: Math.round(boxBase(line) * (0.5 + R() * 0.12)), resealed: R() < 0.4, lightBy: R.int(5, 10), wobble: R.int(-1, 1), sold: false });
+}
+function inspectBox(mb, done) {
+  const scaleOn = dayCfg(S.day).tools.includes('scale');
+  const m = modal(`<h2>A sealed ${esc(LINES[mb.line].name)} box</h2>
+    <div class="row" style="justify-content:center"><div style="width:min(260px,70vw)" id="ibv">${boxSVG(mb.line)}</div></div>
+    <p style="margin:0">"Found it in a storage unit," the seller says. "${money(mb.price)}. Lou wants ${money(boxPrice(mb.line, S.day))} for the same thing."</p>
+    <div class="row"><button class="btn small" id="iloupe">Loupe on the wrap</button>${scaleOn ? '<button class="btn small" id="iscale">Weigh it</button>' : ''}</div>
+    <div id="iread" class="mono" style="font-size:13px;color:var(--muted)">Factory wrap has neat folded corners. A box that's been opened and resealed has a melted seam.</div>
+    <div class="row"><button class="btn primary" id="ibuy" ${S.money < mb.price ? 'disabled' : ''}>Buy it (${money(mb.price)})</button><button class="btn" data-x>Walk away</button></div>`);
+  $('[data-x]', m).onclick = () => { if (mb.resealed && (mb.looked || mb.weighed)) achieve('box_reseal'); m.close(); };
+  $('#iloupe', m).onclick = () => { $('#ibv', m).innerHTML = seamSVG(mb.resealed); mb.looked = true; sfx('tag'); };
+  if ($('#iscale', m)) $('#iscale', m).onclick = () => { mb.weighed = true; $('#iread', m).textContent = `Scale: ${boxWeight(mb)} g. A factory-sealed box weighs ${FACTORY_WEIGHT} g (±2).`; sfx('tag'); };
+  $('#ibuy', m).onclick = () => {
+    if (S.money < mb.price) return;
+    S.money -= mb.price; mb.sold = true;
+    S.boxes.push({ id: newBoxId(), line: mb.line, paid: mb.price, day: S.day, resealed: mb.resealed, lightBy: mb.lightBy, wobble: mb.wobble, src: 'market', inspected: !!mb.looked });
+    sfx('cash'); save(); m.close(); toast(`You carry the ${LINES[mb.line].name} box home under your coat.`, 'good'); done();
+  };
+}
 
 // Lou rations packs (three a night, two in the boom) and only has so much cash in the till.
 const packLimit = () => (weekOf(S.day).market >= 1.5 ? 2 : 3);
@@ -1303,9 +1602,9 @@ function particles(host, k) {
   }
 }
 
-function openPack(line, after) {
+function openPack(line, after, preset = null, how = 'pack') {
   duck(true);
-  const cards = rollPack(line).sort((a, b) => rank(a) - rank(b));
+  const cards = (preset || rollPack(line)).sort((a, b) => rank(a) - rank(b));
   const owned = new Set(S.collection.map((x) => x.line + ':' + x.n));
   const ov = document.createElement('div');
   ov.className = 'packopen';
@@ -1354,11 +1653,11 @@ function openPack(line, after) {
     sfx('rip');
     pack.classList.add('torn');
     $('#poHint', ov).textContent = '';
-    setTimeout(() => { sfx('whoosh'); revealPack(ov, cards, owned, after); }, 900);
+    setTimeout(() => { sfx('whoosh'); revealPack(ov, cards, owned, after, how); }, 900);
   };
 }
 
-function revealPack(ov, cards, owned, after) {
+function revealPack(ov, cards, owned, after, how = 'pack') {
   const stage = $('#poStage', ov), tray = $('#poTray', ov), hint = $('#poHint', ov), count = $('#poCount', ov);
   let i = 0, phase = 'ready', busy = false;
   const skip = $('#poSkip', ov);
@@ -1440,7 +1739,7 @@ function revealPack(ov, cards, owned, after) {
     hint.after(btn);
     $$('[data-k]', stage).forEach((b) => b.onclick = () => viewer(cards[+b.dataset.k]));
     btn.onclick = () => {
-      S.collection.push(...cards);
+      gain(cards, how, PACKS[cards[0].line].label);
       cards.forEach(learnInst);
       checkSets();
       save();
@@ -1460,7 +1759,7 @@ function showMarket() {
   let digs = 0, cards = [], picked = new Set();
   const root = locScreen('loc-market', marketSVG(), `${eveClock()} · THE NIGHT MARKET`, 'Under the tarp', '', sellerLine());
   const keep = () => {
-    picked.forEach((k) => { S.collection.push(cards[k]); learnInst(cards[k]); if (rank(cards[k]) >= 4 && !cards[k].fake) achieve('bin_gem'); });
+    picked.forEach((k) => { gain(cards[k], 'bin'); learnInst(cards[k]); if (rank(cards[k]) >= 4 && !cards[k].fake) achieve('bin_gem'); });
     if (picked.size) { toast(`${picked.size} added to your binder`, 'good'); checkSets(); }
     picked = new Set();
   };
@@ -1474,23 +1773,26 @@ function showMarket() {
       const c = pickCard(R, line, { c: 8, u: 3, r: 0.5 });
       const inst = makeInst(R, line, c.n, R() < 0.5 ? 'played' : 'beat');
       rollVariants(R, inst, { scale: 0.45, shadowless: 0.15, noYellow: 0.1 });
-      if (R() < 0.08) makeFake(R, inst, DAYS[Math.min(S.day, LAST_DAY) - 1], [R.pick(['print', 'copyright', 'uv'])]);
+      if (R() < 0.08) makeFake(R, inst, dayCfg(S.day), [R.pick(['print', 'copyright', 'uv'])]);
       cards.push(inst);
     }
     digs++;
     draw();
   };
+  const mbox = marketBox();
   const ghostNight = S.day === 24 && !S.flags.ghostFound && !S.collection.some((i) => i.v.ghost);
   const draw = () => {
     if (!cards.length) {
       root.innerHTML = `<p style="margin:0;color:var(--muted)">Cash ${money(S.money)}. Shoeboxes of loose cards, most of them soft at the corners. Somebody's childhood, sold by the pound.</p>
         ${ghostNight ? (S.clues >= 3 ? '<div class="paper letter"><div class="from">Under the table</div><p>A shoebox, taped shut, with MARSH written on the lid in marker. The seller sees you looking. "Not for the bins. That one\'s been waiting for somebody who knew to ask."</p><button class="btn primary" id="ghost">Ask for the Marsh box</button></div>' : '<p class="speech">There is an empty space under the table, and a strip of tape with MARSH on it. "Sold this morning," the seller says. "Some guy from Apex."</p>') : ''}
-        <button class="btn primary" data-dig ${S.money < 3 ? 'disabled' : ''}>Dig through a box ($3)</button>`;
+        <button class="btn primary" data-dig ${S.money < 3 ? 'disabled' : ''}>Dig through a box ($3)</button>
+        ${mbox && !mbox.sold ? `<div class="paper letter mboxnote"><div class="from">Under the table</div><div class="row" style="align-items:center;flex-wrap:nowrap"><div style="width:90px;flex:0 0 auto">${boxSVG(mbox.line)}</div><p style="margin:0">A sealed ${esc(LINES[mbox.line].name)} booster box, still in its wrap. ${money(mbox.price)}, cash.</p></div><button class="btn" id="mboxbtn">Take a closer look</button></div>` : ''}`;
       $('[data-dig]', root).onclick = () => { S.money -= 3; dig(); };
+      if ($('#mboxbtn', root)) $('#mboxbtn', root).onclick = () => inspectBox(mbox, draw);
       const g = $('#ghost', root);
       if (g) g.onclick = () => {
         const inst = blankInst('bl', 9); inst.v.ghost = true; inst.dx = 0.3; inst.dy = -0.2;
-        S.collection.push(inst); S.flags.ghostFound = true; learn('ghost'); achieve('ghost');
+        gain(inst, 'ghost'); S.flags.ghostFound = true; learn('ghost'); achieve('ghost');
         sfx('riser'); setTimeout(() => { sfx('impact'); sfx('fanfare'); }, 1000);
         viewer(inst, { title: 'The Ghost Print' });
         save(); draw();
@@ -1513,7 +1815,7 @@ function showMarket() {
 
 function showDiner() {
   setScene('diner');
-  const root = locScreen('loc-diner', dinerSVG(), `${eveClock()} · LAST STOP DINER`, 'Behind the counter', 'Sal', salLine());
+  const root = locScreen('loc-diner', dinerSVG(), `${eveClock()} · LAST STOP DINER`, 'Behind the counter', 'Sal', (isStory() && salArc(S)) || salLine());
   let worked = false;
   $('#leave').onclick = () => { if (!worked) toast('You leave without working. The bus fare was for nothing.'); save(); leaveTo(); };
   const wage = weekOf(S.day).market < 0.9 ? 25 : 30;
@@ -1546,13 +1848,14 @@ function showDiner() {
 // Collectors take over the back booth at the Last Stop on Thursdays. Each one trades once a
 // night, for your spare copies (duplicates; you always keep your best copy of each card).
 const isThursday = (d) => d % 5 === 4;
+const arcLine = (id) => ({ kid: mikeyArc, shark: rookArc, blind: strangerArc }[id] || (() => null))(S);
 const TRADERS = {
   kid: { name: 'Mikey', who: 'a kid in a hockey jacket, two sizes too big', rule: 'holo', ratio: 0.8, say: 'Only shiny ones. My sister says the shiny ones are worth more. She\'s right about everything.', rulesLine: 'Only takes holos. Generous.' },
   grump: { name: 'Mrs. Abernathy', who: 'retired, bifocals on a chain, a binder older than you', rule: 'mint', ratio: 1, say: 'I don\'t take beaters. Corners or nothing, dear.', rulesLine: 'Only takes clean cards (8 or better) and slabs. Fair.' },
   shark: { name: 'Rook', who: 'gold tooth, calculator watch, a briefcase of toploaders', rule: 'any', ratio: null, say: 'Everything\'s for trade. Everything\'s got a price. Mine\'s higher.', rulesLine: 'Takes anything, at a markup. Better terms if your reputation is good.' },
   blind: { name: 'The Stranger', who: 'hat low, never orders, never takes his coat off', rule: 'blind', say: 'Two of yours, face down, for one of mine, face down. No looking. No refunds.', rulesLine: 'Any two spares for one mystery card. Anything could be in there.' },
 };
-const traderRatio = (t) => (t.id === 'shark' ? 1.6 - 0.6 * (S.rep / 100) : TRADERS[t.id].ratio);
+const traderRatio = (t) => (t.id === 'shark' ? Math.max(0.9, 1.6 - 0.6 * (S.rep / 100) - (rankOf(S).n >= 2 ? 0.15 : 0) - caseBonus()) : TRADERS[t.id].ratio * (1 - caseBonus()));
 
 // Every copy except your best one of each card.
 function spareCards() {
@@ -1567,7 +1870,9 @@ function tradeNight() {
   if (S.eve.trade) return S.eve.trade;
   const R = cityRng();
   const ids = Object.keys(TRADERS);
-  ids.splice(R.int(0, ids.length - 1), 1); // three of the four turn up
+  if (isStory() && S.day >= 21) ids.splice(ids.indexOf('shark'), 1); // Rook is gone
+  else ids.splice(R.int(0, ids.length - 1), 1); // three of the four turn up
+  if (isStory() && S.day >= 21 && ids.length > 3) ids.splice(R.int(0, ids.length - 1), 1);
   const owned = new Set(S.collection.map((i) => i.line + ':' + i.n));
   const lines = unlockedLines();
   const offer = (quality, scale) => {
@@ -1577,11 +1882,27 @@ function tradeNight() {
     rollVariants(R, inst, { scale });
     return inst;
   };
+  const bring = lines.filter((l) => hasGoal(S, l, 'mythics')).map((l) => {
+    const missing = CARDS[l].filter((c) => !owned.has(l + ':' + c.n));
+    return missing.length ? makeInst(R, l, R.pick(missing).n, 'nice') : null;
+  }).filter(Boolean);
   S.eve.trade = ids.map((id) => ({
     id, done: false,
     offers: id === 'blind' ? [] : [0, 1, 2].map(() => offer(id === 'grump' ? 'gem' : 'nice', id === 'shark' ? 1.4 : id === 'kid' ? 1.6 : 0.8)),
   }));
+  const rook = S.eve.trade.find((t) => t.id === 'shark');
+  if (rook && isStory() && S.day >= 14 && S.day < 21 && rook.offers[0]) {
+    const o = rook.offers[0]; o.defects = o.defects.filter((d) => d.sev === 1); o.v.holo = true;
+    o.fake = { kinds: ['micro'], cr: 0 }; o.rook = true;
+  }
+  // Collectors who've heard about your binder bring cards you're missing.
+  const host = S.eve.trade.find((t) => t.id === 'grump') || S.eve.trade.find((t) => t.id !== 'blind');
+  if (host) bring.slice(0, 2).forEach((c) => host.offers.push(c));
   return S.eve.trade;
+}
+
+function offersHTML(t, k, ratio) {
+  return `<div class="cardgrid">${t.offers.map((o, j) => `<button class="cardcell" data-t="${k}" data-o="${j}">${cardSVG(o)}<span>${esc(cardTitle(o))}</span><span class="price">${esc(variantLabels(o.v, o.line).join(', ') || LINES[o.line].name)}</span><span class="mono" style="color:var(--lamp)">wants ~${money(Math.max(1, cardValue(o.fake ? { ...o, fake: null } : o) * ratio))}</span></button>`).join('')}</div>`;
 }
 
 function showTradeNight(root, onTrade) {
@@ -1594,21 +1915,32 @@ function showTradeNight(root, onTrade) {
         return `<div class="trader ${t.done ? 'done' : ''}">
           <div class="trader-head"><b>${esc(T.name)}</b><small>${esc(T.who)}</small></div>
           <p class="speech" style="margin:0">"${esc(T.say)}"</p>
+          ${isStory() && arcLine(t.id) ? `<p style="margin:0;color:var(--muted);font-style:italic">${esc(arcLine(t.id))}</p>` : ''}
           <p class="mono trader-rule">${esc(T.rulesLine)}${t.id === 'shark' ? ` Wants ${Math.round(ratio * 100)}% of value tonight.` : ''}</p>
           ${t.done ? '<p style="margin:0;color:var(--muted)">Done trading for tonight.</p>'
             : t.id === 'blind' ? `<button class="btn" data-blind="${k}">Slide two spares across</button>`
-            : `<div class="cardgrid">${t.offers.map((o, j) => `<button class="cardcell" data-t="${k}" data-o="${j}">${cardSVG(o)}<span>${esc(cardTitle(o))}</span><span class="price">${esc(variantLabels(o.v, o.line).join(', ') || LINES[o.line].name)}</span><span class="mono" style="color:var(--lamp)">wants ~${money(Math.max(1, cardValue(o) * ratio))}</span></button>`).join('')}</div>`}
+            : t.id === 'kid' && isStory() && S.day >= 11 && S.day < 21 && !S.flags.mikeyGift ? `<div class="row"><button class="btn small" data-gift="${k}">Give Mikey one of your spare holos</button></div>${offersHTML(t, k, ratio)}`
+            : offersHTML(t, k, ratio)}
         </div>`;
       }).join('')}
       <button class="btn primary" id="out">Leave the booth</button>`;
     $('#out').onclick = () => leaveTo('Waiting for the last bus home…');
     $$('[data-o]', root).forEach((b) => b.onclick = () => pickOffer(night[+b.dataset.t], +b.dataset.o));
     $$('[data-blind]', root).forEach((b) => b.onclick = () => blindTrade(night[+b.dataset.blind]));
+    $$('[data-gift]', root).forEach((b) => b.onclick = () => {
+      const holos = spareCards().filter((i) => i.v.holo).sort((a, c) => cardValue(a) - cardValue(c));
+      if (!holos.length) { toast('You don\'t have a spare holo to give.'); return; }
+      const h = holos[0];
+      S.collection.splice(S.collection.indexOf(h), 1);
+      S.flags.mikeyGift = true; S.integ = (S.integ || 0) + 3; meters({ rep: 1 });
+      save(); draw();
+      runEvents([{ from: 'Mikey', body: [`You slide ${cardTitle(h)} across the table. Mikey stares at it, then at you.`, '"For real?" He puts it in a sleeve, then a toploader, then inside his jacket. He doesn\'t trade anything else all night.'] }], () => {});
+    });
   };
 
   // Choose spares until they cover what the trader wants for one of their cards.
   function pickOffer(t, j) {
-    const T = TRADERS[t.id], want = Math.max(1, cardValue(t.offers[j]) * traderRatio(t));
+    const T = TRADERS[t.id], off = t.offers[j], want = Math.max(1, cardValue(off.fake ? { ...off, fake: null } : off) * traderRatio(t));
     const list = spareCards().filter((i) => acceptsCard(t, i)).sort((a, b) => cardValue(b) - cardValue(a));
     const picked = new Set();
     const m = modal(`<h2>${esc(T.name)}: ${esc(cardTitle(t.offers[j]))}</h2>
@@ -1637,7 +1969,7 @@ function showTradeNight(root, onTrade) {
       }
       give.forEach((i) => S.collection.splice(S.collection.indexOf(i), 1));
       const got = t.offers.splice(j, 1)[0];
-      S.collection.push(got);
+      gain(got, 'trade', T.name);
       t.done = true;
       learnInst(got); sfx('cash'); onTrade(); checkSets(); save();
       toast(`Traded ${give.length} ${give.length === 1 ? 'card' : 'cards'} for ${cardTitle(got)}`, 'good');
@@ -1664,7 +1996,7 @@ function showTradeNight(root, onTrade) {
       const got = makeInst(R, line, pickCard(R, line, { c: 2, u: 3, r: 2.5 }).n, pickQuality(R, -0.1));
       rollVariants(R, got, { scale: 2.2 });
       if (R() < 0.18) makeFake(R, got, null, [R.pick(['print', 'copyright', 'uv', 'back'])]);
-      S.collection.push(got);
+      gain(got, 'stranger');
       t.done = true; onTrade(); sfx('holo'); save();
       const r = modal(`<h2>Face down, then face up</h2><div style="width:min(220px,60vw);margin:0 auto">${cardSVG(got)}</div>
         <p style="margin:0;text-align:center">${esc(cardTitle(got))}${variantLabels(got.v, got.line).length ? ' · ' + esc(variantLabels(got.v, got.line).join(', ')) : ''}</p>
@@ -1675,19 +2007,100 @@ function showTradeNight(root, onTrade) {
   draw();
 }
 
+// ------------------------------------------------------------------ display case
+// Six cards behind glass at home. Theo has opinions. A strong case gets around: collectors at
+// trade night give you better terms.
+const CASE_SLOTS = 6;
+const displayed = () => (S.display || []).map((u) => S.collection.find((i) => i.uid === u)).filter(Boolean);
+function caseScore() {
+  const list = displayed();
+  const pts = { c: 1, u: 2, r: 4, m: 8 };
+  let s = list.reduce((a, i) => {
+    const c = CARDS[i.line].find((x) => x.n === i.n);
+    let p = pts[c.r] || 1;
+    if (i.v.holo) p += 2;
+    if (i.v.fullart) p += 4;
+    if (['first', 'shadowless', 'noYellow', 'hidden', 'secret', 'alpha', 'vintage', 'run1', 'serial', 'inverted', 'ghost'].some((k) => i.v[k])) p += 3;
+    if (i.slab && i.slab.grade >= 9) p += 3;
+    return a + p;
+  }, 0);
+  s += new Set(list.map((i) => i.line)).size;
+  s += Object.keys(S.sets || {}).length * 5; // master set plaques
+  return s;
+}
+const CASE_TIERS = [[0, 'Bare'], [10, 'Respectable'], [25, 'Impressive'], [40, 'Legendary']];
+const caseTier = () => { const s = caseScore(); return [...CASE_TIERS].reverse().find(([n]) => s >= n)[1]; };
+// Better trade-night terms for an impressive case.
+const caseBonus = () => { const s = caseScore(); return s >= 40 ? 0.1 : s >= 25 ? 0.05 : 0; };
+
+function theoOnCase() {
+  const list = displayed();
+  if (!list.length) return 'Theo looks at the empty case. "It\'s just glass. Put something in it."';
+  const best = [...list].sort((a, b) => cardValue(b) - cardValue(a))[0];
+  const lines = list.map((i) => i.line);
+  const fav = lines.sort((a, b) => lines.filter((x) => x === b).length - lines.filter((x) => x === a).length)[0];
+  const tier = caseTier();
+  const bits = [];
+  if (list.length < CASE_SLOTS) bits.push(`"There's ${CASE_SLOTS - list.length === 1 ? 'one empty spot' : `${CASE_SLOTS - list.length} empty spots`}. It looks like a smile with teeth missing."`);
+  bits.push(`"${cardTitle(best)} is the best one. Obviously."`);
+  if (lines.filter((x) => x === fav).length >= 3) bits.push(`"You really like ${LINES[fav].name}, huh."`);
+  if (list.some((i) => i.v.holo)) bits.push('"The shiny one goes rainbow when I walk past it."');
+  if (Object.keys(S.sets || {}).length) bits.push('He keeps polishing Lou\'s crooked brass plaque with his sleeve.');
+  if (tier === 'Legendary') bits.push('"Mikey from school wouldn\'t believe this. Can I bring him over? Please?"');
+  else if (tier === 'Bare') bits.push('"It needs, like, a dragon."');
+  return bits.slice(0, 3).join(' ');
+}
+
+function showCase() {
+  S.display = (S.display || []).filter((u) => S.collection.some((i) => i.uid === u));
+  const m = modal(`<div class="row" style="justify-content:space-between;align-items:center"><h2>Display case</h2><button class="btn small" data-close>Close</button></div><div id="caseBody"></div>`, { wide: true });
+  $('[data-close]', m).onclick = () => { m.close(); showHome(); };
+  const draw = () => {
+    const list = displayed(), plaques = Object.keys(S.sets || {});
+    $('#caseBody', m).innerHTML = `<p class="mono" style="margin:0;color:var(--muted);font-size:12px">${caseTier()} · score ${caseScore()}${caseBonus() ? ` · trade-night collectors give you ${Math.round(caseBonus() * 100)}% better terms` : ' · reach 25 for better terms at trade night'}</p>
+      <div class="case">${Array.from({ length: CASE_SLOTS }, (_, k) => list[k]
+        ? `<div class="caseslot"><button class="cardcell" data-v="${k}">${thumb(list[k])}</button><button class="btn small" data-rm="${k}">Take out</button></div>`
+        : `<div class="caseslot"><button class="cardcell empty" data-add="${k}"><div class="slot">+</div><span>Empty</span></button></div>`).join('')}</div>
+      ${plaques.length ? `<div class="plaques">${plaques.map((l) => `<span class="plaque">${esc(LINES[l].name)} · master set</span>`).join('')}</div>` : ''}
+      <p class="speech" style="margin:0"><b>Theo</b>${esc(theoOnCase())}</p>`;
+    $$('[data-v]', m).forEach((b) => b.onclick = () => viewer(list[+b.dataset.v]));
+    $$('[data-rm]', m).forEach((b) => b.onclick = () => { S.display.splice(+b.dataset.rm, 1); save(); draw(); });
+    $$('[data-add]', m).forEach((b) => b.onclick = () => pickForCase(draw));
+  };
+  draw();
+}
+function pickForCase(done) {
+  const list = S.collection.filter((i) => !i.atApex && !(S.display || []).includes(i.uid));
+  const m = modal(`<h2>Put a card in the case</h2><div id="pbar"></div><div class="cardgrid" id="pgrid"></div><button class="btn" data-x>Cancel</button>`, { wide: true });
+  $('[data-x]', m).onclick = () => m.close();
+  cardFilter('case', { sort: 'value' }).mount($('#pbar', m), $('#pgrid', m), list, {
+    render: (out) => out.map((i) => `<button class="cardcell" data-u="${i.uid}">${thumb(i)}<span>${esc(cardTitle(i))}</span><span class="price">${esc(variantLabels(i.v, i.line).join(', ') || rarityName(i))}</span></button>`).join(''),
+    wire: (gr) => $$('[data-u]', gr).forEach((b) => b.onclick = () => { S.display = [...(S.display || []), b.dataset.u].slice(0, CASE_SLOTS); save(); m.close(); done(); }),
+  });
+}
+
 function showHome() {
   setScene('home');
   const root = locScreen('loc-home', homeSVG(S.flags, S.day), `${eveClock()} · APARTMENT 3F`, 'Home', '', theoLine(S.flags, S.day), 'Head back out');
   $('#leave').onclick = () => { if (!S.actions) { toast('Everything is closed.'); return; } leaveTo('Back down the stairs…'); };
   const next = S.weekend ? 'Monday' : dayName(S.day + 1);
-  root.innerHTML = `${meterHTML()}<div class="places compact">
+  checkSets();
+  const shown = displayed();
+  root.innerHTML = `${meterHTML()}
+    <button class="case-mini" id="case" aria-label="Display case">${shown.length ? shown.map((i) => `<span>${cardSVG(i, { clean: true })}</span>`).join('') : '<em>Your display case is empty.</em>'}<b>Display case · ${caseTier()}</b></button>
+    <div class="places compact">
       <button class="place" id="binder"><b>Your binder</b><small>${S.collection.length} cards · ${S.fakes.length} fakes · worth about ${money(collectionValue())}</small><span class="cost">free</span></button>
+      ${S.boxes.length ? `<button class="place" id="boxes"><b>Sealed boxes</b><small>${S.boxes.length} ${S.boxes.length === 1 ? 'box' : 'boxes'} · worth about ${money(S.boxes.reduce((s, b) => s + sealedValue(b, S.day), 0))} today</small><span class="cost">free</span></button>` : ''}
+      ${S.opening ? '<button class="place" id="resumebox"><b>Finish opening your box</b><small>Some packs are still sealed.</small><span class="cost">free</span></button>' : ''}
       <button class="place" id="codex"><b>Codex</b><small>${Object.keys(S.codex).length} tells and versions learned</small><span class="cost">free</span></button>
       <button class="place" id="sleep"><b>Go to sleep</b><small>Tomorrow is ${next}.${S.actions ? ` You still have time for ${S.actions} more ${S.actions === 1 ? 'stop' : 'stops'}.` : ''}</small><span class="cost">end the day</span></button>
     </div>
     <div class="row"><button class="btn small" id="ach">Achievements</button><button class="btn small" id="set">Settings</button></div>`;
   if (!S.actions) $('#leave').disabled = true;
   $('#binder').onclick = openBinder;
+  $('#case').onclick = showCase;
+  if ($('#boxes')) $('#boxes').onclick = showBoxes;
+  if ($('#resumebox')) $('#resumebox').onclick = openBox;
   $('#codex').onclick = showCodex;
   $('#ach').onclick = showAchievements;
   $('#set').onclick = showSettings;
@@ -1712,7 +2125,8 @@ function viewer(inst, o = {}) {
       ${o.hideInfo ? '<span style="color:var(--muted)">Tap the card to flip it. You\'ll have to judge it yourself.</span>' : `
         <div class="chips">${vl.map((x) => `<span class="chipv">${esc(x)}</span>`).join('')}${inst.fake ? '<span class="chipv" style="color:#ff8a7a">Counterfeit</span>' : ''}${inst.slab ? `<span class="chipv">${inst.slab.by === 'apex' ? 'Apex' : 'Gemline'} ${fmtG(inst.slab.grade)}</span>` : ''}</div>
         ${inst.fake ? `<span>${esc(inst.fake.kinds.map((k) => CODEX[k] ? CODEX[k].name : k).join(', '))}</span>` : `<span>Your estimate: about a ${fmtG(trueGrade(inst))}</span>`}
-        <span>Worth about ${money(cardValue(inst))}${inst.slab ? ' slabbed' : ' raw'}</span>`}`;
+        <span>Worth about ${money(cardValue(inst))}${inst.slab ? ' slabbed' : ' raw'}</span>`}
+      ${o.hideInfo ? '' : `<span class="prov">${esc(fromText(inst))}</span>`}`;
     if ($('#vtools', m)) $$('[data-m]', m).forEach((b) => b.setAttribute('aria-pressed', b.dataset.m === mode ? 'true' : 'false'));
   };
   $('#vbig', m).onclick = () => { if (inst.slab && !mode) return; face = face === 'front' ? 'back' : 'front'; sfx('flip'); draw(); };
@@ -1722,22 +2136,39 @@ function viewer(inst, o = {}) {
   draw();
 }
 
-// Set completion: owning every card of a line pays a reward once.
+// Set goals: check every unlocked set after cards change hands. Rewards are reputation,
+// discounts, access and cosmetics. A master set earns a plaque, not cash.
 function checkSets() {
-  unlockedLines().forEach((l) => {
-    if (S.sets[l]) return;
-    const have = new Set(S.collection.filter((i) => i.line === l && !i.fake).map((i) => i.n));
-    if (have.size < LINES[l].total) return;
-    S.sets[l] = true;
-    const reward = 20 * LINES[l].total;
-    S.money += reward;
-    meters({ rep: 5 });
-    achieve('set');
-    setTimeout(() => runEvents([{ from: 'Lou, by phone', body: [`"Heard you finished a full ${LINES[l].name} set. Do you know how many people in this city can say that? Four. Now five."`, `A collector pays you ${money(reward)} just to photograph the page.`] }], () => { if (S.phase === 'evening') showCity(); }), 400);
+  const before = rankOf(S).n;
+  const done = checkGoals(S, unlockedLines());
+  done.forEach((d, k) => {
+    if (d.rep) meters({ rep: d.rep });
+    setTimeout(() => toast(`Goal · ${LINES[d.line].name}: ${d.name}`, 'good'), 300 + k * 900);
+    if (d.k === 'master') {
+      S.sets[d.line] = true;
+      achieve('set');
+      setTimeout(() => runEvents([{ from: 'Lou, by phone', body: [`"Heard you finished a full ${LINES[d.line].name} set. Do you know how many people in this city can say that? Four. Now five."`, 'He says he\'ll make you a little brass plaque for it. He does. It\'s crooked. You love it.'] }], () => setScene(S.phase === 'evening' ? 'home' : 'morning')), 600);
+    }
   });
+  const after = rankOf(S);
+  if (after.n > before) {
+    setTimeout(() => toast(`You're a ${after.name}. ${after.perk}`, 'good'), 400 + done.length * 900);
+    if (after.n >= 3) achieve('rank_gold');
+  }
+  if (done.length) save();
+}
+const louDiscount = (line) => (hasGoal(S, line, 'uncommons') ? 0.9 : 1);
+const louBoxPrice = (line) => Math.round(boxPrice(line, S.day) * louDiscount(line));
+
+function goalSheet(line) {
+  const list = goalsFor(line);
+  const got = list.filter((x) => hasGoal(S, line, x.k)).length;
+  return `<div class="goals"><div class="goals-head"><b>Set goals</b><span class="mono">${got}/${list.length}</span></div>
+    ${list.map((x) => { const d = S.goals[goalKey(line, x.k)]; return `<div class="goal ${d ? 'done' : ''} ${x.themed ? 'themed' : ''}"><span class="gk">${d ? '✓' : '○'}</span><div><b>${esc(x.name)}</b><small>${esc(x.desc)}</small><em>${esc(x.reward)}</em></div></div>`; }).join('')}</div>`;
 }
 
 function openBinder() {
+  checkSets();
   let tab = unlockedLines()[0];
   const tabs = [...unlockedLines(), 'fakes'];
   const m = modal(`<div class="row" style="justify-content:space-between;align-items:center"><h2>Your binder</h2><button class="btn small" data-close>Close</button></div>
@@ -1746,7 +2177,8 @@ function openBinder() {
     <div id="bb"></div>`, { wide: true });
   $('[data-close]', m).onclick = () => m.close();
   const draw = () => {
-    $('#btotal', m).textContent = `${S.collection.length} cards · worth about ${money(collectionValue())}`;
+    const rk = rankOf(S), nx = RANKS[rk.n + 1];
+    $('#btotal', m).textContent = `${S.collection.length} cards · worth about ${money(collectionValue())} · ${rk.name} (${goalCount(S)}/${GOALS_TOTAL} goals${nx ? `, ${nx.need - goalCount(S)} to ${nx.name.split(' ')[0]}` : ''})`;
     $$('[data-t]', m).forEach((b) => b.setAttribute('aria-selected', b.dataset.t === tab ? 'true' : 'false'));
     if (tab === 'fakes') {
       $('#bb', m).innerHTML = `<p style="margin:0;color:var(--muted)">Counterfeits you've confiscated. Ring forgeries are evidence${weekOf(S.day).market < 0.9 ? ', and since the crash, collectors pay for them' : ''}.</p>
@@ -1759,10 +2191,12 @@ function openBinder() {
       return { c, copies };
     });
     const have = owned.filter((o) => o.copies.length).length;
-    $('#bb', m).innerHTML = `<p class="mono" style="margin:0;font-size:12px;color:var(--muted)">${have}/${CARDS[tab].length} in the set${S.sets[tab] ? ' · COMPLETE' : ` · complete it for ${money(20 * LINES[tab].total)}`}</p>
+    const cos = ['commons', 'holos', 'slab9', 'master'].filter((k) => hasGoal(S, tab, k)).map((k) => 'pg-' + k).join(' ');
+    const ribbons = goalsFor(tab).filter((x) => x.themed && hasGoal(S, tab, x.k)).map((x) => `<span class="ribbon">${esc(x.name)}</span>`).join('');
+    $('#bb', m).innerHTML = `<div class="bpage ${cos}"><p class="mono" style="margin:0;font-size:12px;color:var(--muted)">${have}/${CARDS[tab].length} in the set${S.sets[tab] ? ' · MASTER SET' : ''}${hasGoal(S, tab, 'slab9') ? ' · slab rack' : ''}</p>${ribbons ? `<div class="ribbons">${ribbons}</div>` : ''}
       <div class="cardgrid">${owned.map((o) => o.copies.length
         ? `<button class="cardcell" data-n="${o.c.n}">${thumb(o.copies[0])}${o.copies.length > 1 ? `<span class="badge">×${o.copies.length}</span>` : ''}<span>${pad3(o.c.n)} ${esc(o.c.name)}</span></button>`
-        : `<div class="cardcell empty"><div class="slot">${pad3(o.c.n)}</div><span>${esc(o.c.name)}</span></div>`).join('')}</div>`;
+        : `<div class="cardcell empty"><div class="slot">${pad3(o.c.n)}</div><span>${esc(o.c.name)}</span></div>`).join('')}</div>${goalSheet(tab)}</div>`;
     $$('[data-n]', m).forEach((b) => b.onclick = () => {
       const copies = S.collection.filter((i) => i.line === tab && i.n === +b.dataset.n).sort((a, c) => cardValue(c) - cardValue(a));
       if (copies.length === 1) return viewer(copies[0]);
@@ -1783,7 +2217,7 @@ function finale() {
   if (f.whistle === 'yes') kind = 'whistle';
   else if (f.kingpinOffer === 'yes') kind = 'kingpin';
   if (kind) return endScreen(kind);
-  const choices = pickEndingChoices(S, f, collectionValue());
+  const choices = pickEndingChoices(S, f, collectionValue(), rankOf(S).n);
   const m = modal(`${letterHTML({ from: 'Friday, 6:00 p.m.', body: ['The quarter is over. The Board has finished its audit. Pike\'s door is closed.', 'For the first time in five weeks, nobody is telling you what to do next.'] })}
     <div class="col">${choices.map((c) => `<button class="btn ${c.id === 'standing' ? '' : 'primary'}" data-e="${c.id}">${esc(c.label)}</button>`).join('')}</div>`, { dismiss: false });
   $$('[data-e]', m).forEach((b) => b.onclick = () => { m.close(); endScreen(b.dataset.e); });
@@ -1794,12 +2228,17 @@ function endScreen(kind) {
   closeAllModals();
   const E = ENDINGS[kind];
   if (E.ach) achieve(E.ach);
+  if (S.phase !== 'end') {
+    const M = meta();
+    const finished = isStory() && !['fired', 'evicted', 'arrested'].includes(kind);
+    setMeta({ runs: (M.runs || 0) + 1, ngUnlocked: finished ? Math.max(M.ngUnlocked || 0, Math.min(3, (S.ng || 0) + 1)) : M.ngUnlocked, bestEndless: S.mode === 'endless' ? Math.max(M.bestEndless || 0, S.day) : M.bestEndless });
+  }
   S.phase = 'end';
   save();
   const acc = S.stats.graded ? Math.round((S.stats.correct / S.stats.graded) * 100) : 0;
   const best = [...S.collection].sort((a, b) => cardValue(b) - cardValue(a))[0];
   app.innerHTML = `<div class="screen end scroll">
-    <div class="kicker">${kind === 'fired' || kind === 'evicted' || kind === 'arrested' ? `Week ${Math.ceil(S.day / 5)}, ${dayName(S.day)}` : 'The end of the quarter'}</div>
+    <div class="kicker">${S.mode === 'endless' ? `Endless · lasted ${S.day} days` : kind === 'fired' || kind === 'evicted' || kind === 'arrested' ? `Week ${Math.ceil(S.day / 5)}, ${dayName(S.day)}` : 'The end of the quarter'}${S.ng ? ` · New Game+${S.ng > 1 ? ' ' + S.ng : ''}` : ''}</div>
     <h1>${esc(E.title)}</h1>
     <div style="max-width:56ch;display:flex;flex-direction:column;gap:10px;color:var(--muted)">${E.text.map((p) => `<p style="margin:0">${esc(p)}</p>`).join('')}</div>
     <div class="paper ledger"><table>
@@ -1814,16 +2253,17 @@ function endScreen(kind) {
       <tr><td>Ghost Print clues</td><td class="amt">${S.clues || 0} of 4${S.flags.ghostFound ? ' · FOUND' : ''}</td></tr>
       <tr><td>Codex</td><td class="amt">${Object.keys(S.codex).length} of ${Object.keys(CODEX).length}</td></tr>
     </table></div>
-    <div class="row"><button class="btn" id="ach">Achievements</button><button class="btn primary" id="again">Start over</button></div>
+    ${isStory() && !['fired', 'evicted', 'arrested'].includes(kind) ? `<p style="margin:0;color:var(--lamp)">New Game+${(S.ng || 0) + 1 > 1 ? ' ' + Math.min(3, (S.ng || 0) + 1) : ''} unlocked (title screen → More modes).</p>` : ''}
+    <div class="row"><button class="btn" id="ach">Achievements</button><button class="btn primary" id="again">Back to the title</button></div>
   </div>`;
   $('#ach').onclick = showAchievements;
-  $('#again').onclick = () => { clearSave(); showTitle(); };
+  $('#again').onclick = () => showTitle();
 }
 
 function gameOver(kind) { endScreen(kind); }
 
 // ------------------------------------------------------------------ boot
-initCollect({ S: () => S, save, toast, sfx, setScene, modal, viewer, locScreen, leaveTo, eveClock, money, esc, dayName, achieve, checkSets });
+initCollect({ S: () => S, rank: () => rankOf(S).n, gain, save, toast, sfx, setScene, modal, viewer, locScreen, leaveTo, eveClock, money, esc, dayName, achieve, checkSets });
 
 document.addEventListener('pointerdown', unlockAudio, true);
 document.addEventListener('keydown', unlockAudio, true);
@@ -1838,5 +2278,6 @@ const drawSound = () => {
 soundBtn.onclick = () => { unlockAudio(); toggleMute(); drawSound(); };
 drawSound();
 document.body.appendChild(soundBtn);
+applyA11y();
 
 showTitle();

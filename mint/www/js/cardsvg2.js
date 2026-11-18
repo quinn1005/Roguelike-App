@@ -2,6 +2,9 @@
 import { LINES, CARDS } from './data.js';
 import { mlArt, tbArt, rdArt, gaArt, SCHOOL, hpSym, icArt, cfPhoto, spArt } from './art.js';
 export const RSYM = { c: '●', u: '◆', r: '★', m: '✦' };
+// Colorblind cues: spell out what is otherwise shown only by color (holo sheen, a shifting hologram).
+export let CUES = false;
+export const setCues = (on) => { CUES = !!on; };
 
 export const pad3 = (n) => String(n).padStart(3, '0');
 export const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -141,7 +144,8 @@ function rdFront(inst, p, o) {
   <text x="16" y="334" font-family="${MONO}" font-size="6.6" fill="#f2e9d8">${esc(copyrightText(inst))}</text>
   ${raritySym(c, 160, 335, '#f2e9d8')}
   <path d="M226 324l7 4v8l-7 4-7-4v-8z" fill="${hexLive ? `url(#${p}rain)` : `url(#${p}silver)`}" stroke="#2a1a12" stroke-width=".5"/>
-  ${hexLive ? `<path d="M226 324l7 4v8l-7 4-7-4v-8z" fill="#ffffff" opacity=".35"><animate attributeName="opacity" values=".1;.6;.1" dur="1.4s" repeatCount="indefinite"/></path>` : ''}`;
+  ${hexLive ? `<path d="M226 324l7 4v8l-7 4-7-4v-8z" fill="#ffffff" opacity=".35"><animate attributeName="opacity" values=".1;.6;.1" dur="1.4s" repeatCount="indefinite"/></path>` : ''}
+  ${CUES && o.tilt ? `<rect x="168" y="316" width="50" height="12" rx="3" fill="#000" opacity=".8"/><text x="193" y="325" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="7" fill="#fff">${hexLive ? 'HEX SHIFTS' : 'HEX FLAT'}</text>` : ''}`;
 }
 function rdBack(inst, p) {
   const wrong = isFake(inst, 'back');

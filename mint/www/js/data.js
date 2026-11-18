@@ -223,7 +223,14 @@ export const WEEKS = [
   { n: 4, name: 'The Crash', rent: 320, pay: 0.75, market: 0.55 },
   { n: 5, name: 'Reckoning', rent: 340, pay: 0.9, market: 0.8 },
 ];
-export const weekOf = (day) => WEEKS[Math.min(4, Math.floor((day - 1) / 5))];
+// Weeks after the quarter (Endless mode) keep going: rent creeps up and the market swings.
+const LATE_MARKET = [1.05, 1.35, 0.7, 1.2, 0.85, 1.5, 0.6, 1.1];
+export const weekOf = (day) => {
+  const i = Math.floor((day - 1) / 5);
+  if (i < 5) return WEEKS[i];
+  const n = i + 1;
+  return { n, name: `Week ${n}`, rent: 340 + (n - 5) * 15, pay: 1, market: LATE_MARKET[(n - 6) % LATE_MARKET.length] };
+};
 export const LAST_DAY = 25;
 
 const QUOTA = [5, 6, 7, 8, 8, 8, 8, 9, 9, 9, 9, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10];
@@ -275,6 +282,13 @@ const RULES = {
   25: ['FINAL AUDIT TODAY.'],
 };
 
+// The desk configuration for any day; after day 25 (Endless mode) the last day's rules repeat
+// with a slowly rising quota and fake rate.
+export const dayCfg = (n) => {
+  if (n <= LAST_DAY) return DAYS[n - 1];
+  const base = DAYS[LAST_DAY - 1], extra = Math.floor((n - LAST_DAY) / 5);
+  return { ...base, n, quota: Math.min(14, base.quota + extra), fake: Math.min(0.4, base.fake + extra * 0.02), rules: [], week: weekOf(n).n };
+};
 export const DAYS = Array.from({ length: LAST_DAY }, (_, i) => {
   const n = i + 1;
   return {
