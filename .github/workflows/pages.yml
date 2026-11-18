@@ -36,6 +36,16 @@ jobs:
           cp -r diner/www/. _site/diner/
           cp -r mint-condition-site/. _site/mint-condition/
           cp -r mint/www/. _site/mint-condition/play/
+      - name: Stamp Mint Condition's version on its file addresses
+        # Phones cache the game's scripts. Adding ?v=<version> to every script and stylesheet
+        # address gives each release new addresses, so players get the new files right away.
+        run: |
+          V=$(sed -n "s/.*VERSION = '\(.*\)'.*/\1/p" mint/www/js/version.js)
+          cd _site/mint-condition/play
+          sed -i -E "s#(from '\./[A-Za-z0-9_-]+\.js)'#\1?v=$V'#g" js/*.js
+          sed -i -E "s#src=\"js/game\.js\"#src=\"js/game.js?v=$V\"#; s#href=\"style\.css\"#href=\"style.css?v=$V\"#" index.html
+          grep -q "game.js?v=$V" index.html
+          echo "Stamped version $V"
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
