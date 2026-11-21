@@ -1,0 +1,128 @@
+name: Build Pixel Pet Clinic APK
+
+# Builds Pixel Pet Clinic (clinic/www) as its own Android app, separate from the other games,
+# and publishes it as a GitHub Release tagged clinic-v<version>.
+on:
+  push:
+    branches: ['**']
+    paths: ['clinic/**', '.github/workflows/build-clinic-apk.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Read version
+        id: ver
+        run: |
+          VERSION=$(sed -n "s/.*VERSION = '\(.*\)'.*/\1/p" clinic/www/js/version.js)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building Pixel Pet Clinic $VERSION (code ${{ github.run_number }})"
+
+      - name: Set up a separate build folder
+        run: |
+          mkdir build-clinic
+          cp package.json build-clinic/
+          cp clinic/capacitor.config.json build-clinic/
+          cp -r clinic/www build-clinic/www
+          cp -r clinic/resources build-clinic/resources
+          cp -r keys build-clinic/keys
+
+      - name: Install dependencies
+        working-directory: build-clinic
+        run: npm install
+
+      - name: Create Android project
+        working-directory: build-clinic
+        run: npx cap add android
+
+      - name: Generate icons and splash screens
+        working-directory: build-clinic
+        run: npx @capacitor/assets generate --android --iconBackgroundColor '#0e1214' --iconBackgroundColorDark '#0e1214' --splashBackgroundColor '#0e1214' --splashBackgroundColorDark '#0e1214'
+
+      - name: Portrait + fullscreen
+        working-directory: build-clinic
+        run: |
+          sed -i 's/<activity/<activity android:screenOrientation="portrait"/' android/app/src/main/AndroidManifest.xml
+          sed -i 's#<item name="windowNoTitle">true</item>#<item name="windowNoTitle">true</item>\n        <item name="android:windowFullscreen">true</item>#' android/app/src/main/res/values/styles.xml
+          grep -n screenOrientation android/app/src/main/AndroidManifest.xml
+
+      - name: Keep the system's dark mode from repainting the game
+        working-directory: build-clinic
+        run: |
+          # Phones with "dark mode for apps" (One UI and others) otherwise force-darken the web view,
+          # which turns light card faces navy and washes out the art.
+          sed -i 's#\(<style name="AppTheme[^>]*>\)#\1\n        <item name="android:forceDarkAllowed">false</item>#' android/app/src/main/res/values/styles.xml
+          grep -c forceDarkAllowed android/app/src/main/res/values/styles.xml
+
+      - name: Set app version
+        working-directory: build-clinic
+        run: |
+          sed -i 's/versionCode [0-9]*/versionCode ${{ github.run_number }}/' android/app/build.gradle
+          sed -i 's/versionName "[^"]*"/versionName "${{ steps.ver.outputs.version }}"/' android/app/build.gradle
+          grep -n "versionCode\|versionName" android/app/build.gradle
+
+      - name: Sign every build with the same key (so updates install over old versions)
+        working-directory: build-clinic
+        run: |
+          cat >> android/app/build.gradle <<'GRADLE'
+
+          android {
+              signingConfigs {
+                  stable {
+                      storeFile rootProject.file('../keys/debug.keystore')
+                      storePassword 'android'
+                      keyAlias 'androiddebugkey'
+                      keyPassword 'android'
+                  }
+              }
+              buildTypes {
+                  debug { signingConfig signingConfigs.stable }
+              }
+          }
+          GRADLE
+
+      - name: Sync web assets
+        working-directory: build-clinic
+        run: npx cap sync android
+
+      - name: Build debug APK
+        working-directory: build-clinic/android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Name the APK
+        run: cp build-clinic/android/app/build/outputs/apk/debug/app-debug.apk pixel-pet-clinic-v${{ steps.ver.outputs.version }}.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pixel-pet-clinic-v${{ steps.ver.outputs.version }}
+          path: pixel-pet-clinic-v${{ steps.ver.outputs.version }}.apk
+
+      - name: Release notes from clinic/CHANGELOG.md
+        run: |
+          awk -v v="${{ steps.ver.outputs.version }}" '$0 == "## v" v {f=1; next} /^## v/ {f=0} f' clinic/CHANGELOG.md > release-notes.md
+          test -s release-notes.md || echo "Pixel Pet Clinic v${{ steps.ver.outputs.version }}" > release-notes.md
+          cat release-notes.md
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: clinic-v${{ steps.ver.outputs.version }}
+          name: Pixel Pet Clinic v${{ steps.ver.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          body_path: release-notes.md
+          files: pixel-pet-clinic-v${{ steps.ver.outputs.version }}.apk

@@ -1,0 +1,9 @@
+{
+  "appId": "com.pixelpetclinic.game",
+  "appName": "Pixel Pet Clinic",
+  "webDir": "www",
+  "backgroundColor": "#0e1214",
+  "android": {
+    "backgroundColor": "#0e1214"
+  }
+}
