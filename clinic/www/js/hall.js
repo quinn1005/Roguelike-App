@@ -1,6 +1,6 @@
 // Waiting room (style E: parallax layers). Flat painted layers slide at different speeds
 // as the camera pans; owners wait in the chairs with their pets.
-import { clamp, mix, tone, css, rgba, hash, WHITE, BLACK } from './util.js';
+import { clamp, mix, tone, css, rgba, hash, WHITE, BLACK, text } from './util.js';
 
 export const HW = 192, HH = 108;
 export const SEATS = 8;
@@ -60,7 +60,19 @@ export function renderHall(ctx, t, th, state) {
   R(0, 52, W, 20, T(mix(th.wall, th.fabric, 0.35), amb + (1 - amb) * 0.3)); R(0, 52, W, 1, T(th.wall, amb + (1 - amb) * 0.7));
   const fr = T(th.steel, amb + (1 - amb) * 0.6);
   for (const x of wins) { R(x - 15, 13, 30, 1, fr); R(x - 15, 40, 30, 2, fr); R(x - 15, 13, 1, 28, fr); R(x + 14, 13, 1, 28, fr); R(x, 14, 1, 26, fr); R(x - 14, 26, 28, 1, fr); }
+  const say = (str, x, y, c) => text({ set: (px, py) => R(px, py, 1, 1, c) }, str, x, y, c);
+  if (state.rain) for (const x of wins) for (let k = 0; k < 6; k++) { const rx = x - 13 + ((k * 5 + Math.floor(t * 40)) % 26), ry = 15 + ((k * 7 + Math.floor(t * 60)) % 22); R(rx, ry, 1, 3, rgba([180, 200, 255], 0.6)); }
   span(0.45, 64, 40, (k, x) => {
+    if (((k % 3) + 3) % 3 === 1) {
+      // a bulletin board instead of a door: league night, a lost pet, and the diner's menu
+      const bx = Math.round(x + 22), cork = T([170, 120, 80], amb + (1 - amb) * 0.5);
+      R(bx, 26, 22, 24, T([110, 80, 60], 0.4)); R(bx + 1, 27, 20, 22, cork);
+      R(bx + 2, 28, 18, 7, css([240, 236, 220])); say('LEAGUE', bx + 2, 29, [40, 60, 160]);
+      R(bx + 3, 37, 8, 10, css([255, 240, 150])); R(bx + 5, 39, 4, 3, css([150, 120, 90]));
+      R(bx + 13, 37, 7, 10, css([250, 250, 250])); for (let j = 0; j < 4; j++) R(bx + 14, 39 + j * 2, 5, 1, css([150, 150, 150]));
+      R(bx + 13, 41, 7, 1, css([220, 60, 60]));
+      return;
+    }
     const dx = Math.round(x + 32), dc = T(mix(th.steel, th.wall, 0.4), amb + (1 - amb) * 0.4), ec = T(th.steel, amb + (1 - amb) * 0.75);
     R(dx - 10, 28, 20, 44, dc); R(dx - 11, 27, 22, 1, ec); R(dx - 11, 27, 1, 45, ec); R(dx + 10, 27, 1, 45, ec); R(dx - 3, 34, 6, 6, T(th.win, 0.55)); R(dx + 6, 50, 2, 1, ec);
     R(dx - 8, 21, 16, 5, css(th.accent)); for (let j = 0; j < 4; j++) R(dx - 6 + j * 3, 23, 2, 1, css(mix(th.accent, BLACK, 0.6)));
@@ -90,6 +102,7 @@ export function renderHall(ctx, t, th, state) {
     R(x - 3, 47 + kid + bob, 6, 7, T(lk.skin, amb + (1 - amb) * 0.6)); R(x - 3, 46 + kid + bob, 6, 2, T(lk.hair, 0.4)); R(x - 4, 67, 8, 2, T([60, 64, 90], 0.4));
     R(x - 2, 49 + kid + bob, 1, 1, '#1a1020'); R(x + 1, 49 + kid + bob, 1, 1, '#1a1020');
     pet(R, T, th, occ.sp, x, 63, t, k);
+    if (/Tobi/.test(occ.owner)) { const g = Math.floor(t * 4) & 1; R(x - 3, 60, 6, 3, css([60, 60, 80])); R(x - 2, 61, 4, 1, css(g ? [80, 230, 230] : [190, 80, 255])); }
     if (occ.waitLong) { R(x + 5, 43 + kid, 3, 3, css([230, 80, 70])); R(x + 6, 44 + kid, 1, 1, '#fff'); }
     if (occ.selected) { const ay = 36 + kid + Math.round(Math.sin(t * 6) * 1.5); R(x - 2, ay, 5, 1, css(th.accent)); R(x - 1, ay + 1, 3, 1, css(th.accent)); R(x, ay + 2, 1, 1, css(th.accent)); }
     hits.push({ k, x0: x - 8, x1: x + 8, y0: 40, y1: 76 });

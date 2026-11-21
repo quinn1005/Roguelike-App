@@ -27,34 +27,21 @@ late shift after 3:30.
 
 ## The game
 
-- **Five species:** Gloop (slime), Pebblet (egg, or rock), Static Cat, Fernling (walking
-  houseplant) and Mothhound. Fifteen conditions, three per species.
-- **Examining:** drag the lamp over the patient. Signs only show where the light is close;
-  tap one to note it. Listen (tap the patient), take a temperature, X-ray, take a sample,
-  or run a mood scan. X-rays and samples use up supplies; mood scans cost money.
-- **Diagnosing:** compare your notes with Dr. Okafor's handbook and pick a condition.
-- **Treating:** six mini-games (remove the object, give a pill, calm and play, seal the
-  crack, pick off sparks or mites, dry the roots), plus admitting an egg to the incubator
-  and breaking the news that a pet rock is a rock.
-- **Billing:** charge fairly, give a discount, waive the fee, or overcharge. Happy owners tip.
-- **Wrong calls** cost reputation and the patient comes back the next day, worse.
-- **Waiting room:** patients arrive through the day and leave if they wait too long.
-- **Evenings:** a day summary, kennel care for admitted patients, and supplies.
-- **PetCorp Wellness** opens across the street on Wednesday. Keep your reputation up or lose
-  patients to them, and fix their mistakes.
-- **Story:** Dr. Okafor's letters, Tobi and the egg that won't hatch, Mrs. Fenwick and her
-  overwatered Fernling, Mr. Vance and his suspiciously imported Mothhound, rent on Friday,
-  and the basement door.
-- **Casebook:** a turntable view of every species you've examined and a wall of photos of
-  everyone you've cured.
-- Saves automatically between patients.
+- **Monday to Saturday.** Rent is due Friday night; Saturday is the town fair.
+- **Five species, 25 conditions** with overlapping signs. Each patient shows only some of its signs, plus sometimes a harmless quirk.
+- **Examining:** drag the lamp over the patient (signs only show where the light is close), listen in different places, and run tests. Every species has its own tests. Results are readings to check against the handbook's normal ranges, and you read the X-rays yourself.
+- **Stress:** every test upsets the patient; push too far and they act out.
+- **Diagnosing** includes severity, which decides the treatment. Pills need a dose by weight.
+- **Treating:** mini-games for tongs and surgery, pills, calming, patching, trimming, hatching, picking off mites and sparks, draining a hot spot, drying, soaking and brushing. Some patients stay overnight in the kennels.
+- **The day:** triage the waiting room, handle emergencies, hire staff, buy supplies and equipment, keep patient charts.
+- **Evenings:** walk the town, brew remedies, foster strays, and answer the door after dark.
+- **Saturday:** judge the pet show, run a market stall, make house calls, and find your fosters homes.
+- **Story:** Dr. Okafor's notes, Tobi's egg, Mrs. Fenwick, Mr. Vance, PetCorp Wellness, the town's strays, and the basement door.
 
 ## Controls
 
-- **Exam room:** drag across the picture to move the lamp (on a computer, just move the
-  mouse). Tap a sign to note it. With *Listen* selected, tap the patient. With *Turn*
-  selected (eggs), drag sideways to turn it.
-- **Waiting room:** drag to pan, tap a chair or a card to pick who's next.
+- **Exam room:** drag across the picture to move the lamp (on a computer, just move the mouse) and tap anything odd. Tools like Listen, Jiggle, Knock and the voltmeter work by tapping the patient; Stroke works by dragging across the fur; Turn spins an egg.
+- **Waiting room and town:** drag to pan, tap a chair or a building.
 - **Mini-games:** each one shows its instructions under the picture.
 
 ## Running it locally
