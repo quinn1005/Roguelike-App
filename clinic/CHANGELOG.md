@@ -23,6 +23,7 @@ Harder medicine, more to do after hours, and a lot more polish.
 - **Fostering:** look after strays and find them the right home at Saturday's adoption booth.
 - **Saturday:** the town fair. Judge the pet show (someone's hiding something), run a market stall, or make house calls to Lou's Cards and Lucky Strike Lanes.
 - **New title screen**, music for every part of the day, ambience (fluorescent hum, rain, the waiting room, crickets), new sound effects, pixel icons, patient portraits, and a settings screen with volume controls.
+- Rent is now $400, and treatments pay a little less: the money should feel tighter.
 - Saves from v0.1.0 can't carry over.
 
 ## v0.1.0

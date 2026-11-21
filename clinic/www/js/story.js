@@ -44,7 +44,7 @@ export const WEEK = [
     name: 'Monday', short: 'MON', weather: 'clear',
     mail: [
       { id: 'okafor1', from: 'Dr. Okafor', subject: 'The clinic is yours', body: 'If you are reading this, I have left, and the clinic is yours. Look after the patients and the patients will look after you.\n\nThe handbook on the desk has most of what I know. A few pages are missing. I lent things out over the years and not all of them came back.\n\nSigns overlap. A lump is not always a sock. Check the numbers against the normal ranges before you guess, and watch how stressed your patient is getting. Every test costs them something.\n\nOne more thing. Keep the basement door shut. Whatever you hear.\n\n- Dr. A. Okafor' },
-      { id: 'grubb1', from: 'Mr. Grubb (landlord)', subject: 'Rent', body: 'Rent is $300, due Friday evening, same as always. Dr. Okafor was always on time. I expect the same.\n\n- H. Grubb' },
+      { id: 'grubb1', from: 'Mr. Grubb (landlord)', subject: 'Rent', body: 'Rent is $400, due Friday evening, same as always. Dr. Okafor was always on time. I expect the same.\n\n- H. Grubb' },
     ],
     fixed: [
       { id: 'bubbles', arrive: 545, ail: 'swallowed', sev: 'm', pet: 'Bubbles', owner: 'Mrs. Pelling', say: 'Bubbles ate one of my socks. Or she might just be bloated? She does love a sock.', obj: 'sock', tutorial: true },
@@ -88,12 +88,12 @@ export const WEEK = [
       { id: 'volt', arrive: 780, ail: 'grounded', sev: 's', pet: 'Volt', owner: 'Ms. Reyes', say: 'PetCorp said he was overcharged and drained all the static out of him. Now he won\'t get up. They charged me ninety dollars.', petcorp: true },
     ],
     random: 2, pool: ['staticflu', 'blight', 'lampstruck', 'shorted', 'stuck'],
-    afterHours: { ail: 'void', pet: 'Nobody\'s', owner: 'A woman in a long coat', say: 'It got into the lamps at home and now it won\'t stop... drinking them. Please. I didn\'t know where else to go.' },
+    afterHours: { ail: 'void', pet: 'the little one', owner: 'A woman in a long coat', say: 'It got into the lamps at home and now it won\'t stop... drinking them. Please. I didn\'t know where else to go.' },
   },
   {
     name: 'Friday', short: 'FRI', weather: 'heat',
     mail: [
-      { id: 'grubb2', from: 'Mr. Grubb (landlord)', subject: 'Tonight', body: 'Rent. Tonight. $300. I will be by after close.\n\n- H. Grubb' },
+      { id: 'grubb2', from: 'Mr. Grubb (landlord)', subject: 'Tonight', body: 'Rent. Tonight. $400. I will be by after close.\n\n- H. Grubb' },
       { id: 'okafor4', from: 'Dr. Okafor\'s notebook', subject: 'The last loose page', body: 'Shadows come loose sometimes, usually around midnight. Needle and thread, same as anything else. Trace it back on along the edge.' },
     ],
     fixed: [],
@@ -108,7 +108,7 @@ export const WEEK = [
     fixed: [], random: 0, pool: [],
   },
 ];
-export const RENT = 300;
+export const RENT = 400;
 export const OPEN = 9 * 60, CLOSE = 17 * 60;
 export const WEATHER = { clear: { name: 'Clear', boost: [] }, rain: { name: 'Rain', boost: ['rot', 'blight', 'mites'] }, fog: { name: 'Fog', boost: ['lampstruck', 'dustlung'] }, heat: { name: 'Heat wave', boost: ['scorch', 'dried', 'reflux'] } };
 

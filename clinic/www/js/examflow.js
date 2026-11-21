@@ -54,7 +54,7 @@ export function examScreen(p, opts = {}) {
       s.particles = s.particles.filter((q) => q.life > 0);
       if (s.stage !== 'exam') return;
       // a Light-drinker gets agitated under the lamp; some calm down on their own
-      if (p.ail === 'void' && !s.dim && s.tool === 'look') { s.voidT = (s.voidT || 0) + dt; if (s.voidT > 1) { s.voidT = 0; addStress(s, 3); renderPanelThrottled(s); } }
+      if (p.ail === 'void' && !s.dim && s.tool === 'look') { s.voidT = (s.voidT || 0) + dt; if (s.voidT > 1) { s.voidT = 0; addStress(s, 3); updateStress(s); } }
       if (s.jig && !s.used.jiggleLogged && G.clock - s.jig.t0 > 3) { s.used.jiggleLogged = true; note(s, 'jiggle', `Wobble time: ${p.R.jiggle} s`); renderPanel(); }
     },
     draw(fb, t) {
@@ -70,8 +70,8 @@ export function examScreen(p, opts = {}) {
   if (S.remedies.chalkball > 0) s.offerTonic = true;
   return s;
 }
-let lastPanel = 0;
-function renderPanelThrottled() { const n = performance.now(); if (n - lastPanel > 500) { lastPanel = n; renderPanel(); } }
+// Update just the stress bar, so buttons under your finger don't get replaced mid-tap.
+function updateStress(s) { const el = document.querySelector('#panel .stress'); if (!el) return; const v = Math.round(s.p.stress); el.className = 'stress ' + (v > 80 ? 'hot' : v > 55 ? 'warm' : ''); el.querySelector('i').style.width = v + '%'; el.querySelector('b').textContent = v; }
 
 function examPointer(s, type, x, y, ptr) {
   const p = s.p, S = G.S;
