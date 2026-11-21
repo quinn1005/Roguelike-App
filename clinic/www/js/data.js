@@ -95,8 +95,8 @@ export const SIGNS = {
 
 /* ------------------------------------------------------------------ treatments */
 export const TREATS = {
-  extract: { name: 'Remove it with tongs', how: 'Drag it out without touching the sides.' },
-  surgery: { name: 'Surgery', how: 'A tighter path. Drag it out slowly and carefully.', uses: 'sutures' },
+  extract: { name: 'Remove it with tongs', how: 'Drag anywhere on the picture (you don\'t need to touch the object) and it moves the same way. Guide it to the arrow without touching the sides.' },
+  surgery: { name: 'Surgery', how: 'A tighter path. Drag anywhere on the picture and the object follows your finger\'s movement. Go slowly.', uses: 'sutures' },
   pill: { name: 'Give medicine', how: 'Pick the dose, then tap to throw the pill when the mouth opens.', uses: 'pills', dose: true },
   calm: { name: 'Calm and play', how: 'Tap when each ring reaches the heart.' },
   stitch: { name: 'Patch it', how: 'Trace along the line from the green dot.', uses: 'patches' },

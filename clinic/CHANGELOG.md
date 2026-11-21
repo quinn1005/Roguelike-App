@@ -1,5 +1,9 @@
 # Pixel Pet Clinic changelog
 
+## v0.2.1
+
+- **Removing objects and surgery: your finger no longer hides the object.** Drag anywhere on the picture and the object moves the same way, like a trackpad, so you can keep your finger below the patient and watch the path. A ring follows the object and an arrow marks the way out.
+
 ## v0.2.0
 
 Harder medicine, more to do after hours, and a lot more polish.

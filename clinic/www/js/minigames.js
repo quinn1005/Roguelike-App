@@ -44,13 +44,17 @@ function extract(env) {
   const g = { time: 0, limit: env.hard ? 40 : 30, p: [...path[0]], drag: false, hits: 0, cool: 0, flash: 0 };
   const nearest = (x, y) => { let best = null; for (let i = 1; i < path.length; i++) { const s = distToSeg(x, y, ...path[i - 1], ...path[i]); if (!best || s.d < best.d) best = s; } return best; };
   g.update = (dt) => { g.time += dt; g.cool = Math.max(0, g.cool - dt); g.flash = Math.max(0, g.flash - dt); if (g.time >= g.limit) g.finish(0.25); };
+  // Relative dragging, like a trackpad: put your finger anywhere and the object moves by
+  // however far your finger moves, so your finger never covers the object or the path.
   g.pointer = (type, x, y) => {
-    if (type === 'down' && dist(x, y, ...g.p) < 12 && g.cool <= 0) g.drag = true;
+    if (type === 'down' && g.cool <= 0) { g.drag = true; g.last = [x, y]; }
     if (type === 'up') g.drag = false;
     if (type === 'move' && g.drag) {
-      const steps = Math.ceil(dist(x, y, ...g.p) / 1.5);
+      const tx = clamp(g.p[0] + (x - g.last[0]), 0, W), ty = clamp(g.p[1] + (y - g.last[1]), 0, H);
+      g.last = [x, y];
+      const steps = Math.ceil(dist(tx, ty, ...g.p) / 1.5);
       for (let s = 0; s < steps; s++) {
-        const nx = g.p[0] + (x - g.p[0]) / (steps - s), ny = g.p[1] + (y - g.p[1]) / (steps - s);
+        const nx = g.p[0] + (tx - g.p[0]) / (steps - s), ny = g.p[1] + (ty - g.p[1]) / (steps - s);
         const n = nearest(nx, ny);
         if (n.d > half - r) { g.hits++; g.cool = 0.5; g.flash = 0.3; g.drag = false; g.p = [n.x, n.y]; env.sfx('squelch'); env.buzz(40); break; }
         g.p = [nx, ny];
@@ -66,8 +70,10 @@ function extract(env) {
     ctx.strokeStyle = css(g.flash > 0 ? [230, 90, 90] : mix(env.body, WHITE, 0.25)); ctx.lineWidth = half * 2; ctx.stroke();
     ctx.fillStyle = css(env.th.accent); ctx.fillRect(150, 6, 9, 12);
     drawObject(px(ctx), env.obj || 'sock', g.p[0], g.p[1], env.obj === 'hairball' ? [200, 190, 170] : env.obj === 'pin' ? [245, 245, 250] : env.th.fabric, env.obj === 'pin' ? [220, 60, 60] : env.th.paper);
-    if (!g.drag) { ctx.strokeStyle = css(WHITE); ctx.lineWidth = 1; ctx.strokeRect(Math.round(g.p[0]) - 6.5, Math.round(g.p[1]) - 8.5, 13, 16); }
-    timerBar(ctx, g, env.th); banner(ctx, g.hits ? `OUCH X${g.hits}` : env.hard ? 'CAREFUL...' : 'DRAG IT OUT', env.th);
+    // a bright ring so the object is easy to keep track of, and an arrow showing the way out
+    ctx.strokeStyle = css(g.drag ? env.th.accent : WHITE); ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(Math.round(g.p[0]) + 0.5, Math.round(g.p[1]) + 0.5, 9 + (g.drag ? 0 : Math.sin(g.time * 6)), 0, 7); ctx.stroke();
+    const [ex, ey] = path[path.length - 1]; ctx.fillStyle = css(WHITE); ctx.beginPath(); ctx.moveTo(ex + 2, ey); ctx.lineTo(ex - 5, ey - 4); ctx.lineTo(ex - 5, ey + 4); ctx.fill();
+    timerBar(ctx, g, env.th); banner(ctx, g.hits ? `OUCH X${g.hits}` : g.drag ? (env.hard ? 'CAREFUL...' : 'TO THE ARROW') : 'DRAG ANYWHERE', env.th);
   };
   return g;
 }
